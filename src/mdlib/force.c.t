@@ -611,8 +611,7 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
 			printf("About to call FMM\n");
                         FMMcalccoulomb_ij(N, xi, qi, fi, N, xi, qi, 0.0, 0, (bSB?boxs[0][0]:box[0][0]), 1);
 			printf("Done calling FMM 1 \n");
-			FMMcalccoulomb_ij(N, xi, qi, pi, N, xi, qi, 0.0, 1, (bSB?boxs[0][0]:box[0][0]), 1);
-			printf("Done calling FMM 2 \n");
+			//FMMcalccoulomb_ij(N, xi, qi, pi, N, xi, qi, 0.0, 1, (bSB?boxs[0][0]:box[0][0]), 1);
   			sfree(xi);
 			sfree(qi);
 			sfree(fi);

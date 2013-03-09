@@ -74,8 +74,6 @@ extern void FMMcalccoulomb_ij(int ni, double* xi, double* qi, double* fi,
 extern void FMMcalcvdw_ij(int ni, double* xi, int* atypei, double* fi,
   int nj, double* xj, int* atypej, int nat, double* gscale, double* rscale,
   int tblno, double size, int periodicflag);
-
-int fmmsteptaken=0;
 /* ENAS ADDED END */
 
 void ns(FILE              *fp,
@@ -179,6 +177,10 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                        int        flags,
                        float      *cycles_pme)
 {
+
+    printf("\nx[0]: %f,%f,%f\nx[494]: %f,%f,%f\n",x[0][0],x[0][1],x[0][2],x[494][0],x[494][1],x[494][2]);
+    printf("f_longrange[0]: %f,%f,%f\n",f_longrange[0][0],f_longrange[0][1],f_longrange[0][2]);
+    printf("f[0]: %f,%f,%f\n", f[0][0],f[0][1],f[0][2]); 
     int         i, j, status;
     int         donb_flags;
     gmx_bool    bDoEpot, bSepDVDL, bSB;
@@ -586,43 +588,49 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                             /* We don't calculate f, but we do want the potential */
                             pme_flags |= GMX_PME_CALC_POT;
                         }
+                        wallcycle_start(wcycle, ewcPMEMESH);
+                        printf("\nBEFORE %d, %d, %d\n", md->start, md->homenr, fr->n_tpi);
+                        // SAME -- printf("\nx[0]: %f,%f,%f\nx[494]: %f,%f,%f\n",x[0][0],x[0][1],x[0][2],x[494][0],x[494][1],x[494][2]);
+                        printf("fr->f_novirsum=F[]: %f,%f,%f\n",fr->f_novirsum[0][0],fr->f_novirsum[0][1],fr->f_novirsum[0][2]);
+                        // SAME -- print("md->chargeA=CHARGEA[0,1,494]: %f,%f,%f\n", md->chargeA[0],md->chargeA[1],md->chargeA[494]);
 
 
-			/* ENAS ADDED END */
-			if (fmmsteptaken == 0) {
-                        printf("\nBEFORE FMM\n");
-
+                        // FMMcalccoulomb_ij(N, xi, qi, pi, N, xj, qj, 0.0, 1, size, 0);
                         int N = md->homenr;
-                        double *xi; snew(xi, 3*N); // double *xi     = new double [3*N];
-                        double *qi; snew(qi, N);   // double *qi     = new double [N];
-                        double *fi; snew(fi, 3*N); // double *fi     = new double [3*N];
-                        double *pi; snew(pi, 3*N); // double *pi     = new double [3*N];
+			double *xi; snew(xi, 3*N); // double *xi     = new double [3*N];
+  			double *qi; snew(qi, N);   // double *qi     = new double [N];
+  			double *fi; snew(fi, 3*N); // double *fi     = new double [3*N];
                         int eyi=0;
-                        for (;eyi<N;++eyi){
-                                xi[eyi*3+0]=x[eyi][0];
+			for (;eyi<N;++eyi){
+				xi[eyi*3+0]=x[eyi][0];
                                 xi[eyi*3+1]=x[eyi][1];
                                 xi[eyi*3+2]=x[eyi][2];
-
-                                qi[eyi]=md->chargeA[eyi];
-                                fi[eyi*3+0]=fi[eyi*3+1]=fi[eyi*3+2]=0.0;
-				pi[eyi*3+0]=pi[eyi*3+1]=pi[eyi*3+2]=0.0;
-                        }
-			
-			printf("About to call FMM\n");
-                        FMMcalccoulomb_ij(N, xi, qi, fi, N, xi, qi, 0.0, 0, (bSB?boxs[0][0]:box[0][0]), 1);
-			printf("Done calling FMM 1 \n");
-			FMMcalccoulomb_ij(N, xi, qi, pi, N, xi, qi, 0.0, 1, (bSB?boxs[0][0]:box[0][0]), 1);
-			printf("Done calling FMM 2 \n");
-  			sfree(xi);
-			sfree(qi);
-			sfree(fi);
-			sfree(pi);
+				
+				qi[eyi]=md->chargeA[eyi];
+				fi[eyi]=0.0;
+			}
+			FMMcalccoulomb_ij(N, xi, qi, fi, N, xi, qi, 0.0, 0, (bSB?boxs[0][0]:box[0][0]), 0x1);
                         printf("\nAFTER FMM\n");
-			} fmmsteptaken=1;
-			/* ENAS ADDED END */
-
-
-                        wallcycle_start(wcycle, ewcPMEMESH);
+                        // SAME -- printf("\nx[0]: %f,%f,%f\nx[494]: %f,%f,%f\n",xi[0],xi[1],xi[2],xi[494*3],xi[494*3+1],xi[494*3+2]);
+                        printf("F[0]: %f,%f,%f\n",fi[0],fi[1],fi[2]);
+                        // SAME -- printf("CHARGEA[0,1,494]: %f,%f,%f\n", qi[0],qi[1],qi[494]);
+			
+			/*
+			matrix eybox;
+			copy_mat(bSB ? boxs : box, eybox);
+			printf("bsB?%d\n",bSB?1:0);
+			printf("BOX:\n%f,%f,%f\n%f,%f,%f\n%f,%f,%f\n", 
+					   eybox[0][0],eybox[0][1],eybox[0][2],
+           				   eybox[1][0],eybox[1][1],eybox[1][2],
+					   eybox[2][0],eybox[2][1],eybox[2][2]);
+			
+			output
+			bsB?0
+			BOX:
+			7.318640,0.000000,0.000000
+			0.000000,7.318640,0.000000
+			0.000000,0.000000,7.318640
+			*/
                         status = gmx_pme_do(fr->pmedata,
                                             md->start, md->homenr - fr->n_tpi,
                                             x, fr->f_novirsum,
@@ -634,6 +642,11 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                                             fr->vir_el_recip, fr->ewaldcoeff,
                                             &Vlr, lambda[efptCOUL], &dvdl,
                                             pme_flags);
+                        printf("\nAFTER %d, %d, %d\n", md->start, md->homenr, fr->n_tpi);
+                        // SAME -- printf("\nx[0]: %f,%f,%f\nx[494]: %f,%f,%f\n",x[0][0],x[0][1],x[0][2],x[494][0],x[494][1],x[494][2]);
+                        printf("fr->f_novirsum=F[]: %f,%f,%f\n",fr->f_novirsum[0][0],fr->f_novirsum[0][1],fr->f_novirsum[0][2]);
+                        // SAME -- printf("md->chargeA=CHARGEA[0,1,494]: %f,%f,%f\n", md->chargeA[0],md->chargeA[1],md->chargeA[494]);
+
                         *cycles_pme = wallcycle_stop(wcycle, ewcPMEMESH);
 
                         /* We should try to do as little computation after
