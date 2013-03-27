@@ -589,6 +589,7 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
 
 
 			/* ENAS ADDED END */
+			printf("%s, line %d\n", __FILE__, __LINE__);
 			if (fmmsteptaken == 0) {
                         printf("\nBEFORE FMM\n");
 
@@ -613,6 +614,11 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
 			printf("Done calling FMM 1 \n");
 			FMMcalccoulomb_ij(N, xi, qi, pi, N, xi, qi, 0.0, 1, (bSB?boxs[0][0]:box[0][0]), 1);
 			printf("Done calling FMM 2 \n");
+			double eyP=0.0;
+			for(eyi=0;eyi<N;++eyi){
+				eyP+=pi[eyi*3+0];	
+			}
+			printf("FMM Total Coulomb Potential: %f\n", eyP*138.935485); 
   			sfree(xi);
 			sfree(qi);
 			sfree(fi);
