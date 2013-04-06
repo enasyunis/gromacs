@@ -1,0 +1,22 @@
+echo "never run me as is... open and copy past the needed commands"
+exit(0)
+
+# to be used as a quick lookup for the most used commands here
+
+# CPU mode for double
+. ./bash_profile
+cd ../build
+cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DGMX_GPU=OFF -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_DOUBLE=ON
+make install
+cd ../spce1000
+grompp.d -f grompp.mdp -c conf.gro -p topol.top -o ThsndW.tpr  
+mdrun.d -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm ThsndW
+
+# GPU compile, CPU run for float
+. ./bash_profile
+cd ../build
+cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DGMX_GPU=ON -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON
+make install
+cd ../spce1000
+grompp -f grompp.mdp -c conf.gro -p topol.top -o ThsndW.tpr  
+mdrun -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm ThsndW 
