@@ -1,5 +1,7 @@
 echo "never run me as is... open and copy past the needed commands"
+echo "always run . ./bash_profile before starting anything else"
 exit(0)
+
 
 # to be used as a quick lookup for the most used commands here
 
@@ -12,6 +14,10 @@ cd ../spce1000
 grompp.d -f grompp.mdp -c conf.gro -p topol.top -o ThsndW.tpr  
 mdrun.d -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm ThsndW
 
+-- trying now with 4.7 gcc and the added linker info
+cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DGMX_GPU=OFF -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS="-lstdc++ -ldl -lm"
+
+
 # GPU compile, CPU run for float
 . ./bash_profile
 cd ../build
@@ -20,3 +26,19 @@ make install
 cd ../spce1000
 grompp -f grompp.mdp -c conf.gro -p topol.top -o ThsndW.tpr  
 mdrun -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm ThsndW 
+
+
+
+# per the following site - example install
+
+export CXX=icpc
+export CC=icc
+cmake ../ \
+      -DFFTW3F_INCLUDE_DIR=$FFTW_LOCATION/include \
+      -DFFTW3F_LIBRARIES=$FFTW_LOCATION/lib/libfftw3f.a \
+      -DCMAKE_INSTALL_PREFIX=$(pwd) \
+      -DGMX_X11=OFF \
+      -DCMAKE_CXX_COMPILER=${CCDIR}/icpc \
+      -DCMAKE_C_COMPILER=${CCDIR}/icc \
+      -DGMX_MPI=OFF \
+      -DGMX_PREFER_STATIC_LIBS=ON
