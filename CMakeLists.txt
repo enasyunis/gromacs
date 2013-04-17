@@ -112,7 +112,7 @@ set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/COPYING")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/admin/InstallInfo.txt")
 set(CPACK_SOURCE_IGNORE_FILES "\\\\.isreposource$;\\\\.git/;\\\\.gitignore$")
 set(CPACK_PROJECT_CONFIG_FILE "${CMAKE_SOURCE_DIR}/CPackInit.cmake")
-SET(CPACK_SOURCE_INSTALLED_DIRECTORIES "${CMAKE_SOURCE_DIR};/;${CMAKE_BINARY_DIR}/man;man")
+SET(CPACK_SOURCE_INSTALLED_DIRECTORIES "${CMAKE_SOURCE_DIR};/;${CMAKE_BINARY_DIR}/;")
 set(CPACK_PACKAGE_CONTACT "gmx-users@gromacs.org")
 
 #must come after all cpack settings!
@@ -1012,20 +1012,6 @@ if(GMX_LOAD_PLUGINS)
 endif(GMX_LOAD_PLUGINS)
 set(VMD_QUIETLY TRUE CACHE INTERNAL "")
 
-if(EXISTS "${CMAKE_SOURCE_DIR}/admin/.isreposource")
-    if(NOT CMAKE_CROSSCOMPILING)
-        option(GMX_BUILD_MANPAGES "Build man pages" ON)
-    else()
-        message(STATUS "Building the man pages is not available when "
-            "cross-compiling the developer version from git")
-    endif()
-else()
-    #make sure source package contains all man pages
-    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/man/man1/ngmx.1")
-        message(FATAL_ERROR "Man pages are missing from source package.")
-    endif()
-endif()
-mark_as_advanced(GMX_BUILD_MANPAGES)
 
 # Math and thread libraries must often come after all others when linking...
 if(HAVE_LIBM)
@@ -1094,7 +1080,6 @@ endif()
 set(LIB_INSTALL_DIR "${GMX_INSTALL_PREFIX}${GMXLIB}")
 set(BIN_INSTALL_DIR  ${GMX_INSTALL_PREFIX}bin)
 set(DATA_INSTALL_DIR ${GMX_INSTALL_PREFIX}share/gromacs)
-set(MAN_INSTALL_DIR  ${GMX_INSTALL_PREFIX}share/man)
 set(INCL_INSTALL_DIR ${GMX_INSTALL_PREFIX}include)
 
 set(GMXLIBDIR        ${DATA_INSTALL_DIR}/top)
