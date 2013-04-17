@@ -597,13 +597,7 @@ void parse_common_args(int *argc, char *argv[], unsigned long Flags,
                        output_env_t *oenv)
 {
     gmx_bool    bHelp    = FALSE, bHidden = FALSE, bQuiet = FALSE, bVersion = FALSE;
-    const char *manstr[] = {
-        NULL, "no", "html", "tex", "nroff", "ascii",
-        "completion", "py", "xml", "wiki", NULL
-    };
-    /* This array should match the order of the enum in oenv.h */
     const char *xvg_format[] = { NULL, "xmgrace", "xmgr", "none", NULL };
-    /* This array should match the order of the enum in oenv.h */
     const char *time_units[] = {
         NULL, "fs", "ps", "ns", "us", "ms", "s",
         NULL
@@ -617,23 +611,7 @@ void parse_common_args(int *argc, char *argv[], unsigned long Flags,
 
 #define EXTRA_PA 16
 
-    t_pargs     pca_pa[] = {
-        { "-h",    FALSE, etBOOL, {&bHelp},
-          "Print help info and quit" },
-        { "-version",  FALSE, etBOOL, {&bVersion},
-          "Print version info and quit" },
-        { "-verb",    FALSE,  etINT, {&verbose_level},
-          "HIDDENLevel of verbosity for this program" },
-        { "-hidden", FALSE, etBOOL, {&bHidden},
-          "HIDDENPrint hidden options" },
-        { "-quiet", FALSE, etBOOL, {&bQuiet},
-          "HIDDENDo not print help info" },
-        { "-man",  FALSE, etENUM,  {manstr},
-          "HIDDENWrite manual and quit" },
-        { "-debug", FALSE, etINT, {&debug_level},
-          "HIDDENWrite file with debug information, 1: short, 2: also x and f" },
-    };
-#define NPCA_PA asize(pca_pa)
+
     FILE       *fp;
     gmx_bool    bPrint, bExit, bXvgr;
     int         i, j, k, npall, max_pa, cmdlength;
@@ -645,31 +623,6 @@ void parse_common_args(int *argc, char *argv[], unsigned long Flags,
     snew(*oenv, 1);
 
     cmdlength = strlen(argv[0]);
-    /* Check for double arguments */
-    for (i = 1; (i < *argc); i++)
-    {
-        cmdlength += strlen(argv[i]);
-        if (argv[i] && (strlen(argv[i]) > 1) && (!isdigit(argv[i][1])))
-        {
-            for (j = i+1; (j < *argc); j++)
-            {
-                if ( (argv[i][0] == '-') && (argv[j][0] == '-') &&
-                     (strcmp(argv[i], argv[j]) == 0) )
-                {
-                    if (FF(PCA_NOEXIT_ON_ARGS))
-                    {
-                        fprintf(stderr, "Double command line argument %s\n",
-                                argv[i]);
-                    }
-                    else
-                    {
-                        gmx_fatal(FARGS, "Double command line argument %s\n",
-                                  argv[i]);
-                    }
-                }
-            }
-        }
-    }
     debug_gmx();
     set_program_name(argv[0]);
     set_command_line(*argc, argv);
@@ -677,13 +630,9 @@ void parse_common_args(int *argc, char *argv[], unsigned long Flags,
     bPrint        = !FF(PCA_SILENT);
 
     /* Check ALL the flags ... */
-    max_pa = NPCA_PA + EXTRA_PA + npargs+1;
+    max_pa = EXTRA_PA + npargs+1;
     snew(all_pa, max_pa);
 
-    for (i = npall = 0; (i < NPCA_PA); i++)
-    {
-        npall = add_parg(npall, all_pa, &(pca_pa[i]));
-    }
 
 #ifdef __sgi
     envstr = getenv("GMXNPRIALL");
@@ -778,7 +727,7 @@ void parse_common_args(int *argc, char *argv[], unsigned long Flags,
         all_pa[i].desc = mk_desc(&(all_pa[i]), output_env_get_time_unit(*oenv));
     }
 
-    bExit = bHelp || (strcmp(manstr[0], "no") != 0);
+    bExit = FALSE;
 
 #if (defined __sgi && USE_SGI_FPE)
     doexceptions();
@@ -832,11 +781,11 @@ void parse_common_args(int *argc, char *argv[], unsigned long Flags,
         }
     }
 
+    /*
     if (strcmp(manstr[0], "no") != 0)
     {
         if (!strcmp(manstr[0], "completion"))
         {
-            /* one file each for csh, bash and zsh if we do completions */
             fp = man_file(*oenv, "completion-zsh");
 
             write_man(fp, "completion-zsh", output_env_get_program_name(*oenv),
@@ -859,6 +808,7 @@ void parse_common_args(int *argc, char *argv[], unsigned long Flags,
             gmx_fio_fclose(fp);
         }
     }
+*/
 
     /* convert time options, must be done after printing! */
 
