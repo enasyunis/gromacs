@@ -1,6 +1,6 @@
-export LD_LIBRARY_PATH=/home/yunisea/externlib:$LD_LIBRARY_PATH
-export PATH=/home/yunisea/gromacs_4.6ey/exec/bin:$PATH
-export CMAKE_PREFIX_PATH=/home/yunisea/externlib:$CMAKE_PREFIX_PATH
+export LD_LIBRARY_PATH=/home/yokota/exafmm/lib:$LD_LIBRARY_PATH
+export PATH=/home/yokota/gromacs/exec/bin:$PATH
+export CMAKE_PREFIX_PATH=/home/yokota/exafmm/lib:$CMAKE_PREFIX_PATH
 export CXX=g++
 export CC=gcc
 export CMAKE_C_FLAGS="-lstdc++ -ldl -lm"
