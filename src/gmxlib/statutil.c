@@ -596,18 +596,10 @@ void parse_common_args(int *argc, char *argv[], unsigned long Flags,
                        int nbugs, const char **bugs,
                        output_env_t *oenv)
 {
-#define FF(arg) ((Flags & arg) == arg)
+  char *filename = getenv("FILENAME");
+  printf("%s\n",filename);
+  set_default_file_name(filename);
+  parse_file_args(argc, argv, nfile, fnm, 0, 1);
+  if (*argc > 1) gmx_cmd(argv[1]);
 
-    set_default_file_name("../data/ThsndW");
-    get_pargs(argc, argv, npargs, pa, FF(PCA_KEEP_ARGS));
-    parse_file_args(argc, argv, nfile, fnm, FF(PCA_KEEP_ARGS), !FF(PCA_NOT_READ_NODE));
-
-    if (!FF(PCA_NOEXIT_ON_ARGS))
-    {
-        if (*argc > 1)
-        {
-	  gmx_cmd(argv[1]);
-        }
-    }
-#undef FF
 }
