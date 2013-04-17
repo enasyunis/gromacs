@@ -146,10 +146,12 @@ int cmain(int argc, char *argv[])
     gmx_bool      bResetCountersHalfWay = FALSE;
     output_env_t  oenv                  = NULL;
     const char   *deviceOptions         = "";
+    char         *deffnm                = "";
 
     gmx_hw_opt_t  hw_opt = {0, 0, 0, 0, threadaffSEL, 0, 0, NULL};
 
     t_pargs       pa[] = {
+      { "-deffnm", FALSE, etSTR, {&deffnm},"Set the default filename"},
 	{ "-append",  FALSE, etBOOL, {&bAppendFiles},
 	   "Append to previous output files when continuing from checkpoint instead of adding the simulation part number to all file names" },
     };
@@ -169,10 +171,9 @@ int cmain(int argc, char *argv[])
     cr = init_par(&argc, &argv);
 
     PCA_Flags = ((1<<10) | (MASTER(cr) ? 0 : (1<<12)));
-
     parse_common_args(&argc, argv, PCA_Flags, NFILE, fnm, asize(pa), pa,
                       asize(desc), desc, 0, NULL, &oenv);
-    printf("rcon: %f\n",rconstr);
+    set_default_file_name(deffnm);
 
     dd_node_order = nenum(ddno_opt);
     cr->npmenodes = npme;

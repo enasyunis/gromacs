@@ -802,11 +802,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     step     = ir->init_step;
     step_rel = 0;
 
-    if (ir->nstlist == -1)
-    {
-        init_nlistheuristics(&nlh, bGStatEveryStep, step);
-    }
-
     if (MULTISIM(cr) && (repl_ex_nst <= 0 ))
     {
         /* check how many steps are left in other sims */
@@ -948,10 +943,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             bNS = (bFirstStep || bExchanged || bNStList || bDoFEP ||
                    (ir->nstlist == -1 && nlh.nabnsb > 0));
 
-            if (bNS && ir->nstlist == -1)
-            {
-                set_nlistheuristics(&nlh, bFirstStep || bExchanged || bDoFEP, step);
-            }
         }
 
         /* check whether we should stop because another simulation has
