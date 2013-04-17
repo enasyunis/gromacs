@@ -596,78 +596,17 @@ void parse_common_args(int *argc, char *argv[], unsigned long Flags,
                        int nbugs, const char **bugs,
                        output_env_t *oenv)
 {
-    gmx_bool    bHelp    = FALSE, bHidden = FALSE, bQuiet = FALSE, bVersion = FALSE;
-    const char *xvg_format[] = { NULL, "xmgrace", "xmgr", "none", NULL };
-    const char *time_units[] = {
-        NULL, "fs", "ps", "ns", "us", "ms", "s",
-        NULL
-    };
-    int         nicelevel = 0, mantp = 0, npri = 0, debug_level = 0, verbose_level = 0;
-    char       *deffnm    = "../data/ThsndW";
-    real        tbegin    = 0, tend = 0, tdelta = 0;
-    gmx_bool    bView     = FALSE;
-
-    t_pargs    *all_pa = NULL;
-
-#define EXTRA_PA 16
-
-
-    FILE       *fp;
-    gmx_bool    bPrint, bExit, bXvgr;
-    int         i, j, k, npall, max_pa, cmdlength;
-    char       *ptr, *newdesc;
-    const char *envstr;
-
 #define FF(arg) ((Flags & arg) == arg)
 
-    snew(*oenv, 1);
-
-    cmdlength = strlen(argv[0]);
-    debug_gmx();
-    set_program_name(argv[0]);
-    set_command_line(*argc, argv);
-
-    bPrint        = !FF(PCA_SILENT);
-
-    /* Check ALL the flags ... */
-    max_pa = EXTRA_PA + npargs+1;
-    snew(all_pa, max_pa);
-
-    /* Now append the program specific arguments */
-    for (i = 0; (i < npargs); i++)
-    {
-        npall = add_parg(npall, all_pa, &(pa[i]));
-    }
-
-    get_pargs(argc, argv, npall, all_pa, FF(PCA_KEEP_ARGS));
-
-    set_default_file_name(deffnm);
-
-    /* Parse the file args */
+    set_default_file_name("../data/ThsndW");
+    get_pargs(argc, argv, npargs, pa, FF(PCA_KEEP_ARGS));
     parse_file_args(argc, argv, nfile, fnm, FF(PCA_KEEP_ARGS), !FF(PCA_NOT_READ_NODE));
-
-    for (i = 0, k = 17; (i < npargs); i++, k++)
-    {
-        memcpy(&(pa[i]), &(all_pa[k]), (size_t)sizeof(pa[i]));
-    }
-
-    for (i = 0; (i < npall); i++)
-    {
-        all_pa[i].desc = mk_desc(&(all_pa[i]), output_env_get_time_unit(*oenv));
-    }
-
-    /* clear memory */
-    for (i = 0; i < npall; ++i)
-    {
-        sfree((void *)all_pa[i].desc);
-    }
-    sfree(all_pa);
 
     if (!FF(PCA_NOEXIT_ON_ARGS))
     {
         if (*argc > 1)
         {
-            gmx_cmd(argv[1]);
+	  gmx_cmd(argv[1]);
         }
     }
 #undef FF

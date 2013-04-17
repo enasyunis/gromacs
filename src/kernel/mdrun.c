@@ -111,9 +111,9 @@ int cmain(int argc, char *argv[])
     gmx_bool      bDDBondComm   = TRUE;
     gmx_bool      bTunePME      = TRUE;
     gmx_bool      bTestVerlet   = FALSE;
-    gmx_bool      bVerbose      = FALSE;
+    gmx_bool      bVerbose      = TRUE;
     gmx_bool      bCompact      = TRUE;
-    gmx_bool      bSepPot       = FALSE;
+    gmx_bool      bSepPot       = TRUE;
     gmx_bool      bRerunVSite   = FALSE;
     gmx_bool      bIonize       = FALSE;
     gmx_bool      bConfout      = TRUE;
@@ -141,7 +141,7 @@ int cmain(int argc, char *argv[])
     real          rdd                   = 0.0, rconstr = 0.0, dlb_scale = 0.8, pforce = -1;
     char         *ddcsx                 = NULL, *ddcsy = NULL, *ddcsz = NULL;
     real          cpt_period            = 15.0, max_hours = -1;
-    gmx_bool      bAppendFiles          = TRUE;
+    gmx_bool      bAppendFiles          = FALSE;
     gmx_bool      bKeepAndNumCPT        = FALSE;
     gmx_bool      bResetCountersHalfWay = FALSE;
     output_env_t  oenv                  = NULL;
@@ -150,43 +150,8 @@ int cmain(int argc, char *argv[])
     gmx_hw_opt_t  hw_opt = {0, 0, 0, 0, threadaffSEL, 0, 0, NULL};
 
     t_pargs       pa[] = {
-
-        { "-rcon",    FALSE, etREAL, {&rconstr},
-          "Maximum distance for P-LINCS (nm), 0 is estimate" },
-	{ "-dlb",     FALSE, etENUM, {dddlb_opt},
-          "Dynamic load balancing (with DD)" },
-        { "-dds",     FALSE, etREAL, {&dlb_scale},
-          "Minimum allowed dlb scaling of the DD cell size" },
-        { "-ddcsx",   FALSE, etSTR, {&ddcsx},
-          "HIDDENThe DD cell sizes in x" },
-        { "-ddcsy",   FALSE, etSTR, {&ddcsy},
-          "HIDDENThe DD cell sizes in y" },
-        { "-ddcsz",   FALSE, etSTR, {&ddcsz},
-          "HIDDENThe DD cell sizes in z" },
-        { "-gcom",    FALSE, etINT, {&nstglobalcomm},
-          "Global communication frequency" },
-        { "-nb",      FALSE, etENUM, {&nbpu_opt},
-          "Calculate non-bonded interactions on" },
-        { "-tunepme", FALSE, etBOOL, {&bTunePME},
-          "Optimize PME load between PP/PME nodes or GPU/CPU" },
-        { "-testverlet", FALSE, etBOOL, {&bTestVerlet},
-          "Test the Verlet non-bonded scheme" },
-        { "-v",       FALSE, etBOOL, {&bVerbose},
-          "Be loud and noisy" },
-        { "-compact", FALSE, etBOOL, {&bCompact},
-          "Write a compact log file" },
-        { "-seppot",  FALSE, etBOOL, {&bSepPot},
-          "Write separate V and dVdl terms for each interaction type and node to the log file(s)" },
-        { "-pforce",  FALSE, etREAL, {&pforce},
-          "Print all forces larger than this (kJ/mol nm)" },
-        { "-reprod",  FALSE, etBOOL, {&bReproducible},
-          "Try to avoid optimizations that affect binary reproducibility" },
-        { "-cpt",     FALSE, etREAL, {&cpt_period},
-	   "Checkpoint interval (minutes)" },
-        { "-cpnum",   FALSE, etBOOL, {&bKeepAndNumCPT},
-          "Keep and number checkpoint files" },
 	{ "-append",  FALSE, etBOOL, {&bAppendFiles},
-          "Append to previous output files when continuing from checkpoint instead of adding the simulation part number to all file names" },
+	   "Append to previous output files when continuing from checkpoint instead of adding the simulation part number to all file names" },
     };
     gmx_edsam_t   ed;
     unsigned long Flags, PCA_Flags;
@@ -203,7 +168,7 @@ int cmain(int argc, char *argv[])
 
     cr = init_par(&argc, &argv);
 
-    PCA_Flags = (PCA_CAN_SET_DEFFNM | (MASTER(cr) ? 0 : PCA_QUIET));
+    PCA_Flags = ((1<<10) | (MASTER(cr) ? 0 : (1<<12)));
 
     parse_common_args(&argc, argv, PCA_Flags, NFILE, fnm, asize(pa), pa,
                       asize(desc), desc, 0, NULL, &oenv);
@@ -219,7 +184,6 @@ int cmain(int argc, char *argv[])
     sim_part    = 1;
     sim_part_fn = sim_part;
 
-    bAppendFiles = FALSE;
     sim_part_fn = sim_part;
 
     if (bAddPart)
