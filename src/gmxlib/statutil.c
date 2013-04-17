@@ -633,207 +633,27 @@ void parse_common_args(int *argc, char *argv[], unsigned long Flags,
     max_pa = EXTRA_PA + npargs+1;
     snew(all_pa, max_pa);
 
-
-#ifdef __sgi
-    envstr = getenv("GMXNPRIALL");
-    if (envstr)
-    {
-        npri = strtol(envstr, NULL, 10);
-    }
-    if (FF(PCA_BE_NICE))
-    {
-        envstr = getenv("GMXNPRI");
-        if (envstr)
-        {
-            npri = strtol(envstr, NULL, 10);
-        }
-    }
-    npall = add_parg(npall, all_pa, &npri_pa);
-#endif
-
-    if (FF(PCA_BE_NICE))
-    {
-        nicelevel = 19;
-    }
-
     /* Now append the program specific arguments */
     for (i = 0; (i < npargs); i++)
     {
         npall = add_parg(npall, all_pa, &(pa[i]));
     }
 
-    /* set etENUM options to default */
-    for (i = 0; (i < npall); i++)
-    {
-        if (all_pa[i].type == etENUM)
-        {
-            all_pa[i].u.c[0] = all_pa[i].u.c[1];
-        }
-    }
-    set_default_time_unit(time_units, FF(PCA_TIME_UNIT));
-    set_default_xvg_format(xvg_format);
-
-    /* Now parse all the command-line options */
     get_pargs(argc, argv, npall, all_pa, FF(PCA_KEEP_ARGS));
 
-    /* set program name, command line, and default values for output options */
-    output_env_init(*oenv, *argc, argv, (time_unit_t)nenum(time_units), bView,
-                    (xvg_format_t)nenum(xvg_format), verbose_level, debug_level);
-
-    if (bVersion)
-    {
-        printf("Program: %s\n", output_env_get_program_name(*oenv));
-        gmx_print_version_info(stdout);
-        exit(0);
-    }
-
-    if (FF(PCA_CAN_SET_DEFFNM) && (deffnm != NULL))
-    {
-        set_default_file_name(deffnm);
-    }
+    set_default_file_name(deffnm);
 
     /* Parse the file args */
     parse_file_args(argc, argv, nfile, fnm, FF(PCA_KEEP_ARGS), !FF(PCA_NOT_READ_NODE));
 
-    /* Open the debug file */
-    if (debug_level > 0)
-    {
-        char buf[256];
-
-        if (gmx_mpi_initialized())
-        {
-            sprintf(buf, "%s%d.debug", output_env_get_short_program_name(*oenv),
-                    gmx_node_rank());
-        }
-        else
-        {
-            sprintf(buf, "%s.debug", output_env_get_short_program_name(*oenv));
-        }
-
-        init_debug(debug_level, buf);
-        fprintf(stderr, "Opening debug file %s (src code file %s, line %d)\n",
-                buf, __FILE__, __LINE__);
-    }
-
-    /* Now copy the results back... */
-    for (i = 0, k = npall-npargs; (i < npargs); i++, k++)
+    for (i = 0, k = 17; (i < npargs); i++, k++)
     {
         memcpy(&(pa[i]), &(all_pa[k]), (size_t)sizeof(pa[i]));
     }
 
-
     for (i = 0; (i < npall); i++)
     {
         all_pa[i].desc = mk_desc(&(all_pa[i]), output_env_get_time_unit(*oenv));
-    }
-
-    bExit = FALSE;
-
-#if (defined __sgi && USE_SGI_FPE)
-    doexceptions();
-#endif
-
-    /* Set the nice level */
-#ifdef __sgi
-    if (npri != 0 && !bExit)
-    {
-        schedctl(MPTS_RTPRI, 0, npri);
-    }
-#endif
-
-#ifdef HAVE_UNISTD_H
-
-#ifndef GMX_NO_NICE
-    /* The some system, e.g. the catamount kernel on cray xt3 do not have nice(2). */
-    if (nicelevel != 0 && !bExit)
-    {
-#ifdef GMX_THREAD_MPI
-        static gmx_bool nice_set = FALSE; /* only set it once */
-        tMPI_Thread_mutex_lock(&init_mutex);
-        if (!nice_set)
-        {
-#endif
-        i = nice(nicelevel);   /* assign ret value to avoid warnings */
-#ifdef GMX_THREAD_MPI
-        nice_set = TRUE;
-    }
-    tMPI_Thread_mutex_unlock(&init_mutex);
-#endif
-    }
-#endif
-#endif
-
-    /* Update oenv for parsed command line options settings. */
-    (*oenv)->xvg_format = (xvg_format_t)nenum(xvg_format);
-    (*oenv)->time_unit  = (time_unit_t)nenum(time_units);
-
-    if (!(FF(PCA_QUIET) || bQuiet ))
-    {
-        if (bHelp)
-        {
-            write_man(stderr, "help", output_env_get_program_name(*oenv),
-                      ndesc, desc, nfile, fnm, npall, all_pa, nbugs, bugs, bHidden);
-        }
-        else if (bPrint)
-        {
-            pr_fns(stderr, nfile, fnm);
-            print_pargs(stderr, npall, all_pa, FALSE);
-        }
-    }
-
-    /*
-    if (strcmp(manstr[0], "no") != 0)
-    {
-        if (!strcmp(manstr[0], "completion"))
-        {
-            fp = man_file(*oenv, "completion-zsh");
-
-            write_man(fp, "completion-zsh", output_env_get_program_name(*oenv),
-                      ndesc, desc, nfile, fnm, npall, all_pa, nbugs, bugs, bHidden);
-            gmx_fio_fclose(fp);
-            fp = man_file(*oenv, "completion-bash");
-            write_man(fp, "completion-bash", output_env_get_program_name(*oenv),
-                      ndesc, desc, nfile, fnm, npall, all_pa, nbugs, bugs, bHidden);
-            gmx_fio_fclose(fp);
-            fp = man_file(*oenv, "completion-csh");
-            write_man(fp, "completion-csh", output_env_get_program_name(*oenv),
-                      ndesc, desc, nfile, fnm, npall, all_pa, nbugs, bugs, bHidden);
-            gmx_fio_fclose(fp);
-        }
-        else
-        {
-            fp = man_file(*oenv, manstr[0]);
-            write_man(fp, manstr[0], output_env_get_program_name(*oenv),
-                      ndesc, desc, nfile, fnm, npall, all_pa, nbugs, bugs, bHidden);
-            gmx_fio_fclose(fp);
-        }
-    }
-*/
-
-    /* convert time options, must be done after printing! */
-
-    for (i = 0; i < npall; i++)
-    {
-        if ((all_pa[i].type == etTIME) && (*all_pa[i].u.r >= 0))
-        {
-            *all_pa[i].u.r *= output_env_get_time_invfactor(*oenv);
-        }
-    }
-
-    /* Extract Time info from arguments */
-    if (FF(PCA_CAN_BEGIN) && opt2parg_bSet("-b", npall, all_pa))
-    {
-        setTimeValue(TBEGIN, opt2parg_real("-b", npall, all_pa));
-    }
-
-    if (FF(PCA_CAN_END) && opt2parg_bSet("-e", npall, all_pa))
-    {
-        setTimeValue(TEND, opt2parg_real("-e", npall, all_pa));
-    }
-
-    if (FF(PCA_CAN_DT) && opt2parg_bSet("-dt", npall, all_pa))
-    {
-        setTimeValue(TDELTA, opt2parg_real("-dt", npall, all_pa));
     }
 
     /* clear memory */
@@ -849,12 +669,6 @@ void parse_common_args(int *argc, char *argv[], unsigned long Flags,
         {
             gmx_cmd(argv[1]);
         }
-    }
-    if (bExit)
-    {
-        gmx_finalize_par();
-
-        exit(0);
     }
 #undef FF
 }

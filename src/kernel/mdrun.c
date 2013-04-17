@@ -119,7 +119,7 @@ int cmain(int argc, char *argv[])
     gmx_bool      bConfout      = TRUE;
     gmx_bool      bReproducible = FALSE;
 
-    int           npme          = -1;
+    int           npme          = 0;
     int           nmultisim     = 0;
     int           nstglobalcomm = -1;
     int           repl_ex_nst   = 0;
@@ -151,30 +151,6 @@ int cmain(int argc, char *argv[])
 
     t_pargs       pa[] = {
 
-        { "-pd",      FALSE, etBOOL, {&bPartDec},
-          "Use particle decompostion" },
-        { "-dd",      FALSE, etRVEC, {&realddxyz},
-          "Domain decomposition grid, 0 is optimize" },
-        { "-ddorder", FALSE, etENUM, {ddno_opt},
-          "DD node order" },
-        { "-npme",    FALSE, etINT, {&npme},
-          "Number of separate nodes to be used for PME, -1 is guess" },
-        { "-nt",      FALSE, etINT, {&hw_opt.nthreads_tot},
-          "Total number of threads to start (0 is guess)" },
-        { "-ntmpi",   FALSE, etINT, {&hw_opt.nthreads_tmpi},
-          "Number of thread-MPI threads to start (0 is guess)" },
-        { "-ntomp",   FALSE, etINT, {&hw_opt.nthreads_omp},
-          "Number of OpenMP threads per MPI process/thread to start (0 is guess)" },
-        { "-ntomp_pme", FALSE, etINT, {&hw_opt.nthreads_omp_pme},
-          "Number of OpenMP threads per MPI process/thread to start (0 is -ntomp)" },
-        { "-pin",     FALSE, etENUM, {thread_aff_opt},
-          "Fix threads (or processes) to specific cores" },
-        { "-pinoffset", FALSE, etINT, {&hw_opt.core_pinning_offset},
-          "The starting logical core number for pinning to cores; used to avoid pinning threads from different mdrun instances to the same core" },
-        { "-pinstride", FALSE, etINT, {&hw_opt.core_pinning_stride},
-          "Pinning distance in logical cores for threads, use 0 to minimize the number of threads per physical core" },
-        { "-gpu_id",  FALSE, etSTR, {&hw_opt.gpu_id},
-          "List of GPU id's to use" },
         { "-ddcheck", FALSE, etBOOL, {&bDDBondCheck},
           "Check for all bonded interactions with DD" },
         { "-ddbondcomm", FALSE, etBOOL, {&bDDBondComm},
