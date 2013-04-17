@@ -8,11 +8,12 @@ exit(0)
 # CPU mode for double
 . ./bash_profile
 cd ../build
-cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DGMX_GPU=OFF -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_DOUBLE=ON
+cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DGMX_GPU=OFF -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_DOUBLE=ON -DGMX_FORCE_CXX=ON
+CMAKE_PREFIX_PATH=../../exafmm/wrapper cmake .. -DCMAKE_INSTALL_PREFIX=../exec -DGMX_GPU=OFF -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_DOUBLE=ON -DGMX_FORCE_CXX=ON
 make install
-cd ../spce1000
-grompp.d -f grompp.mdp -c conf.gro -p topol.top -o ThsndW.tpr  
-mdrun.d -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm ThsndW
+cd ../data
+grompp_d -f grompp.mdp -c conf.gro -p topol.top -o ThsndW.tpr
+mdrun_d -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm ThsndW
 
 -- trying now with 4.7 gcc and the added linker info
 cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DGMX_GPU=OFF -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS="-lstdc++ -ldl -lm"

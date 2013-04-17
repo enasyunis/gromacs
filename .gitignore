@@ -5,6 +5,9 @@
 *.exe
 *.lib
 *.cache
+build/
+data/
+exec/
 log
 Makefile
 lib*.pc

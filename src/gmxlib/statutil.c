@@ -609,49 +609,12 @@ void parse_common_args(int *argc, char *argv[], unsigned long Flags,
         NULL
     };
     int         nicelevel = 0, mantp = 0, npri = 0, debug_level = 0, verbose_level = 0;
-    char       *deffnm    = NULL;
+    char       *deffnm    = "../data/ThsndW";
     real        tbegin    = 0, tend = 0, tdelta = 0;
     gmx_bool    bView     = FALSE;
 
     t_pargs    *all_pa = NULL;
 
-    t_pargs     npri_pa   = {
-        "-npri", FALSE, etINT,   {&npri},
-        "HIDDEN Set non blocking priority (try 128)"
-    };
-    t_pargs     nice_pa   = {
-        "-nice", FALSE, etINT,   {&nicelevel},
-        "Set the nicelevel"
-    };
-    t_pargs     deffnm_pa = {
-        "-deffnm", FALSE, etSTR, {&deffnm},
-        "Set the default filename for all file options"
-    };
-    t_pargs     begin_pa  = {
-        "-b",    FALSE, etTIME,  {&tbegin},
-        "First frame (%t) to read from trajectory"
-    };
-    t_pargs     end_pa    = {
-        "-e",    FALSE, etTIME,  {&tend},
-        "Last frame (%t) to read from trajectory"
-    };
-    t_pargs     dt_pa     = {
-        "-dt",   FALSE, etTIME,  {&tdelta},
-        "Only use frame when t MOD dt = first time (%t)"
-    };
-    t_pargs     view_pa   = {
-        "-w",    FALSE, etBOOL,  {&bView},
-        "View output [TT].xvg[tt], [TT].xpm[tt], [TT].eps[tt] and [TT].pdb[tt] files"
-    };
-    t_pargs     xvg_pa    = {
-        "-xvg",  FALSE, etENUM,  {xvg_format},
-        "xvg plot formatting"
-    };
-    t_pargs     time_pa   = {
-        "-tu",   FALSE, etENUM,  {time_units},
-        "Time unit"
-    };
-    /* Maximum number of extra arguments */
 #define EXTRA_PA 16
 
     t_pargs     pca_pa[] = {
@@ -711,9 +674,6 @@ void parse_common_args(int *argc, char *argv[], unsigned long Flags,
     set_program_name(argv[0]);
     set_command_line(*argc, argv);
 
-    /* Handle the flags argument, which is a bit field
-     * The FF macro returns whether or not the bit is set
-     */
     bPrint        = !FF(PCA_SILENT);
 
     /* Check ALL the flags ... */
@@ -745,42 +705,6 @@ void parse_common_args(int *argc, char *argv[], unsigned long Flags,
     if (FF(PCA_BE_NICE))
     {
         nicelevel = 19;
-    }
-    npall = add_parg(npall, all_pa, &nice_pa);
-
-    if (FF(PCA_CAN_SET_DEFFNM))
-    {
-        npall = add_parg(npall, all_pa, &deffnm_pa);
-    }
-    if (FF(PCA_CAN_BEGIN))
-    {
-        npall = add_parg(npall, all_pa, &begin_pa);
-    }
-    if (FF(PCA_CAN_END))
-    {
-        npall = add_parg(npall, all_pa, &end_pa);
-    }
-    if (FF(PCA_CAN_DT))
-    {
-        npall = add_parg(npall, all_pa, &dt_pa);
-    }
-    if (FF(PCA_TIME_UNIT))
-    {
-        npall = add_parg(npall, all_pa, &time_pa);
-    }
-    if (FF(PCA_CAN_VIEW))
-    {
-        npall = add_parg(npall, all_pa, &view_pa);
-    }
-
-    bXvgr = FALSE;
-    for (i = 0; (i < nfile); i++)
-    {
-        bXvgr = bXvgr ||  (fnm[i].ftp == efXVG);
-    }
-    if (bXvgr)
-    {
-        npall = add_parg(npall, all_pa, &xvg_pa);
     }
 
     /* Now append the program specific arguments */
