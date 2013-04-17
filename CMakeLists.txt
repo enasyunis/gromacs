@@ -1079,10 +1079,8 @@ if ( NOT DEFINED GMXLIB )
 endif()
 set(LIB_INSTALL_DIR "${GMX_INSTALL_PREFIX}${GMXLIB}")
 set(BIN_INSTALL_DIR  ${GMX_INSTALL_PREFIX}bin)
-set(DATA_INSTALL_DIR ${GMX_INSTALL_PREFIX}share/gromacs)
 set(INCL_INSTALL_DIR ${GMX_INSTALL_PREFIX}include)
 
-set(GMXLIBDIR        ${DATA_INSTALL_DIR}/top)
 
 ##################################################################
 # Shared library settings - Darwin uses INSTALL_NAME_DIR instead!
@@ -1094,11 +1092,7 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()
 
-#COPYING file: Only necessary for binary distributions.
-#Simpler to always install.
-install(FILES COPYING DESTINATION ${DATA_INSTALL_DIR} COMPONENT data)
 
-add_subdirectory(share)
 add_subdirectory(include)
 add_subdirectory(src)
 add_subdirectory(scripts)

@@ -1,0 +1,65 @@
+echo "never run me as is... open and copy past the needed commands"
+echo "always run . ./bash_profile before starting anything else"
+exit(0)
+
+############
+# NONE FMM #
+############
+cd ~/gromacs_4.6/build
+cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DGMX_GPU=OFF -DGMX_DOUBLE=ON
+make install
+cd ../data
+../exec/bin/grompp_d -c conf.gro -p topol.top -f gromppE.mdp -o ThsndWE.tpr -po mdoutE.mdp
+../exec/bin/grompp_d -c conf.gro -p topol.top -f gromppP.mdp -o ThsndWP.tpr -po mdoutP.mdp
+../exec/bin/mdrun_d -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm ThsndW
+rm -r \#*
+
+###########
+# CPU FMM #
+###########
+cd ~/gromacs_4.6rio/build
+
+rm -r ../build/* ../exec/* ../data/*
+
+CMAKE_PREFIX_PATH=../../externlib cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_GPU=OFF -DGMX_DOUBLE=ON -DGMX_FORCE_CXX=ON
+
+make install
+
+cp ~/gromacs_4.6/data/* ../data/.
+FILENAME=../data/ThsndWE ../exec/bin/mdrun_d
+
+###########
+# GPU FMM #
+###########
+cd ~/gromacs_4.6ey/build
+
+rm -r ../build/* ../exec/* ../data/*
+
+CMAKE_PREFIX_PATH=../../externlib cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_GPU=ON -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda
+
+make install
+
+cp ~/gromacs_4.6/data/* ../data/.
+FILENAME=../data/ThsndWE ../exec/bin/mdrun
+
+################
+# FFTW Example #
+################
+
+
+# per the following site - example install
+# http://www.gromacs.org/Documentation/Installation_Instructions/Cmake
+export CXX=icpc
+export CC=icc
+cmake ../ \
+      -DFFTW3F_INCLUDE_DIR=$FFTW_LOCATION/include \
+      -DFFTW3F_LIBRARIES=$FFTW_LOCATION/lib/libfftw3f.a \
+      -DCMAKE_INSTALL_PREFIX=$(pwd) \
+      -DGMX_X11=OFF \
+      -DCMAKE_CXX_COMPILER=${CCDIR}/icpc \
+      -DCMAKE_C_COMPILER=${CCDIR}/icc \
+      -DGMX_MPI=OFF \
+      -DGMX_PREFER_STATIC_LIBS=ON
+
+
+
