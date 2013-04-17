@@ -151,15 +151,9 @@ int cmain(int argc, char *argv[])
 
     t_pargs       pa[] = {
 
-        { "-ddcheck", FALSE, etBOOL, {&bDDBondCheck},
-          "Check for all bonded interactions with DD" },
-        { "-ddbondcomm", FALSE, etBOOL, {&bDDBondComm},
-          "HIDDENUse special bonded atom communication when [TT]-rdd[tt] > cut-off" },
-        { "-rdd",     FALSE, etREAL, {&rdd},
-          "The maximum distance for bonded interactions with DD (nm), 0 is determine from initial coordinates" },
         { "-rcon",    FALSE, etREAL, {&rconstr},
           "Maximum distance for P-LINCS (nm), 0 is estimate" },
-        { "-dlb",     FALSE, etENUM, {dddlb_opt},
+	{ "-dlb",     FALSE, etENUM, {dddlb_opt},
           "Dynamic load balancing (with DD)" },
         { "-dds",     FALSE, etREAL, {&dlb_scale},
           "Minimum allowed dlb scaling of the DD cell size" },
@@ -188,35 +182,11 @@ int cmain(int argc, char *argv[])
         { "-reprod",  FALSE, etBOOL, {&bReproducible},
           "Try to avoid optimizations that affect binary reproducibility" },
         { "-cpt",     FALSE, etREAL, {&cpt_period},
-          "Checkpoint interval (minutes)" },
+	   "Checkpoint interval (minutes)" },
         { "-cpnum",   FALSE, etBOOL, {&bKeepAndNumCPT},
           "Keep and number checkpoint files" },
 	{ "-append",  FALSE, etBOOL, {&bAppendFiles},
           "Append to previous output files when continuing from checkpoint instead of adding the simulation part number to all file names" },
-        { "-nsteps",  FALSE, etINT, {&nsteps},
-          "Run this number of steps, overrides .mdp file option" },
-        { "-maxh",   FALSE, etREAL, {&max_hours},
-          "Terminate after 0.99 times this time (hours)" },
-        { "-multi",   FALSE, etINT, {&nmultisim},
-          "Do multiple simulations in parallel" },
-        { "-replex",  FALSE, etINT, {&repl_ex_nst},
-          "Attempt replica exchange periodically with this period (steps)" },
-        { "-nex",  FALSE, etINT, {&repl_ex_nex},
-          "Number of random exchanges to carry out each exchange interval (N^3 is one suggestion).  -nex zero or not specified gives neighbor replica exchange." },
-        { "-reseed",  FALSE, etINT, {&repl_ex_seed},
-          "Seed for replica exchange, -1 is generate a seed" },
-        { "-rerunvsite", FALSE, etBOOL, {&bRerunVSite},
-          "HIDDENRecalculate virtual site coordinates with [TT]-rerun[tt]" },
-        { "-ionize",  FALSE, etBOOL, {&bIonize},
-          "Do a simulation including the effect of an X-Ray bombardment on your system" },
-        { "-confout", FALSE, etBOOL, {&bConfout},
-          "HIDDENWrite the last configuration with [TT]-c[tt] and force checkpointing at the last step" },
-        { "-stepout", FALSE, etINT, {&nstepout},
-          "HIDDENFrequency of writing the remaining runtime" },
-        { "-resetstep", FALSE, etINT, {&resetstep},
-          "HIDDENReset cycle counters after these many time steps" },
-        { "-resethway", FALSE, etBOOL, {&bResetCountersHalfWay},
-          "HIDDENReset the cycle counters after half the number of steps or halfway [TT]-maxh[tt]" }
     };
     gmx_edsam_t   ed;
     unsigned long Flags, PCA_Flags;
@@ -237,7 +207,7 @@ int cmain(int argc, char *argv[])
 
     parse_common_args(&argc, argv, PCA_Flags, NFILE, fnm, asize(pa), pa,
                       asize(desc), desc, 0, NULL, &oenv);
-
+    printf("rcon: %f\n",rconstr);
 
     dd_node_order = nenum(ddno_opt);
     cr->npmenodes = npme;
@@ -312,7 +282,7 @@ int cmain(int argc, char *argv[])
     rc = mdrunner(&hw_opt, fplog, cr, NFILE, fnm, oenv, bVerbose, bCompact,
                   nstglobalcomm, ddxyz, dd_node_order, rdd, rconstr,
                   dddlb_opt[0], dlb_scale, ddcsx, ddcsy, ddcsz,
-                  nbpu_opt[0],
+                  "cpu",
                   nsteps, nstepout, resetstep,
                   nmultisim, repl_ex_nst, repl_ex_nex, repl_ex_seed,
                   pforce, cpt_period, max_hours, deviceOptions, Flags);

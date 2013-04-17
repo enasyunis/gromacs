@@ -5385,41 +5385,6 @@ static void print_dd_load_av(FILE *fplog, gmx_domdec_t *dd)
         fprintf(fplog, "%s", buf);
         fprintf(stderr, "%s", buf);
         bLim = FALSE;
-        if (comm->bDynLoadBal)
-        {
-            sprintf(buf, " Steps where the load balancing was limited by -rdd, -rcon and/or -dds:");
-            for (d = 0; d < dd->ndim; d++)
-            {
-                limp = (200*comm->load_lim[d]+1)/(2*comm->nload);
-                sprintf(buf+strlen(buf), " %c %d %%", dim2char(dd->dim[d]), limp);
-                if (limp >= 50)
-                {
-                    bLim = TRUE;
-                }
-            }
-            sprintf(buf+strlen(buf), "\n");
-            fprintf(fplog, "%s", buf);
-            fprintf(stderr, "%s", buf);
-        }
-        if (npme > 0)
-        {
-            pme_f_ratio = comm->load_pme/comm->load_mdf;
-            lossp       = (comm->load_pme -comm->load_mdf)/comm->load_step;
-            if (lossp <= 0)
-            {
-                lossp *= (float)npme/(float)nnodes;
-            }
-            else
-            {
-                lossp *= (float)npp/(float)nnodes;
-            }
-            sprintf(buf, " Average PME mesh/force load: %5.3f\n", pme_f_ratio);
-            fprintf(fplog, "%s", buf);
-            fprintf(stderr, "%s", buf);
-            sprintf(buf, " Part of the total run time spent waiting due to PP/PME imbalance: %.1f %%\n", fabs(lossp)*100);
-            fprintf(fplog, "%s", buf);
-            fprintf(stderr, "%s", buf);
-        }
         fprintf(fplog, "\n");
         fprintf(stderr, "\n");
 
