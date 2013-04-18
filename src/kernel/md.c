@@ -85,10 +85,9 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     gmx_bool        bFirstStep, bStateFromTPX, bInitStep, bLastStep;
     gmx_bool        bBornRadii, bStartingFromCpt;
     gmx_bool          bDoDHDL = FALSE, bDoFEP = FALSE;
-    gmx_bool          do_ene, do_log, do_verbose, bRerunWarnNoV = TRUE,
+    gmx_bool          do_ene, do_verbose, bRerunWarnNoV = TRUE,
                       bForceUpdate = FALSE, bCPT;
     int               mdof_flags;
-    gmx_bool          bMasterState;
     int               force_flags, cglo_flags;
     tensor            force_vir, shake_vir, total_vir, tmp_vir, pres;
     int               i, m;
@@ -328,30 +327,11 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         /* Determine whether or not to update the Born radii if doing GB */
         bBornRadii = TRUE;
 
-        do_log     = do_per_step(step, ir->nstlog) || bFirstStep || bLastStep;
         do_verbose = bVerbose &&
             (step % stepout == 0 || bFirstStep || bLastStep);
 
 
-                bMasterState = FALSE;
-                /* Correct the new box if it is too skewed */
-                if (DYNAMIC_BOX(*ir))
-                {
-                    if (correct_box(fplog, step, state->box, graph))
-                    {
-                        bMasterState = TRUE;
-                    }
-                }
-
-        if (do_log )
-        {
-            print_ebin_header(fplog, step, t, state->lambda[efptFEP]); /* can we improve the information printed here? */
-        }
-
-        if (ir->efep != efepNO)
-        {
-            update_mdatoms(mdatoms, state->lambda[efptMASS]);
-        }
+        print_ebin_header(fplog, step, t, state->lambda[efptFEP]); /* can we improve the information printed here? */
 
         if ( bExchanged)
         {
@@ -392,11 +372,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
         do_ene = (do_per_step(step, ir->nstenergy) || bLastStep);
 
-        if (do_ene || do_log)
-        {
-            bCalcVir  = TRUE;
-            bCalcEner = TRUE;
-        }
+        bCalcVir  = TRUE;
+        bCalcEner = TRUE;
 
         /* these CGLO_ options remain the same throughout the iteration */
         cglo_flags = (
@@ -477,8 +454,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             mdof_flags |= (MDOF_X | MDOF_V);
         }
 #endif
-
-        if (mdof_flags != 0)
         {
             wallcycle_start(wcycle, ewcTRAJ);
             if (bCPT)
@@ -501,7 +476,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                         state_global->ekinstate.bUpToDate = TRUE;
                     }
                     update_energyhistory(&state_global->enerhist, mdebin);
-                    if (ir->efep != efepNO || ir->bSimTemp)
+                    if (ir->bSimTemp)
                     {
                         state_global->fep_state = state->fep_state; /* MRS: seems kludgy. The code should be
                                                                        structured so this isn't necessary.
@@ -518,10 +493,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                 bCPT = FALSE;
             }
             debug_gmx();
-            if (bLastStep && step_rel == ir->nsteps &&
-                (Flags & MD_CONFOUT) 
-                )
-            {
+
+
                 /* x and v have been collected in write_traj,
                  * because a checkpoint file will always be written
                  * at the last step.
@@ -537,7 +510,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                                     state_global->x, state_global->v,
                                     ir->ePBC, state->box);
                 debug_gmx();
-            }
             wallcycle_stop(wcycle, ewcTRAJ);
         }
         GMX_MPE_LOG(ev_output_finish);
@@ -547,81 +519,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         /* Determine the wallclock run time up till now */
         run_time = gmx_gettime() - (double)runtime->real;
 
-        /* Check whether everything is still allright */
-        if (((int)gmx_get_stop_condition() > handled_stop_condition)
-            
-            )
-        {
-            /* this is just make gs.sig compatible with the hack
-               of sending signals around by MPI_Reduce with together with
-               other floats */
-            if (gmx_get_stop_condition() == gmx_stop_cond_next_ns)
-            {
-                gs.sig[eglsSTOPCOND] = 1;
-            }
-            if (gmx_get_stop_condition() == gmx_stop_cond_next)
-            {
-                gs.sig[eglsSTOPCOND] = -1;
-            }
-            /* < 0 means stop at next step, > 0 means stop at next NS step */
-            if (fplog)
-            {
-                fprintf(fplog,
-                        "\n\nReceived the %s signal, stopping at the next %sstep\n\n",
-                        gmx_get_signal_name(),
-                        gs.sig[eglsSTOPCOND] == 1 ? "NS " : "");
-                fflush(fplog);
-            }
-            fprintf(stderr,
-                    "\n\nReceived the %s signal, stopping at the next %sstep\n\n",
-                    gmx_get_signal_name(),
-                    gs.sig[eglsSTOPCOND] == 1 ? "NS " : "");
-            fflush(stderr);
-            handled_stop_condition = (int)gmx_get_stop_condition();
-        }
-        else if ( 
-                 (max_hours > 0 && run_time > max_hours*60.0*60.0*0.99) &&
-                 gs.sig[eglsSTOPCOND] == 0 && gs.set[eglsSTOPCOND] == 0)
-        {
-            /* Signal to terminate the run */
-            gs.sig[eglsSTOPCOND] = 1;
-            if (fplog)
-            {
-                fprintf(fplog, "\nStep %s: Run time exceeded %.3f hours, will terminate the run\n", gmx_step_str(step, sbuf), max_hours*0.99);
-            }
-            fprintf(stderr, "\nStep %s: Run time exceeded %.3f hours, will terminate the run\n", gmx_step_str(step, sbuf), max_hours*0.99);
-        }
-
-        if (bResetCountersHalfMaxH  &&
-            run_time > max_hours*60.0*60.0*0.495)
-        {
-            gs.sig[eglsRESETCOUNTERS] = 1;
-        }
-
-        if (ir->nstlist == -1 )
-        {
-            /* When bGStatEveryStep=FALSE, global_stat is only called
-             * when we check the atom displacements, not at NS steps.
-             * This means that also the bonded interaction count check is not
-             * performed immediately after NS. Therefore a few MD steps could
-             * be performed with missing interactions.
-             * But wrong energies are never written to file,
-             * since energies are only written after global_stat
-             * has been called.
-             */
-            if (step >= nlh.step_nscheck)
-            {
-                nlh.nabnsb = natoms_beyond_ns_buffer(ir, fr, &top->cgs,
-                                                     nlh.scale_tot, state->x);
-            }
-            else
-            {
-                /* This is not necessarily true,
-                 * but step_nscheck is determined quite conservatively.
-                 */
-                nlh.nabnsb = 0;
-            }
-        }
 
         /* In parallel we only have to check for checkpointing in steps
          * where we do global communication,
@@ -686,7 +583,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                                    bInitStep, FALSE, bCalcVir, state->veta);
 
 
-                if (fr->bSepDVDL && fplog && do_log)
+                if (fr->bSepDVDL && fplog)
                 {
                     fprintf(fplog, sepdvdlformat, "Constraint dV/dl", 0.0, dvdl);
                 }
@@ -702,11 +599,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
              * non-communication steps, but we need to calculate
              * the kinetic energy one step before communication.
              */
-
-                if (ir->nstlist == -1 && bFirstIterate)
-                {
-                    gs.sig[eglsNABNSB] = nlh.nabnsb;
-                }
                 compute_globals(fplog, gstat, cr, ir, fr, ekind, state, state_global, mdatoms, nrnb, vcm,
                                 wcycle, enerd, force_vir, shake_vir, total_vir, pres, mu_tot,
                                 0,
@@ -724,11 +616,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                                 | (bFirstIterate ? CGLO_FIRSTITERATE : 0)
                                 | CGLO_CONSTRAINT
                                 );
-                if (ir->nstlist == -1 && bFirstIterate)
-                {
-                    nlh.nabnsb         = gs.set[eglsNABNSB];
-                    gs.set[eglsNABNSB] = 0;
-                }
             /* bIterate is set to keep it from eliminating the old ekin kinetic energy terms */
             /* #############  END CALC EKIN AND PRESSURE ################# */
 
@@ -751,7 +638,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         /* sum up the foreign energy and dhdl terms for md and sd. currently done every step so that dhdl is correct in the .edr */
         sum_dhdl(enerd, state->lambda, ir->fepvals);
         update_box(fplog, step, ir, mdatoms, state, graph, f,
-                   ir->nstlist == -1 ? &nlh.scale_tot : NULL, pcoupl_mu, nrnb, wcycle, upd, bInitStep, FALSE);
+                   NULL, pcoupl_mu, nrnb, wcycle, upd, bInitStep, FALSE);
 
         /* ################# END UPDATE STEP 2 ################# */
         /* #### We now have r(t+dt) and v(t+dt/2)  ############# */
@@ -793,7 +680,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             do_dr  = do_per_step(step, ir->nstdisreout);
             do_or  = do_per_step(step, ir->nstorireout);
 
-            print_ebin(outf->fp_ene, do_ene, do_dr, do_or, do_log ? fplog : NULL,
+            print_ebin(outf->fp_ene, do_ene, do_dr, do_or, fplog,
                            step, t,
                            eprNORMAL, bCompact, mdebin, fcd, groups, &(ir->opts));
             if (ir->ePull != epullNO)
@@ -864,14 +751,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     done_mdoutf(outf);
 
     debug_gmx();
-
-    if (ir->nstlist == -1 && nlh.nns > 0 && fplog)
-    {
-        fprintf(fplog, "Average neighborlist lifetime: %.1f steps, std.dev.: %.1f steps\n", nlh.s1/nlh.nns, sqrt(nlh.s2/nlh.nns - sqr(nlh.s1/nlh.nns)));
-        fprintf(fplog, "Average number of atoms that crossed the half buffer length: %.1f\n\n", nlh.ab/nlh.nns);
-    }
-
-
 
 
     runtime->nsteps_done = step_rel;
