@@ -86,7 +86,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     gmx_bool        bBornRadii, bStartingFromCpt;
     gmx_bool          bDoDHDL = FALSE, bDoFEP = FALSE;
     gmx_bool          do_ene, do_verbose, bRerunWarnNoV = TRUE,
-                      bForceUpdate = FALSE, bCPT;
+                      bForceUpdate = FALSE;
     int               mdof_flags;
     int               force_flags, cglo_flags;
     tensor            force_vir, shake_vir, total_vir, tmp_vir, pres;
@@ -119,7 +119,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     int               count, nconverged = 0;
     real              timestep = 0;
     double            tcount   = 0;
-    gmx_bool          bConverged = TRUE, bOK, bSumEkinhOld, bExchanged;
+    gmx_bool          bConverged = TRUE, bOK, bSumEkinhOld;
     gmx_bool          bResetCountersHalfMaxH = FALSE;
     gmx_bool          bFirstIterate, bTemp, bPres;
     gmx_bool          bUpdateDoLR;
@@ -297,7 +297,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     bStartingFromCpt = (Flags & MD_STARTFROMCPT) && bInitStep;
     bLastStep        = FALSE;
     bSumEkinhOld     = FALSE;
-    bExchanged       = FALSE;
 
     init_global_signals(&gs, cr, ir, 0);
 
@@ -333,18 +332,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
         print_ebin_header(fplog, step, t, state->lambda[efptFEP]); /* can we improve the information printed here? */
 
-        if ( bExchanged)
-        {
-
-            /* We need the kinetic energy at minus the half step for determining
-             * the full step kinetic energy and possibly for T-coupling.*/
-            /* This may not be quite working correctly yet . . . . */
-            compute_globals(fplog, gstat, cr, ir, fr, ekind, state, state_global, mdatoms, nrnb, vcm,
-                            wcycle, enerd, NULL, NULL, NULL, NULL, mu_tot,
-                            0, NULL, FALSE, state->box,
-                            top_global, &pcurr, top_global->natoms, &bSumEkinhOld,
-                            CGLO_RERUNMD | CGLO_GSTAT | CGLO_TEMPERATURE);
-        }
         clear_mat(force_vir);
 
         GMX_MPE_LOG(ev_timestep2);
@@ -354,13 +341,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
          * or at the last step (but not when we do not want confout),
          * but never at the first step or with rerun.
          */
-        bCPT = (((gs.set[eglsCHKPT] ) ||
-                 (bLastStep && (Flags & MD_CONFOUT))) &&
-                step > ir->init_step );
-        if (bCPT)
-        {
-            gs.set[eglsCHKPT] = 0;
-        }
 
         /* Determine the energy and pressure:
          * at nstcalcenergy steps and at energy output steps (set below).
@@ -441,10 +421,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         {
             mdof_flags |= MDOF_XTC;
         }
-        if (bCPT)
-        {
-            mdof_flags |= MDOF_CPT;
-        }
         ;
 
 #if defined(GMX_WRITELASTSTEP)
@@ -456,42 +432,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 #endif
         {
             wallcycle_start(wcycle, ewcTRAJ);
-            if (bCPT)
-            {
-                if (state->flags & (1<<estLD_RNG))
-                {
-                    get_stochd_state(upd, state);
-                }
-                if (state->flags  & (1<<estMC_RNG))
-                {
-                    get_mc_state(mcrng, state);
-                }
-                    if (bSumEkinhOld)
-                    {
-                        state_global->ekinstate.bUpToDate = FALSE;
-                    }
-                    else
-                    {
-                        update_ekinstate(&state_global->ekinstate, ekind);
-                        state_global->ekinstate.bUpToDate = TRUE;
-                    }
-                    update_energyhistory(&state_global->enerhist, mdebin);
-                    if (ir->bSimTemp)
-                    {
-                        state_global->fep_state = state->fep_state; /* MRS: seems kludgy. The code should be
-                                                                       structured so this isn't necessary.
-                                                                       Note this reassignment is only necessary
-                                                                       for single threads.*/
-                        copy_df_history(&state_global->dfhist, &df_history);
-                    }
-            }
             write_traj(fplog, cr, outf, mdof_flags, top_global,
                        step, t, state, state_global, f, f_global, &n_xtc, &x_xtc);
-            if (bCPT)
-            {
-                nchkpt++;
-                bCPT = FALSE;
-            }
             debug_gmx();
 
 
