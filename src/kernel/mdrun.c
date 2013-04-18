@@ -150,10 +150,6 @@ int cmain(int argc, char *argv[])
 
     gmx_hw_opt_t  hw_opt = {0, 0, 0, 0, threadaffSEL, 0, 0, NULL};
 
-    t_pargs       pa[] = {
-	{ "-append",  FALSE, etBOOL, {&bAppendFiles},
-	   "Append to previous output files when continuing from checkpoint instead of adding the simulation part number to all file names" },
-    };
     gmx_edsam_t   ed;
     unsigned long Flags, PCA_Flags;
     ivec          ddxyz;
@@ -170,73 +166,22 @@ int cmain(int argc, char *argv[])
     cr = init_par(&argc, &argv);
 
     PCA_Flags = ((1<<10) | (MASTER(cr) ? 0 : (1<<12)));
-    parse_common_args(&argc, argv, PCA_Flags, NFILE, fnm, asize(pa), pa,
+    parse_common_args(&argc, argv, PCA_Flags, NFILE, fnm, 0, NULL, 
                       asize(desc), desc, 0, NULL, &oenv);
 
     dd_node_order = nenum(ddno_opt);
     cr->npmenodes = npme;
 
     hw_opt.thread_affinity = nenum(thread_aff_opt);
-
-    bAddPart = TRUE;
-
-    sim_part    = 1;
-    sim_part_fn = sim_part;
-
-    sim_part_fn = sim_part;
-
-    if (bAddPart)
-    {
-        /* Rename all output files (except checkpoint files) */
-        /* create new part name first (zero-filled) */
-        sprintf(suffix, "%s%04d", part_suffix, sim_part_fn);
-
-        add_suffix_to_output_names(fnm, NFILE, suffix);
-        if (MULTIMASTER(cr))
-        {
-            fprintf(stdout, "Checkpoint file is from part %d, new output files will be suffixed '%s'.\n", sim_part-1, suffix);
-        }
-    }
-
-    Flags = opt2bSet("-rerun", NFILE, fnm) ? MD_RERUN : 0;
-    Flags = Flags | (bSepPot       ? MD_SEPPOT       : 0);
-    Flags = Flags | (bIonize       ? MD_IONIZE       : 0);
-    Flags = Flags | (bPartDec      ? MD_PARTDEC      : 0);
-    Flags = Flags | (bDDBondCheck  ? MD_DDBONDCHECK  : 0);
-    Flags = Flags | (bDDBondComm   ? MD_DDBONDCOMM   : 0);
-    Flags = Flags | (bTunePME      ? MD_TUNEPME      : 0);
-    Flags = Flags | (bTestVerlet   ? MD_TESTVERLET   : 0);
-    Flags = Flags | (bConfout      ? MD_CONFOUT      : 0);
-    Flags = Flags | (bRerunVSite   ? MD_RERUN_VSITE  : 0);
-    Flags = Flags | (bReproducible ? MD_REPRODUCIBLE : 0);
-    Flags = Flags | (bAppendFiles  ? MD_APPENDFILES  : 0);
-    Flags = Flags | (opt2parg_bSet("-append", asize(pa), pa) ? MD_APPENDFILESSET : 0);
-    Flags = Flags | (bKeepAndNumCPT ? MD_KEEPANDNUMCPT : 0);
-    Flags = Flags | (sim_part > 1    ? MD_STARTFROMCPT : 0);
-    Flags = Flags | (bResetCountersHalfWay ? MD_RESETCOUNTERSHALFWAY : 0);
+    Flags =  (bSepPot       ? MD_SEPPOT       : 0); // 128
+    Flags = Flags | (bDDBondCheck  ? MD_DDBONDCHECK  : 0); // 1024
+    Flags = Flags | (bDDBondComm   ? MD_DDBONDCOMM   : 0); // 2048
+    Flags = Flags | (bTunePME      ? MD_TUNEPME      : 0) // 1048576;
+    Flags = Flags | (bConfout      ? MD_CONFOUT      : 0); // 4096
 
 
-    /* We postpone opening the log file if we are appending, so we can
-       first truncate the old log file and append to the correct position
-       there instead.  */
-    if ((MASTER(cr) || bSepPot) && !bAppendFiles)
-    {
-        gmx_log_open(ftp2fn(efLOG, NFILE, fnm), cr,
-                     !bSepPot, Flags & MD_APPENDFILES, &fplog);
-        CopyRight(fplog, argv[0]);
-        please_cite(fplog, "Hess2008b");
-        please_cite(fplog, "Spoel2005a");
-        please_cite(fplog, "Lindahl2001a");
-        please_cite(fplog, "Berendsen95a");
-    }
-    else if (!MASTER(cr) && bSepPot)
-    {
-        gmx_log_open(ftp2fn(efLOG, NFILE, fnm), cr, !bSepPot, Flags, &fplog);
-    }
-    else
-    {
-        fplog = NULL;
-    }
+    gmx_log_open(ftp2fn(efLOG, NFILE, fnm), cr,
+                 !bSepPot, Flags & MD_APPENDFILES, &fplog);
 
     ddxyz[XX] = (int)(realddxyz[XX] + 0.5);
     ddxyz[YY] = (int)(realddxyz[YY] + 0.5);
@@ -252,17 +197,7 @@ int cmain(int argc, char *argv[])
 
     gmx_finalize_par();
 
-    if (MULTIMASTER(cr))
-    {
-        thanx(stderr);
-    }
-
-    /* Log file has to be closed in mdrunner if we are appending to it
-       (fplog not set here) */
-    if (MASTER(cr) && !bAppendFiles)
-    {
-        gmx_log_close(fplog);
-    }
+    gmx_log_close(fplog);
 
     return rc;
 }
