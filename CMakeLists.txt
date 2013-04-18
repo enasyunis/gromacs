@@ -107,7 +107,6 @@ if (NOT GMX_USE_RELATIVE_INSTALL_PATH)
     set(CPACK_SET_DESTDIR "ON")
 endif()
 set(CPACK_SOURCE_IGNORE_FILES "\\\\.isreposource$;\\\\.git/;\\\\.gitignore$")
-set(CPACK_PROJECT_CONFIG_FILE "${CMAKE_SOURCE_DIR}/CPackInit.cmake")
 SET(CPACK_SOURCE_INSTALLED_DIRECTORIES "${CMAKE_SOURCE_DIR};/;${CMAKE_BINARY_DIR}/;")
 set(CPACK_PACKAGE_CONTACT "gmx-users@gromacs.org")
 
