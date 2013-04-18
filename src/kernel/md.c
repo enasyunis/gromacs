@@ -40,7 +40,6 @@
 #include "coulomb.h"
 #include "constr.h"
 #include "shellfc.h"
-#include "compute_io.h"
 #include "mvdata.h"
 #include "checkpoint.h"
 #include "mtop_util.h"
@@ -80,7 +79,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     gmx_large_int_t step, step_rel;
     double          run_time;
     double          t, t0, lam0[efptNR];
-    gmx_bool        bGStatEveryStep, bCalcVir, bCalcEner;
+    gmx_bool        bGStatEveryStep, bCalcVir;
     gmx_bool        bSimAnn, bStopCM, bNotLastFrame = FALSE;
     gmx_bool        bFirstStep, bStateFromTPX, bInitStep, bLastStep;
     gmx_bool        bBornRadii, bStartingFromCpt;
@@ -121,8 +120,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     double            tcount   = 0;
     gmx_bool          bConverged = TRUE, bOK, bSumEkinhOld;
     gmx_bool          bResetCountersHalfMaxH = FALSE;
-    gmx_bool          bFirstIterate, bTemp, bPres;
-    gmx_bool          bUpdateDoLR;
+    gmx_bool          bTemp, bPres;
     real              mu_aver = 0, dvdl;
     int               a0, a1, gnx = 0, ii;
     atom_id          *grpindex = NULL;
@@ -345,15 +343,13 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         /* Determine the energy and pressure:
          * at nstcalcenergy steps and at energy output steps (set below).
          */
-        bCalcEner = do_per_step(step, ir->nstcalcenergy);
-        bCalcVir  = bCalcEner ||
+        bCalcVir  = (do_per_step(step, ir->nstcalcenergy)) ||
                 (ir->epc != epcNO && do_per_step(step, ir->nstpcouple));
 
 
         do_ene = (do_per_step(step, ir->nstenergy) || bLastStep);
 
         bCalcVir  = TRUE;
-        bCalcEner = TRUE;
 
         /* these CGLO_ options remain the same throughout the iteration */
         cglo_flags = (
@@ -365,17 +361,10 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                        GMX_FORCE_ALLFORCES |
                        GMX_FORCE_SEPLRF |
                        (bCalcVir ? GMX_FORCE_VIRIAL : 0) |
-                       (bCalcEner ? GMX_FORCE_ENERGY : 0) |
+                       (GMX_FORCE_ENERGY) |
                        (bDoFEP ? GMX_FORCE_DHDL : 0)
                        );
 
-        if (fr->bTwinRange)
-        {
-            if (do_per_step(step, ir->nstcalclr))
-            {
-                force_flags |= GMX_FORCE_DO_LR;
-            }
-        }
 
             /* The coordinates (x) are shifted (to get whole molecules)
              * in do_force.
@@ -403,33 +392,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
          * for RerunMD t is read from input trajectory
          */
         GMX_MPE_LOG(ev_output_start);
+        mdof_flags = MDOF_F;
 
-        mdof_flags = 0;
-        if (do_per_step(step, ir->nstxout))
-        {
-            mdof_flags |= MDOF_X;
-        }
-        if (do_per_step(step, ir->nstvout))
-        {
-            mdof_flags |= MDOF_V;
-        }
-        if (do_per_step(step, ir->nstfout))
-        {
-            mdof_flags |= MDOF_F;
-        }
-        if (do_per_step(step, ir->nstxtcout))
-        {
-            mdof_flags |= MDOF_XTC;
-        }
-        ;
-
-#if defined(GMX_WRITELASTSTEP)
-        if (bLastStep)
-        {
-            /* Enforce writing positions and velocities at end of run */
-            mdof_flags |= (MDOF_X | MDOF_V);
-        }
-#endif
         {
             wallcycle_start(wcycle, ewcTRAJ);
             write_traj(fplog, cr, outf, mdof_flags, top_global,
@@ -442,11 +406,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                  * at the last step.
                  */
                 fprintf(stderr, "\nWriting final coordinates.\n");
-                if (fr->bMolPBC)
-                {
-                    /* Make molecules whole only for confout writing */
-                    do_pbc_mtop(fplog, ir->ePBC, state->box, top_global, state_global->x);
-                }
+                /* Make molecules whole only for confout writing */
+                do_pbc_mtop(fplog, ir->ePBC, state->box, top_global, state_global->x);
                 write_sto_conf_mtop(ftp2fn(efSTO, nfile, fnm),
                                     *top_global->name, top_global,
                                     state_global->x, state_global->v,
@@ -462,23 +423,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         run_time = gmx_gettime() - (double)runtime->real;
 
 
-        /* In parallel we only have to check for checkpointing in steps
-         * where we do global communication,
-         *  otherwise the other nodes don't know.
-         */
-        if ( (
-                           cpt_period >= 0 &&
-                           (cpt_period == 0 ||
-                            run_time >= nchkpt*cpt_period*60.0)) &&
-            gs.set[eglsCHKPT] == 0)
-        {
-            gs.sig[eglsCHKPT] = 1;
-        }
 
 
-
-        bFirstIterate = TRUE;
-        while (bFirstIterate || iterate.bIterationActive)
         {
             /* We now restore these vectors to redo the calculation with improved extended variables */
             if (iterate.bIterationActive)
@@ -511,10 +457,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                  * and entire integrator for MD.
                  */
 
-                bUpdateDoLR = (fr->bTwinRange && do_per_step(step, ir->nstcalclr));
-
                 update_coords(fplog, step, ir, mdatoms, state, fr->bMolPBC, f,
-                              bUpdateDoLR, fr->f_twin, fcd,
+                              0, fr->f_twin, fcd,
                               ekind, M, wcycle, upd, bInitStep, etrtPOSITION, cr, nrnb, 0, &top->idef);
                 wallcycle_stop(wcycle, ewcUPDATE);
 
@@ -544,7 +488,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                 compute_globals(fplog, gstat, cr, ir, fr, ekind, state, state_global, mdatoms, nrnb, vcm,
                                 wcycle, enerd, force_vir, shake_vir, total_vir, pres, mu_tot,
                                 0,
-                                bFirstIterate ? &gs : NULL,
+                                &gs,
                                 (step_rel % gs.nstms == 0) &&
                                 (multisim_nsteps < 0 || (step_rel < multisim_nsteps)),
                                 lastbox,
@@ -555,7 +499,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                                 | CGLO_TEMPERATURE
                                 | CGLO_PRESSURE
                                 | (iterate.bIterationActive ? CGLO_ITERATE : 0)
-                                | (bFirstIterate ? CGLO_FIRSTITERATE : 0)
+                                | CGLO_FIRSTITERATE
                                 | CGLO_CONSTRAINT
                                 );
             /* bIterate is set to keep it from eliminating the old ekin kinetic energy terms */
@@ -566,13 +510,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                but what we actually need entering the new cycle is the new shake_vir value. Ideally, we could
                generate the new shake_vir, but test the veta value for convergence.  This will take some thought. */
 
-            if (iterate.bIterationActive &&
-                done_iterating(cr, fplog, step, &iterate, bFirstIterate,
-                               trace(shake_vir), &tracevir))
-            {
-                break;
-            }
-            bFirstIterate = FALSE;
         }
 
         /* only add constraint dvdl after constraints */
@@ -596,28 +533,17 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         /* #########  END PREPARING EDR OUTPUT  ###########  */
 
         /* Time for performance */
-	
-        if (((step % stepout) == 0) || bLastStep)
-        {
-            runtime_upd_proc(runtime);
-        }
+        runtime_upd_proc(runtime);
 
 
         /* Output stuff */
             gmx_bool do_dr, do_or;
 
-            if (bCalcEner)
-            {
-                upd_mdebin(mdebin, bDoDHDL, TRUE,
+            upd_mdebin(mdebin, bDoDHDL, TRUE,
                                t, mdatoms->tmass, enerd, state,
                                ir->fepvals, ir->expandedvals, lastbox,
                                shake_vir, force_vir, total_vir, pres,
                                ekind, mu_tot, 0);
-            }
-            else
-            {
-                upd_mdebin_step(mdebin);
-            }
 
             do_dr  = do_per_step(step, ir->nstdisreout);
             do_or  = do_per_step(step, ir->nstorireout);

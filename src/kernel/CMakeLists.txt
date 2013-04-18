@@ -1,7 +1,6 @@
 
 set(GMXPREPROCESS_SOURCES 
     calc_verletbuf.c
-    compute_io.c    
     )
 
 set(MDRUN_SOURCES 
