@@ -167,18 +167,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     nstglobalcomm   = check_nstglobalcomm(fplog, cr, nstglobalcomm, ir);
     bGStatEveryStep = (nstglobalcomm == 1);
 
-    if (!bGStatEveryStep && ir->nstlist == -1 && fplog != NULL)
-    {
-        fprintf(fplog,
-                "To reduce the energy communication with nstlist = -1\n"
-                "the neighbor list validity should not be checked at every step,\n"
-                "this means that exact integration is not guaranteed.\n"
-                "The neighbor list validity is checked after:\n"
-                "  <n.list life time> - 2*std.dev.(n.list life time)  steps.\n"
-                "In most cases this will result in exact integration.\n"
-                "This reduces the energy communication by a factor of 2 to 3.\n"
-                "If you want less energy communication, set nstlist > 3.\n\n");
-    }
 
     groups = &top_global->groups;
 
@@ -197,11 +185,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                   enerd);
         snew(f, top_global->natoms);
 
-    /* lambda Monte carlo random number generator  */
-    if (ir->bExpanded)
-    {
-        mcrng = gmx_rng_init(ir->expandedvals->lmc_seed);
-    }
+
+   /* lambda Monte carlo random number generator  */
     /* copy the state into df_history */
     copy_df_history(&df_history, &state_global->dfhist);
 
@@ -349,10 +334,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
     /* set free energy calculation frequency as the minimum of nstdhdl, nstexpanded, and nstrepl_ex_nst*/
     nstfep = ir->fepvals->nstdhdl;
-    if (ir->bExpanded && (nstfep > ir->expandedvals->nstexpanded))
-    {
-        nstfep = ir->expandedvals->nstexpanded;
-    }
 
     /* I'm assuming we need global communication the first time! MRS */
     cglo_flags = (CGLO_TEMPERATURE | CGLO_GSTAT
@@ -472,7 +453,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             set_current_lambdas(step, ir->fepvals, 0, &rerun_fr, state_global, state, lam0);
             bDoDHDL      = do_per_step(step, ir->fepvals->nstdhdl);
             bDoFEP       = (do_per_step(step, nstfep) && (ir->efep != efepNO));
-            gmx_bool temp = (do_per_step(step, ir->expandedvals->nstexpanded) && (ir->bExpanded) && (step > 0));
         }
 
         if (bSimAnn)
