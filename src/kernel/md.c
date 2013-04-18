@@ -584,7 +584,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             set_current_lambdas(step, ir->fepvals, 0, &rerun_fr, state_global, state, lam0);
             bDoDHDL      = do_per_step(step, ir->fepvals->nstdhdl);
             bDoFEP       = (do_per_step(step, nstfep) && (ir->efep != efepNO));
-            (do_per_step(step, ir->expandedvals->nstexpanded) && (ir->bExpanded) && (step > 0));
+            gmx_bool temp = (do_per_step(step, ir->expandedvals->nstexpanded) && (ir->bExpanded) && (step > 0));
         }
 
         if (bSimAnn)
