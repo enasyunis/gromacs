@@ -113,15 +113,11 @@ endif (NOT GMX_NO_QUOTES)
 
 foreach(PROGRAM ${GMX_KERNEL_PROGRAMS})
     add_executable(${PROGRAM} ${PROGRAM}.c main.c)
-    if (NOT ${PROGRAM} STREQUAL "g_luck")
-        gmx_add_man_page(${PROGRAM})
-    endif()
     target_link_libraries(${PROGRAM} ${GMX_EXTRA_LIBRARIES})
     set_target_properties(${PROGRAM} PROPERTIES OUTPUT_NAME "${PROGRAM}${GMX_BINARY_SUFFIX}")
 endforeach()
 
 add_executable(mdrun ${MDRUN_SOURCES} main.c)
-gmx_add_man_page(mdrun)
 target_link_libraries(mdrun ${GMX_EXTRA_LIBRARIES})
 set_target_properties(mdrun PROPERTIES OUTPUT_NAME "mdrun${GMX_BINARY_SUFFIX}" COMPILE_FLAGS "${OpenMP_C_FLAGS}")
 
