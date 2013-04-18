@@ -27,7 +27,6 @@
 #include "physics.h"
 #include "names.h"
 #include "xmdrun.h"
-#include "ionize.h"
 #include "disre.h"
 #include "orires.h"
 #include "pme.h"
