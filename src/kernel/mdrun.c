@@ -176,7 +176,7 @@ int cmain(int argc, char *argv[])
     Flags =  (bSepPot       ? MD_SEPPOT       : 0); // 128
     Flags = Flags | (bDDBondCheck  ? MD_DDBONDCHECK  : 0); // 1024
     Flags = Flags | (bDDBondComm   ? MD_DDBONDCOMM   : 0); // 2048
-    Flags = Flags | (bTunePME      ? MD_TUNEPME      : 0) // 1048576;
+    Flags = Flags | (bTunePME      ? MD_TUNEPME      : 0); // 1048576;
     Flags = Flags | (bConfout      ? MD_CONFOUT      : 0); // 4096
 
 
