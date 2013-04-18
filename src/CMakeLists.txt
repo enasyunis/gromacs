@@ -41,7 +41,5 @@ add_subdirectory(mdlib)
 add_subdirectory(kernel)
 
 if(NOT GMX_FAHCORE)
-  add_subdirectory(tools)
   add_subdirectory(ngmx)
-  add_subdirectory(contrib)
 endif(NOT GMX_FAHCORE)
