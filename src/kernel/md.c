@@ -81,8 +81,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     double          run_time;
     double          t, t0, lam0[efptNR];
     gmx_bool        bGStatEveryStep, bCalcVir, bCalcEner;
-    gmx_bool        bNS, bNStList, bSimAnn, bStopCM, bNotLastFrame = FALSE;
-    gmx_bool        bFirstStep, bStateFromCP, bStateFromTPX, bInitStep, bLastStep;
+    gmx_bool        bSimAnn, bStopCM, bNotLastFrame = FALSE;
+    gmx_bool        bFirstStep, bStateFromTPX, bInitStep, bLastStep;
     gmx_bool        bBornRadii, bStartingFromCpt;
     gmx_bool          bDoDHDL = FALSE, bDoFEP = FALSE;
     gmx_bool          do_ene, do_log, do_verbose, bRerunWarnNoV = TRUE,
@@ -205,21 +205,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     /* Check for polarizable models and flexible constraints */
     shellfc = init_shell_flexcon(fplog,
                                  top_global, n_flexible_constraints(0),
-                                 (ir->bContinuation 
-                                  ) ?
-                                 NULL : state_global->x);
+                                 state_global->x);
 
-/* ENAS IO gone
-    {
-        double io = compute_io(ir, top_global->natoms, groups, mdebin->ebin->nener, 1);
-        if ((io > 2000) && MASTER(cr))
-        {
-            fprintf(stderr,
-                    "\nWARNING: This run will generate roughly %.0f Mb of data\n\n",
-                    io);
-        }
-    }
-*/
 
 
             top = gmx_mtop_generate_local_top(top_global, ir);
@@ -234,11 +221,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
         atoms2md(top_global, ir, 0, NULL, a0, a1-a0, mdatoms);
 
-        if (ir->ePBC != epbcNONE && !fr->bMolPBC)
-        {
-            graph = mk_graph(fplog, &(top->idef), 0, top_global->natoms, FALSE, FALSE);
-        }
-
 
         init_bonded_thread_force_reduction(fr, &top->idef);
 
@@ -246,65 +228,11 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
     update_mdatoms(mdatoms, state->lambda[efptMASS]);
 
-    if (opt2bSet("-cpi", nfile, fnm))
-    {
-        bStateFromCP = gmx_fexist_master(opt2fn_master("-cpi", nfile, fnm, cr), cr);
-    }
-    else
-    {
-        bStateFromCP = FALSE;
-    }
-
-        if (bStateFromCP)
-        {
-            /* Update mdebin with energy history if appending to output files */
-            if (Flags & MD_APPENDFILES)
-            {
-                restore_energyhistory_from_state(mdebin, &state_global->enerhist);
-            }
-            else
-            {
-                /* We might have read an energy history from checkpoint,
-                 * free the allocated memory and reset the counts.
-                 */
-                done_energyhistory(&state_global->enerhist);
-                init_energyhistory(&state_global->enerhist);
-            }
-        }
-        /* Set the initial energy history in state by updating once */
-        update_energyhistory(&state_global->enerhist, mdebin);
-
-    if ((state->flags & (1<<estLD_RNG)) && (Flags & MD_READ_RNG))
-    {
-        /* Set the random state if we read a checkpoint file */
-        set_stochd_state(upd, state);
-    }
-
-    if (state->flags & (1<<estMC_RNG))
-    {
-        set_mc_state(mcrng, state);
-    }
 
 
+     /* Set the initial energy history in state by updating once */
+     update_energyhistory(&state_global->enerhist, mdebin);
 
-    if (!ir->bContinuation )
-    {
-        if (mdatoms->cFREEZE && (state->flags & (1<<estV)))
-        {
-            /* Set the velocities of frozen particles to zero */
-            for (i = mdatoms->start; i < mdatoms->start+mdatoms->homenr; i++)
-            {
-                for (m = 0; m < DIM; m++)
-                {
-                    if (ir->opts.nFreeze[mdatoms->cFREEZE[i]][m])
-                    {
-                        state->v[i][m] = 0;
-                    }
-                }
-            }
-        }
-
-    }
 
     debug_gmx();
 
@@ -324,12 +252,9 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
 
     /* Calculate the initial half step temperature, and save the ekinh_old */
-    if (!(Flags & MD_STARTFROMCPT))
+    for (i = 0; (i < ir->opts.ngtc); i++)
     {
-        for (i = 0; (i < ir->opts.ngtc); i++)
-        {
-            copy_mat(ekind->tcstat[i].ekinh, ekind->tcstat[i].ekinh_old);
-        }
+         copy_mat(ekind->tcstat[i].ekinh, ekind->tcstat[i].ekinh_old);
     }
 
     enerd->term[F_TEMP] *= 2; /* result of averages being done over previous and current step,
@@ -339,43 +264,26 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     /* need to make an initiation call to get the Trotter variables set, as well as other constants for non-trotter
        temperature control */
     trotter_seq = init_npt_vars(ir, state, &MassQ, 0);
-        if (EI_STATE_VELOCITY(ir->eI))
-        {
-            fprintf(fplog, "Initial temperature: %g K\n", enerd->term[F_TEMP]);
-        }
-            char tbuf[20];
-            fprintf(stderr, "starting mdrun '%s'\n",
+    {
+	 fprintf(fplog, "Initial temperature: %g K\n", enerd->term[F_TEMP]);
+        char tbuf[20];
+        fprintf(stderr, "starting mdrun '%s'\n",
                     *(top_global->name));
-            if (ir->nsteps >= 0)
-            {
-                sprintf(tbuf, "%8.1f", (ir->init_step+ir->nsteps)*ir->delta_t);
-            }
-            else
-            {
-                sprintf(tbuf, "%s", "infinite");
-            }
-            if (ir->init_step > 0)
-            {
-                fprintf(stderr, "%s steps, %s ps (continuing from step %s, %8.1f ps).\n",
-                        gmx_step_str(ir->init_step+ir->nsteps, sbuf), tbuf,
-                        gmx_step_str(ir->init_step, sbuf2),
-                        ir->init_step*ir->delta_t);
-            }
-            else
-            {
-                fprintf(stderr, "%s steps, %s ps.\n",
-                        gmx_step_str(ir->nsteps, sbuf), tbuf);
-            }
-        fprintf(fplog, "\n");
 
+        sprintf(tbuf, "%8.1f", (ir->init_step+ir->nsteps)*ir->delta_t);
+
+
+        fprintf(stderr, "%s steps, %s ps.\n",
+                        gmx_step_str(ir->nsteps, sbuf), tbuf);
+        fprintf(fplog, "\n");
+    }
     /* Set and write start time */
     runtime_start(runtime);
     print_date_and_time(fplog, cr->nodeid, "Started mdrun", runtime);
     wallcycle_start(wcycle, ewcRUN);
-    if (fplog)
-    {
-        fprintf(fplog, "\n");
-    }
+
+
+    fprintf(fplog, "\n");
 
     /* safest point to do file checkpointing is here.  More general point would be immediately before integrator call */
 
@@ -385,7 +293,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     /* loop over MD steps or if rerunMD to end of input trajectory */
     bFirstStep = TRUE;
     /* Skip the first Nose-Hoover integration when we get the state from tpx */
-    bStateFromTPX    = !bStateFromCP;
+    bStateFromTPX    = TRUE;
     bInitStep        = bFirstStep && (bStateFromTPX);
     bStartingFromCpt = (Flags & MD_STARTFROMCPT) && bInitStep;
     bLastStep        = FALSE;
@@ -397,17 +305,11 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     step     = ir->init_step;
     step_rel = 0;
 
-    if (MULTISIM(cr))
-    {
-        /* check how many steps are left in other sims */
-        multisim_nsteps = get_multisim_nsteps(cr, ir->nsteps);
-    }
 
 
-    /* and stop now if we should */
     bLastStep = ((ir->nsteps >= 0 && step_rel > ir->nsteps) ||
                  ((multisim_nsteps >= 0) && (step_rel >= multisim_nsteps )));
-    while (!bLastStep )
+
     {
 
         wallcycle_start(wcycle, ewcSTEP);
@@ -417,70 +319,20 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             bLastStep = (step_rel == ir->nsteps);
             t         = t0 + step*ir->delta_t;
 
-        if (ir->efep != efepNO || ir->bSimTemp)
-        {
-            /* find and set the current lambdas.  If rerunning, we either read in a state, or a lambda value,
-               requiring different logic. */
-
-            set_current_lambdas(step, ir->fepvals, 0, &rerun_fr, state_global, state, lam0);
-            bDoDHDL      = do_per_step(step, ir->fepvals->nstdhdl);
-            bDoFEP       = (do_per_step(step, nstfep) && (ir->efep != efepNO));
-        }
-
-        if (bSimAnn)
-        {
-            update_annealing_target_temp(&(ir->opts), t);
-        }
 
 
         /* Stop Center of Mass motion */
         bStopCM = (ir->comm_mode != ecmNO && do_per_step(step, ir->nstcomm));
 
-        /* Copy back starting coordinates in case we're doing a forcefield scan */
-            bNStList = (ir->nstlist > 0  && step % ir->nstlist == 0);
-
-            bNS = (bFirstStep || bExchanged || bNStList || bDoFEP ||
-                   (ir->nstlist == -1 && nlh.nabnsb > 0));
-
-
-        /* check whether we should stop because another simulation has
-           stopped. */
-        if (MULTISIM(cr))
-        {
-            if ( (multisim_nsteps >= 0) &&  (step_rel >= multisim_nsteps)  &&
-                 (multisim_nsteps != ir->nsteps) )
-            {
-                if (bNS)
-                {
-                        fprintf(stderr,
-                                "Stopping simulation %d because another one has finished\n",
-                                cr->ms->sim);
-                    bLastStep         = TRUE;
-                    gs.sig[eglsCHKPT] = 1;
-                }
-            }
-        }
-
-        /* < 0 means stop at next step, > 0 means stop at next NS step */
-        if ( (gs.set[eglsSTOPCOND] < 0 ) ||
-             ( (gs.set[eglsSTOPCOND] > 0 ) && ( bNS || ir->nstlist == 0)) )
-        {
-            bLastStep = TRUE;
-        }
 
         /* Determine whether or not to update the Born radii if doing GB */
-        bBornRadii = bFirstStep;
-        if (ir->implicit_solvent && (step % ir->nstgbradii == 0))
-        {
-            bBornRadii = TRUE;
-        }
+        bBornRadii = TRUE;
 
         do_log     = do_per_step(step, ir->nstlog) || bFirstStep || bLastStep;
         do_verbose = bVerbose &&
             (step % stepout == 0 || bFirstStep || bLastStep);
 
-        if (bNS && !(bFirstStep && ir->bContinuation))
-        {
+
                 bMasterState = FALSE;
                 /* Correct the new box if it is too skewed */
                 if (DYNAMIC_BOX(*ir))
@@ -490,8 +342,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                         bMasterState = TRUE;
                     }
                 }
-
-        }
 
         if (do_log )
         {
@@ -524,7 +374,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
          * or at the last step (but not when we do not want confout),
          * but never at the first step or with rerun.
          */
-        bCPT = (((gs.set[eglsCHKPT] && (bNS || ir->nstlist == 0)) ||
+        bCPT = (((gs.set[eglsCHKPT] ) ||
                  (bLastStep && (Flags & MD_CONFOUT))) &&
                 step > ir->init_step );
         if (bCPT)
@@ -580,7 +430,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                      f, force_vir, mdatoms, enerd, fcd,
                      state->lambda, graph,
                      fr, vsite, mu_tot, t, outf->fp_field, ed, bBornRadii,
-                     (bNS ? GMX_FORCE_NS : 0) | force_flags);
+                     GMX_FORCE_NS | force_flags);
 
         GMX_BARRIER(cr->mpi_comm_mygroup);
 
@@ -729,7 +579,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             fflush(stderr);
             handled_stop_condition = (int)gmx_get_stop_condition();
         }
-        else if ( (bNS || ir->nstlist <= 0) &&
+        else if ( 
                  (max_hours > 0 && run_time > max_hours*60.0*60.0*0.99) &&
                  gs.sig[eglsSTOPCOND] == 0 && gs.set[eglsSTOPCOND] == 0)
         {
