@@ -51,9 +51,7 @@
 #include "mdrun.h"
 #include "xmdrun.h"
 #include "checkpoint.h"
-#ifdef GMX_THREAD_MPI
 #include "thread_mpi.h"
-#endif
 
 /* afm stuf */
 #include "pull.h"

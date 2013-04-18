@@ -220,7 +220,6 @@ static int get_nthreads_mpi(gmx_hw_info_t *hwinfo,
                             const t_commrec *cr,
                             FILE *fplog)
 {
-printf("**** inside of get_nthreads_mpi ****\n");
     int      nthreads_hw, nthreads_tot_max, nthreads_tmpi, nthreads_new, ngpu;
     int      min_atoms_per_mpi_thread;
     char    *env;
@@ -517,7 +516,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
              int repl_ex_seed, real pforce, real cpt_period, real max_hours,
              const char *deviceOptions, unsigned long Flags)
 {
-printf("****** inside of mdrunner *******\n");
 
     gmx_bool        bForceUseGPU, bTryUseGPU;
     double          nodetime = 0, realtime;
@@ -615,7 +613,6 @@ printf("****** inside of mdrunner *******\n");
             hw_opt->nthreads_omp = hw_opt->nthreads_tot/hw_opt->nthreads_tmpi;
         }
 
-printf("***** (hw_opt->nthreads_tmpi > 1) %d ****\n", (hw_opt->nthreads_tmpi > 1)); 
     /* END OF CAUTION: cr is now reliable */
 
 
