@@ -80,7 +80,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     gmx_large_int_t step, step_rel;
     double          run_time;
     double          t, t0, lam0[efptNR];
-    gmx_bool        bGStatEveryStep, bGStat, bCalcVir, bCalcEner;
+    gmx_bool        bGStatEveryStep, bCalcVir, bCalcEner;
     gmx_bool        bNS, bNStList, bSimAnn, bStopCM, bNotLastFrame = FALSE;
     gmx_bool        bFirstStep, bStateFromCP, bStateFromTPX, bInitStep, bLastStep;
     gmx_bool        bBornRadii, bStartingFromCpt;
@@ -209,15 +209,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                                   ) ?
                                  NULL : state_global->x);
 
-    if (DEFORM(*ir))
-    {
-        tMPI_Thread_mutex_lock(&deform_init_box_mutex);
-        set_deform_reference_box(upd,
-                                 deform_init_init_step_tpx,
-                                 deform_init_box_tpx);
-        tMPI_Thread_mutex_unlock(&deform_init_box_mutex);
-    }
-
+/* ENAS IO gone
     {
         double io = compute_io(ir, top_global->natoms, groups, mdebin->ebin->nener, 1);
         if ((io > 2000) && MASTER(cr))
@@ -227,22 +219,13 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                     io);
         }
     }
+*/
 
-        if (PAR(cr))
-        {
-            /* Initialize the particle decomposition and split the topology */
-            top = split_system(fplog, top_global, ir, cr);
 
-            pd_cg_range(cr, &fr->cg0, &fr->hcg);
-            pd_at_range(cr, &a0, &a1);
-        }
-        else
-        {
             top = gmx_mtop_generate_local_top(top_global, ir);
 
             a0 = 0;
             a1 = top_global->natoms;
-        }
 
         forcerec_set_excl_load(fr, top, cr);
 
@@ -259,10 +242,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
         init_bonded_thread_force_reduction(fr, &top->idef);
 
-        if (ir->pull && PAR(cr))
-        {
-            dd_make_local_pull_groups(NULL, ir->pull, mdatoms);
-        }
 
 
     update_mdatoms(mdatoms, state->lambda[efptMASS]);
@@ -276,8 +255,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         bStateFromCP = FALSE;
     }
 
-    if (MASTER(cr))
-    {
         if (bStateFromCP)
         {
             /* Update mdebin with energy history if appending to output files */
@@ -296,7 +273,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         }
         /* Set the initial energy history in state by updating once */
         update_energyhistory(&state_global->enerhist, mdebin);
-    }
 
     if ((state->flags & (1<<estLD_RNG)) && (Flags & MD_READ_RNG))
     {
@@ -363,9 +339,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     /* need to make an initiation call to get the Trotter variables set, as well as other constants for non-trotter
        temperature control */
     trotter_seq = init_npt_vars(ir, state, &MassQ, 0);
-
-    if (MASTER(cr))
-    {
         if (EI_STATE_VELOCITY(ir->eI))
         {
             fprintf(fplog, "Initial temperature: %g K\n", enerd->term[F_TEMP]);
@@ -394,7 +367,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                         gmx_step_str(ir->nsteps, sbuf), tbuf);
             }
         fprintf(fplog, "\n");
-    }
 
     /* Set and write start time */
     runtime_start(runtime);
@@ -480,12 +452,9 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             {
                 if (bNS)
                 {
-                    if (MASTER(cr))
-                    {
                         fprintf(stderr,
                                 "Stopping simulation %d because another one has finished\n",
                                 cr->ms->sim);
-                    }
                     bLastStep         = TRUE;
                     gs.sig[eglsCHKPT] = 1;
                 }
@@ -524,7 +493,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
         }
 
-        if (MASTER(cr) && do_log )
+        if (do_log )
         {
             print_ebin_header(fplog, step, t, state->lambda[efptFEP]); /* can we improve the information printed here? */
         }
@@ -570,10 +539,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         bCalcVir  = bCalcEner ||
                 (ir->epc != epcNO && do_per_step(step, ir->nstpcouple));
 
-        /* Do we need global communication ? */
-        bGStat = (bCalcVir || bCalcEner || bStopCM ||
-                  do_per_step(step, nstglobalcomm) ||
-                  (ir->nstlist == -1  && step >= nlh.step_nscheck));
 
         do_ene = (do_per_step(step, ir->nstenergy) || bLastStep);
 
@@ -581,12 +546,11 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         {
             bCalcVir  = TRUE;
             bCalcEner = TRUE;
-            bGStat    = TRUE;
         }
 
         /* these CGLO_ options remain the same throughout the iteration */
         cglo_flags = (
-                      (bGStat ? CGLO_GSTAT : 0)
+                      CGLO_GSTAT 
                       );
 
         force_flags = (GMX_FORCE_STATECHANGED |
@@ -677,8 +641,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                 {
                     get_mc_state(mcrng, state);
                 }
-                if (MASTER(cr))
-                {
                     if (bSumEkinhOld)
                     {
                         state_global->ekinstate.bUpToDate = FALSE;
@@ -697,7 +659,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                                                                        for single threads.*/
                         copy_df_history(&state_global->dfhist, &df_history);
                     }
-                }
             }
             write_traj(fplog, cr, outf, mdof_flags, top_global,
                        step, t, state, state_global, f, f_global, &n_xtc, &x_xtc);
@@ -708,7 +669,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             }
             debug_gmx();
             if (bLastStep && step_rel == ir->nsteps &&
-                (Flags & MD_CONFOUT) && MASTER(cr)
+                (Flags & MD_CONFOUT) 
                 )
             {
                 /* x and v have been collected in write_traj,
@@ -738,7 +699,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
         /* Check whether everything is still allright */
         if (((int)gmx_get_stop_condition() > handled_stop_condition)
-            && MASTER(cr)
+            
             )
         {
             /* this is just make gs.sig compatible with the hack
@@ -768,7 +729,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             fflush(stderr);
             handled_stop_condition = (int)gmx_get_stop_condition();
         }
-        else if (MASTER(cr) && (bNS || ir->nstlist <= 0) &&
+        else if ( (bNS || ir->nstlist <= 0) &&
                  (max_hours > 0 && run_time > max_hours*60.0*60.0*0.99) &&
                  gs.sig[eglsSTOPCOND] == 0 && gs.set[eglsSTOPCOND] == 0)
         {
@@ -781,7 +742,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             fprintf(stderr, "\nStep %s: Run time exceeded %.3f hours, will terminate the run\n", gmx_step_str(step, sbuf), max_hours*0.99);
         }
 
-        if (bResetCountersHalfMaxH && MASTER(cr) &&
+        if (bResetCountersHalfMaxH  &&
             run_time > max_hours*60.0*60.0*0.495)
         {
             gs.sig[eglsRESETCOUNTERS] = 1;
@@ -816,7 +777,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
          * where we do global communication,
          *  otherwise the other nodes don't know.
          */
-        if (MASTER(cr) && ((bGStat || !PAR(cr)) &&
+        if ( (
                            cpt_period >= 0 &&
                            (cpt_period == 0 ||
                             run_time >= nchkpt*cpt_period*60.0)) &&
@@ -892,8 +853,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
              * the kinetic energy one step before communication.
              */
 
-            if (bGStat || ( do_per_step(step+1, nstglobalcomm)))
-            {
                 if (ir->nstlist == -1 && bFirstIterate)
                 {
                     gs.sig[eglsNABNSB] = nlh.nabnsb;
@@ -920,7 +879,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                     nlh.nabnsb         = gs.set[eglsNABNSB];
                     gs.set[eglsNABNSB] = 0;
                 }
-            }
             /* bIterate is set to keep it from eliminating the old ekin kinetic energy terms */
             /* #############  END CALC EKIN AND PRESSURE ################# */
 
@@ -948,14 +906,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         /* ################# END UPDATE STEP 2 ################# */
         /* #### We now have r(t+dt) and v(t+dt/2)  ############# */
 
-        if (!bGStat)
-        {
-            /* We will not sum ekinh_old,
-             * so signal that we still have to do it.
-             */
-            bSumEkinhOld = TRUE;
-        }
-
         
 
         /* #########  BEGIN PREPARING EDR OUTPUT  ###########  */
@@ -967,14 +917,14 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         /* #########  END PREPARING EDR OUTPUT  ###########  */
 
         /* Time for performance */
+	
         if (((step % stepout) == 0) || bLastStep)
         {
             runtime_upd_proc(runtime);
         }
 
+
         /* Output stuff */
-        if (MASTER(cr))
-        {
             gmx_bool do_dr, do_or;
 
             if (bCalcEner)
@@ -1008,7 +958,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                     gmx_fatal(FARGS, "Cannot flush logfile - maybe you are out of disk space?");
                 }
             }
-        }
         /* Remaining runtime */
         if ( (do_verbose || gmx_got_usr_signal()) )
         {
@@ -1056,14 +1005,11 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         gmx_pme_send_finish(cr);
     }
 
-    if (MASTER(cr))
-    {
         if (ir->nstcalcenergy > 0 )
         {
             print_ebin(outf->fp_ene, FALSE, FALSE, FALSE, fplog, step, t,
                        eprAVER, FALSE, mdebin, fcd, groups, &(ir->opts));
         }
-    }
 
     done_mdoutf(outf);
 
