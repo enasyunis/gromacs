@@ -104,38 +104,6 @@
 #include "corewrap.h"
 #endif
 
-static void reset_all_counters(FILE *fplog, t_commrec *cr,
-                               gmx_large_int_t step,
-                               gmx_large_int_t *step_rel, t_inputrec *ir,
-                               gmx_wallcycle_t wcycle, t_nrnb *nrnb,
-                               gmx_runtime_t *runtime,
-                               nbnxn_cuda_ptr_t cu_nbv)
-{
-    char sbuf[STEPSTRSIZE];
-
-    /* Reset all the counters related to performance over the run */
-    md_print_warn(cr, fplog, "step %s: resetting all time and cycle counters\n",
-                  gmx_step_str(step, sbuf));
-
-    if (cu_nbv)
-    {
-        nbnxn_cuda_reset_timings(cu_nbv);
-    }
-
-    wallcycle_stop(wcycle, ewcRUN);
-    wallcycle_reset_all(wcycle);
-    if (DOMAINDECOMP(cr))
-    {
-        reset_dd_statistics_counters(cr->dd);
-    }
-    init_nrnb(nrnb);
-    ir->init_step += *step_rel;
-    ir->nsteps    -= *step_rel;
-    *step_rel      = 0;
-    wallcycle_start(wcycle, ewcRUN);
-    runtime_start(runtime);
-    print_date_and_time(fplog, cr->nodeid, "Restarted time", runtime);
-}
 
 double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
              const output_env_t oenv, gmx_bool bVerbose, gmx_bool bCompact,
@@ -232,8 +200,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     /* PME load balancing data for GPU kernels */
     pme_load_balancing_t pme_loadbal = NULL;
     double               cycles_pmes;
-    gmx_bool             bPMETuneTry = FALSE, bPMETuneRunning = FALSE;
-
 #ifdef GMX_FAHCORE
     /* Temporary addition for FAHCORE checkpointing */
     int chkpt_ret;
@@ -301,14 +267,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     snew(enerd, 1);
     init_enerdata(top_global->groups.grps[egcENER].nr, ir->fepvals->n_lambda,
                   enerd);
-    if (DOMAINDECOMP(cr))
-    {
-        f = NULL;
-    }
-    else
-    {
         snew(f, top_global->natoms);
-    }
 
     /* lambda Monte carlo random number generator  */
     if (ir->bExpanded)
@@ -333,8 +292,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     /* Check for polarizable models and flexible constraints */
     shellfc = init_shell_flexcon(fplog,
                                  top_global, n_flexible_constraints(constr),
-                                 (ir->bContinuation ||
-                                  (DOMAINDECOMP(cr) && !MASTER(cr))) ?
+                                 (ir->bContinuation 
+                                  ) ?
                                  NULL : state_global->x);
 
     if (DEFORM(*ir))
@@ -360,20 +319,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         }
     }
 
-    if (DOMAINDECOMP(cr))
-    {
-        top = dd_init_local_top(top_global);
-
-        snew(state, 1);
-        dd_init_local_state(cr->dd, state_global, state);
-
-        if (DDMASTER(cr->dd) && ir->nstfout)
-        {
-            snew(f_global, state_global->natoms);
-        }
-    }
-    else
-    {
         if (PAR(cr))
         {
             /* Initialize the particle decomposition and split the topology */
@@ -418,18 +363,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         {
             dd_make_local_pull_groups(NULL, ir->pull, mdatoms);
         }
-    }
 
-    if (DOMAINDECOMP(cr))
-    {
-        /* Distribute the charge groups over the nodes from the master node */
-        dd_partition_system(fplog, ir->init_step, cr, TRUE, 1,
-                            state_global, top_global, ir,
-                            state, &f, mdatoms, top, fr,
-                            vsite, shellfc, constr,
-                            nrnb, wcycle, FALSE);
-
-    }
 
     update_mdatoms(mdatoms, state->lambda[efptMASS]);
 
@@ -478,10 +412,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     /* Initialize constraints */
     if (constr)
     {
-        if (!DOMAINDECOMP(cr))
-        {
             set_constraints(constr, top, ir, mdatoms, cr);
-        }
     }
 
     if (repl_ex_nst > 0)
@@ -499,25 +430,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                                         repl_ex_nst, repl_ex_nex, repl_ex_seed);
     }
 
-    /* PME tuning is only supported with GPUs or PME nodes and not with rerun */
-    if ((Flags & MD_TUNEPME) &&
-        EEL_PME(fr->eeltype) &&
-        ( (fr->cutoff_scheme == ecutsVERLET && fr->nbv->bUseGPU) || !(cr->duty & DUTY_PME))
-        )
-    {
-        pme_loadbal_init(&pme_loadbal, ir, state->box, fr->ic, fr->pmedata);
-        cycles_pmes = 0;
-        if (cr->duty & DUTY_PME)
-        {
-            /* Start tuning right away, as we can't measure the load */
-            bPMETuneRunning = TRUE;
-        }
-        else
-        {
-            /* Separate PME nodes, we can measure the PP/PME load balance */
-            bPMETuneTry = TRUE;
-        }
-    }
 
     if (!ir->bContinuation )
     {
@@ -787,25 +699,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                         bMasterState = TRUE;
                     }
                 }
-                if (DOMAINDECOMP(cr) && bMasterState)
-                {
-                    dd_collect_state(cr->dd, state, state_global);
-                }
 
-            if (DOMAINDECOMP(cr))
-            {
-                /* Repartition the domain decomposition */
-                wallcycle_start(wcycle, ewcDOMDEC);
-                dd_partition_system(fplog, step, cr,
-                                    bMasterState, nstglobalcomm,
-                                    state_global, top_global, ir,
-                                    state, &f, mdatoms, top, fr,
-                                    vsite, shellfc, constr,
-                                    nrnb, wcycle,
-                                    do_verbose && !bPMETuneRunning);
-                wallcycle_stop(wcycle, ewcDOMDEC);
-                /* If using an iterative integrator, reallocate space to match the decomposition */
-            }
         }
 
         if (MASTER(cr) && do_log )
@@ -1715,7 +1609,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             }
         }
         /* Remaining runtime */
-        if (MULTIMASTER(cr) && (do_verbose || gmx_got_usr_signal()) && !bPMETuneRunning)
+        if (MULTIMASTER(cr) && (do_verbose || gmx_got_usr_signal()) )
         {
             if (shellfc)
             {
@@ -1733,14 +1627,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                                           state_global, enerd,
                                           state, step, t);
 
-            if (bExchanged && DOMAINDECOMP(cr))
-            {
-                dd_partition_system(fplog, step, cr, TRUE, 1,
-                                    state_global, top_global, ir,
-                                    state, &f, mdatoms, top, fr,
-                                    vsite, shellfc, constr,
-                                    nrnb, wcycle, FALSE);
-            }
         }
 
         bFirstStep       = FALSE;
@@ -1763,79 +1649,11 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
         /* #######  END SET VARIABLES FOR NEXT ITERATION ###### */
 
-
-
             /* increase the MD step number */
             step++;
             step_rel++;
 
         cycles = wallcycle_stop(wcycle, ewcSTEP);
-        if (DOMAINDECOMP(cr) && wcycle)
-        {
-            dd_cycles_add(cr->dd, cycles, ddCyclStep);
-        }
-
-        if (bPMETuneRunning || bPMETuneTry)
-        {
-            /* PME grid + cut-off optimization with GPUs or PME nodes */
-
-            /* Count the total cycles over the last steps */
-            cycles_pmes += cycles;
-
-            /* We can only switch cut-off at NS steps */
-            if (step % ir->nstlist == 0)
-            {
-                /* PME grid + cut-off optimization with GPUs or PME nodes */
-                if (bPMETuneTry)
-                {
-                    if (DDMASTER(cr->dd))
-                    {
-                        /* PME node load is too high, start tuning */
-                        bPMETuneRunning = (dd_pme_f_ratio(cr->dd) >= 1.05);
-                    }
-                    dd_bcast(cr->dd, sizeof(gmx_bool), &bPMETuneRunning);
-
-                    if (bPMETuneRunning || step_rel > ir->nstlist*50)
-                    {
-                        bPMETuneTry     = FALSE;
-                    }
-                }
-                if (bPMETuneRunning)
-                {
-                    /* init_step might not be a multiple of nstlist,
-                     * but the first cycle is always skipped anyhow.
-                     */
-                    bPMETuneRunning =
-                        pme_load_balance(pme_loadbal, cr,
-                                         (bVerbose && MASTER(cr)) ? stderr : NULL,
-                                         fplog,
-                                         ir, state, cycles_pmes,
-                                         fr->ic, fr->nbv, &fr->pmedata,
-                                         step);
-
-                    /* Update constants in forcerec/inputrec to keep them in sync with fr->ic */
-                    fr->ewaldcoeff = fr->ic->ewaldcoeff;
-                    fr->rlist      = fr->ic->rlist;
-                    fr->rlistlong  = fr->ic->rlistlong;
-                    fr->rcoulomb   = fr->ic->rcoulomb;
-                    fr->rvdw       = fr->ic->rvdw;
-                }
-                cycles_pmes = 0;
-            }
-        }
-
-        if (step_rel == wcycle_get_reset_counters(wcycle) ||
-            gs.set[eglsRESETCOUNTERS] != 0)
-        {
-            /* Reset all the counters related to performance over the run */
-            reset_all_counters(fplog, cr, step, &step_rel, ir, wcycle, nrnb, runtime,
-                               fr->nbv != NULL && fr->nbv->bUseGPU ? fr->nbv->cu_nbv : NULL);
-            wcycle_set_reset_counters(wcycle, -1);
-            /* Correct max_hours for the elapsed time */
-            max_hours                -= run_time/(60.0*60.0);
-            bResetCountersHalfMaxH    = FALSE;
-            gs.set[eglsRESETCOUNTERS] = 0;
-        }
 
     }
     /* End of main MD loop */
