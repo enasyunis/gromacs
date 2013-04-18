@@ -86,7 +86,6 @@
 #include "sighandler.h"
 #include "txtdump.h"
 #include "string2.h"
-#include "pme_loadbal.h"
 #include "bondf.h"
 #include "membed.h"
 #include "types/nlistheuristics.h"
@@ -198,7 +197,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                                                                       simulation stops. If equal to zero, don't
                                                                       communicate any more between multisims.*/
     /* PME load balancing data for GPU kernels */
-    pme_load_balancing_t pme_loadbal = NULL;
     double               cycles_pmes;
 #ifdef GMX_FAHCORE
     /* Temporary addition for FAHCORE checkpointing */
@@ -1227,10 +1225,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         fprintf(fplog, "Average number of atoms that crossed the half buffer length: %.1f\n\n", nlh.ab/nlh.nns);
     }
 
-    if (pme_loadbal != NULL)
-    {
-        pme_loadbal_done(pme_loadbal, fplog);
-    }
 
 
     if (repl_ex_nst > 0 && MASTER(cr))
