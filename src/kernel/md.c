@@ -1,40 +1,3 @@
-/*
- * This file is part of the GROMACS molecular simulation package.
- *
- * Copyright (c) 1991-2000, University of Groningen, The Netherlands.
- * Copyright (c) 2001-2004, The GROMACS development team,
- * check out http://www.gromacs.org for more information.
- * Copyright (c) 2012,2013, by the GROMACS development team, led by
- * David van der Spoel, Berk Hess, Erik Lindahl, and including many
- * others, as listed in the AUTHORS file in the top-level source
- * directory and at http://www.gromacs.org.
- *
- * GROMACS is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License
- * as published by the Free Software Foundation; either version 2.1
- * of the License, or (at your option) any later version.
- *
- * GROMACS is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with GROMACS; if not, see
- * http://www.gnu.org/licenses, or write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA.
- *
- * If you want to redistribute modifications to GROMACS, please
- * consider that scientific software is very special. Version
- * control is crucial - bugs must be traceable. We will be happy to
- * consider code for inclusion in the official distribution, but
- * derived work must not be called official GROMACS. Details are found
- * in the README & COPYING files - if they are missing, get the
- * official version at http://www.gromacs.org.
- *
- * To help us fund GROMACS development, we humbly ask that you cite
- * the research papers on the package. Check out http://www.gromacs.org.
- */
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -99,9 +62,6 @@
 #include "tmpi.h"
 #endif
 
-#ifdef GMX_FAHCORE
-#include "corewrap.h"
-#endif
 
 
 double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
@@ -168,7 +128,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     double            tcount   = 0;
     gmx_bool          bConverged = TRUE, bOK, bSumEkinhOld, bExchanged;
     gmx_bool          bResetCountersHalfMaxH = FALSE;
-    gmx_bool          bIterativeCase, bFirstIterate, bTemp, bPres;
+    gmx_bool          bFirstIterate, bTemp, bPres;
     gmx_bool          bUpdateDoLR;
     real              mu_aver = 0, dvdl;
     int               a0, a1, gnx = 0, ii;
@@ -198,28 +158,11 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                                                                       communicate any more between multisims.*/
     /* PME load balancing data for GPU kernels */
     double               cycles_pmes;
-#ifdef GMX_FAHCORE
-    /* Temporary addition for FAHCORE checkpointing */
-    int chkpt_ret;
-#endif
-
-    /* Check for special mdrun options */
-    if (Flags & MD_RESETCOUNTERSHALFWAY)
-    {
-        if (ir->nsteps > 0)
-        {
-            /* Signal to reset the counters half the simulation steps. */
-            wcycle_set_reset_counters(wcycle, ir->nsteps/2);
-        }
-        /* Signal to reset the counters halfway the simulation time. */
-        bResetCountersHalfMaxH = (max_hours > 0);
-    }
 
     /* md-vv uses averaged full step velocities for T-control
        md-vv-avek uses averaged half step velocities for T-control (but full step ekin for P control)
        md uses averaged half step kinetic energies to determine temperature unless defined otherwise by GMX_EKIN_AVE_VEL; */
     /* all the iteratative cases - only if there are constraints */
-    bIterativeCase = ((IR_NPH_TROTTER(ir) || IR_NPT_TROTTER(ir)) && (constr) );
     gmx_iterate_init(&iterate, FALSE); /* The default value of iterate->bIterationActive is set to
                                           false in this step.  The correct value, true or false,
                                           is set at each step, as it depends on the frequency of temperature
@@ -282,7 +225,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
     /* Check for polarizable models and flexible constraints */
     shellfc = init_shell_flexcon(fplog,
-                                 top_global, n_flexible_constraints(constr),
+                                 top_global, n_flexible_constraints(0),
                                  (ir->bContinuation 
                                   ) ?
                                  NULL : state_global->x);
@@ -391,26 +334,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         set_mc_state(mcrng, state);
     }
 
-    /* Initialize constraints */
-    if (constr)
-    {
-            set_constraints(constr, top, ir, mdatoms, cr);
-    }
-
-    if (repl_ex_nst > 0)
-    {
-        /* We need to be sure replica exchange can only occur
-         * when the energies are current */
-        check_nst_param(fplog, cr, "nstcalcenergy", ir->nstcalcenergy,
-                        "repl_ex_nst", &repl_ex_nst);
-        /* This check needs to happen before inter-simulation
-         * signals are initialized, too */
-    }
-    if (repl_ex_nst > 0 && MASTER(cr))
-    {
-        repl_ex = init_replica_exchange(fplog, cr->ms, state_global, ir,
-                                        repl_ex_nst, repl_ex_nex, repl_ex_seed);
-    }
 
 
     if (!ir->bContinuation )
@@ -440,10 +363,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     {
         nstfep = ir->expandedvals->nstexpanded;
     }
-    if (repl_ex_nst > 0 && nstfep > repl_ex_nst)
-    {
-        nstfep = repl_ex_nst;
-    }
 
     /* I'm assuming we need global communication the first time! MRS */
     cglo_flags = (CGLO_TEMPERATURE | CGLO_GSTAT
@@ -453,7 +372,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     bSumEkinhOld = FALSE;
     compute_globals(fplog, gstat, cr, ir, fr, ekind, state, state_global, mdatoms, nrnb, vcm,
                     NULL, enerd, force_vir, shake_vir, total_vir, pres, mu_tot,
-                    constr, NULL, FALSE, state->box,
+                    0, NULL, FALSE, state->box,
                     top_global, &pcurr, top_global->natoms, &bSumEkinhOld, cglo_flags);
 
 
@@ -469,11 +388,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     enerd->term[F_TEMP] *= 2; /* result of averages being done over previous and current step,
                                      and there is no previous step */
 
-    /* if using an iterative algorithm, we need to create a working directory for the state. */
-    if (bIterativeCase)
-    {
-        bufstate = init_bufstate(state);
-    }
 
     /* need to make an initiation call to get the Trotter variables set, as well as other constants for non-trotter
        temperature control */
@@ -481,12 +395,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
     if (MASTER(cr))
     {
-        if (constr && !ir->bContinuation && ir->eConstrAlg == econtLINCS)
-        {
-            fprintf(fplog,
-                    "RMS relative constraint deviation after constraining: %.2e\n",
-                    constr_rmsd(constr, FALSE));
-        }
         if (EI_STATE_VELOCITY(ir->eI))
         {
             fprintf(fplog, "Initial temperature: %g K\n", enerd->term[F_TEMP]);
@@ -527,14 +435,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     }
 
     /* safest point to do file checkpointing is here.  More general point would be immediately before integrator call */
-#ifdef GMX_FAHCORE
-    chkpt_ret = fcCheckPointParallel( cr->nodeid,
-                                      NULL, 0);
-    if (chkpt_ret == 0)
-    {
-        gmx_fatal( 3, __FILE__, __LINE__, "Checkpoint error on step %d\n", 0 );
-    }
-#endif
 
     debug_gmx();
 
@@ -549,12 +449,12 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     bSumEkinhOld     = FALSE;
     bExchanged       = FALSE;
 
-    init_global_signals(&gs, cr, ir, repl_ex_nst);
+    init_global_signals(&gs, cr, ir, 0);
 
     step     = ir->init_step;
     step_rel = 0;
 
-    if (MULTISIM(cr) && (repl_ex_nst <= 0 ))
+    if (MULTISIM(cr))
     {
         /* check how many steps are left in other sims */
         multisim_nsteps = get_multisim_nsteps(cr, ir->nsteps);
@@ -672,7 +572,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             /* This may not be quite working correctly yet . . . . */
             compute_globals(fplog, gstat, cr, ir, fr, ekind, state, state_global, mdatoms, nrnb, vcm,
                             wcycle, enerd, NULL, NULL, NULL, NULL, mu_tot,
-                            constr, NULL, FALSE, state->box,
+                            0, NULL, FALSE, state->box,
                             top_global, &pcurr, top_global->natoms, &bSumEkinhOld,
                             CGLO_RERUNMD | CGLO_GSTAT | CGLO_TEMPERATURE);
         }
@@ -786,23 +686,11 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         }
         ;
 
-#if defined(GMX_FAHCORE) || defined(GMX_WRITELASTSTEP)
+#if defined(GMX_WRITELASTSTEP)
         if (bLastStep)
         {
             /* Enforce writing positions and velocities at end of run */
             mdof_flags |= (MDOF_X | MDOF_V);
-        }
-#endif
-#ifdef GMX_FAHCORE
-        if (MASTER(cr))
-        {
-            fcReportProgress( ir->nsteps, step );
-        }
-
-        /* sync bCPT and fc record-keeping */
-        if (bCPT && MASTER(cr))
-        {
-            fcRequestCheckPoint();
         }
 #endif
 
@@ -970,12 +858,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         }
 
 
-        if (bIterativeCase && do_per_step(step, ir->nstpcouple))
-        {
-            gmx_iterate_init(&iterate, TRUE);
-            /* for iterations, we save these vectors, as we will be redoing the calculations */
-            copy_coupling_state(state, bufstate, ekind, ekind_save, &(ir->opts));
-        }
 
         bFirstIterate = TRUE;
         while (bFirstIterate || iterate.bIterationActive)
@@ -1015,13 +897,13 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
                 update_coords(fplog, step, ir, mdatoms, state, fr->bMolPBC, f,
                               bUpdateDoLR, fr->f_twin, fcd,
-                              ekind, M, wcycle, upd, bInitStep, etrtPOSITION, cr, nrnb, constr, &top->idef);
+                              ekind, M, wcycle, upd, bInitStep, etrtPOSITION, cr, nrnb, 0, &top->idef);
                 wallcycle_stop(wcycle, ewcUPDATE);
 
                 update_constraints(fplog, step, &dvdl, ir, ekind, mdatoms, state,
                                    fr->bMolPBC, graph, f,
                                    &top->idef, shake_vir, force_vir,
-                                   cr, nrnb, wcycle, upd, constr,
+                                   cr, nrnb, wcycle, upd, 0,
                                    bInitStep, FALSE, bCalcVir, state->veta);
 
 
@@ -1050,7 +932,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                 }
                 compute_globals(fplog, gstat, cr, ir, fr, ekind, state, state_global, mdatoms, nrnb, vcm,
                                 wcycle, enerd, force_vir, shake_vir, total_vir, pres, mu_tot,
-                                constr,
+                                0,
                                 bFirstIterate ? &gs : NULL,
                                 (step_rel % gs.nstms == 0) &&
                                 (multisim_nsteps < 0 || (step_rel < multisim_nsteps)),
@@ -1133,7 +1015,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                                t, mdatoms->tmass, enerd, state,
                                ir->fepvals, ir->expandedvals, lastbox,
                                shake_vir, force_vir, total_vir, pres,
-                               ekind, mu_tot, constr);
+                               ekind, mu_tot, 0);
             }
             else
             {
@@ -1227,10 +1109,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
 
 
-    if (repl_ex_nst > 0 && MASTER(cr))
-    {
-        print_replica_exchange_statistics(fplog, repl_ex);
-    }
 
     runtime->nsteps_done = step_rel;
 

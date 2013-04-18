@@ -35,9 +35,6 @@ if(GMX_GPU OR GMX_FORCE_CXX)
     endif()
 endif()
 
-if(GMX_FAHCORE)
-  add_library(fahcore ${MDRUN_SOURCES})
-else(GMX_FAHCORE)
 
 list(APPEND GMX_EXTRA_LIBRARIES gmxpreprocess md ${OpenMP_LINKER_FLAGS})
 
@@ -109,7 +106,6 @@ if (INSTALL_CUDART_LIB) #can be set manual by user
         message(WARNING "INSTALL_CUDART_LIB only makes sense with GMX_GPU")
     endif()
 endif ()
-endif(GMX_FAHCORE)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/libgmxpreprocess.pc.cmakein ${CMAKE_CURRENT_BINARY_DIR}/libgmxpreprocess.pc @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libgmxpreprocess.pc
