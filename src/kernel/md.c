@@ -426,11 +426,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
 
         {
-            /* We now restore these vectors to redo the calculation with improved extended variables */
-            if (iterate.bIterationActive)
-            {
-                copy_coupling_state(bufstate, state, ekind_save, ekind, &(ir->opts));
-            }
 
             /* We make the decision to break or not -after- the calculation of Ekin and Pressure,
                so scroll down for that logic */
@@ -469,10 +464,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                                    bInitStep, FALSE, bCalcVir, state->veta);
 
 
-                if (fr->bSepDVDL && fplog)
-                {
-                    fprintf(fplog, sepdvdlformat, "Constraint dV/dl", 0.0, dvdl);
-                }
+                fprintf(fplog, sepdvdlformat, "Constraint dV/dl", 0.0, dvdl);
                 enerd->term[F_DVDL_BONDED] += dvdl;
 
             GMX_BARRIER(cr->mpi_comm_mygroup);
@@ -551,44 +543,16 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             print_ebin(outf->fp_ene, do_ene, do_dr, do_or, fplog,
                            step, t,
                            eprNORMAL, bCompact, mdebin, fcd, groups, &(ir->opts));
-            if (ir->ePull != epullNO)
-            {
-                pull_print_output(ir->pull, step, t);
-            }
 
-            if (do_per_step(step, ir->nstlog))
-            {
-                if (fflush(fplog) != 0)
-                {
-                    gmx_fatal(FARGS, "Cannot flush logfile - maybe you are out of disk space?");
-                }
-            }
+             if (fflush(fplog) != 0)
+             {
+                  gmx_fatal(FARGS, "Cannot flush logfile - maybe you are out of disk space?");
+             }
         /* Remaining runtime */
         if ( (do_verbose || gmx_got_usr_signal()) )
         {
             print_time(stderr, runtime, step, ir, cr);
         }
-
-
-        bFirstStep       = FALSE;
-        bInitStep        = FALSE;
-        bStartingFromCpt = FALSE;
-
-        /* #######  SET VARIABLES FOR NEXT ITERATION IF THEY STILL NEED IT ###### */
-        /* With all integrators, except VV, we need to retain the pressure
-         * at the current step for coupling at the next step.
-         */
-        if ((state->flags & (1<<estPRES_PREV)) &&
-            (bGStatEveryStep ||
-             (ir->nstpcouple > 0 && step % ir->nstpcouple == 0)))
-        {
-            /* Store the pressure in t_state for pressure coupling
-             * at the next MD step.
-             */
-            copy_mat(pres, state->pres_prev);
-        }
-
-        /* #######  END SET VARIABLES FOR NEXT ITERATION ###### */
 
             /* increase the MD step number */
             step++;
@@ -604,17 +568,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     runtime_end(runtime);
 
 
-    if (!(cr->duty & DUTY_PME))
-    {
-        /* Tell the PME only node to finish */
-        gmx_pme_send_finish(cr);
-    }
-
-        if (ir->nstcalcenergy > 0 )
-        {
-            print_ebin(outf->fp_ene, FALSE, FALSE, FALSE, fplog, step, t,
+    print_ebin(outf->fp_ene, FALSE, FALSE, FALSE, fplog, step, t,
                        eprAVER, FALSE, mdebin, fcd, groups, &(ir->opts));
-        }
 
     done_mdoutf(outf);
 
