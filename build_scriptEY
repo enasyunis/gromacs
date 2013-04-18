@@ -9,8 +9,8 @@ cd ~/gromacs_4.6/build
 cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DGMX_GPU=OFF -DGMX_DOUBLE=ON
 make install
 cd ../data
-../exec/bin/grompp_d -c conf.gro -p topol.top -f gromppE.mdp -o ThsndWE.tpr -po mdoutE.mdp
-../exec/bin/grompp_d -c conf.gro -p topol.top -f gromppP.mdp -o ThsndWP.tpr -po mdoutP.mdp
+../exec/bin/grompp_d -c conf.gro -p topol.top -f gromppEwald.mdp -o ThsndWE.tpr -po mdoutE.mdp
+../exec/bin/grompp_d -c conf.gro -p topol.top -f gromppPME.mdp -o ThsndWP.tpr -po mdoutP.mdp
 ../exec/bin/mdrun_d -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm ThsndW
 rm -r \#*
 
