@@ -7,7 +7,6 @@ set(GMXPREPROCESS_SOURCES
 set(MDRUN_SOURCES 
     ionize.c
     runner.c
-    repl_ex.c
     md.c
     mdrun.c )
 

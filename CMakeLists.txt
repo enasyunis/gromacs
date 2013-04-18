@@ -156,8 +156,6 @@ option(GMX_MPI    "Build a parallel (message-passing) version of GROMACS" OFF)
 option(GMX_THREAD_MPI  "Build a thread-MPI-based multithreaded version of GROMACS (not compatible with MPI)" ON)
 option(GMX_SOFTWARE_INVSQRT "Use GROMACS software 1/sqrt" ON)
 mark_as_advanced(GMX_SOFTWARE_INVSQRT)
-option(GMX_FAHCORE "Build a library with mdrun functionality" OFF)
-mark_as_advanced(GMX_FAHCORE)
 
 include(gmxDetectAcceleration)
 if(NOT DEFINED GMX_CPU_ACCELERATION)
@@ -1013,12 +1011,6 @@ if(HAVE_LIBM)
     list(APPEND	GMX_EXTRA_LIBRARIES m)
 endif(HAVE_LIBM)
 
-if(GMX_FAHCORE)
-  set(COREWRAP_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/../corewrap" CACHE STRING 
-      "Path to swindirect.h")
-  include_directories(${COREWRAP_INCLUDE_DIR})
-  set_property(CACHE GMX_COOL_QUOTES VALUE OFF)
-endif(GMX_FAHCORE)
 
 # # # # # # # # # # NO MORE TESTS AFTER THIS LINE! # # # # # # # # # # #
 # these are set after everything else

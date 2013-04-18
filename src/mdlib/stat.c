@@ -473,13 +473,11 @@ gmx_mdoutf_t *init_mdoutf(int nfile, const t_filenm fnm[], int mdrun_flags,
         sprintf(filemode, bAppendFiles ? "a+" : "w+");
 
         if ((EI_DYNAMICS(ir->eI) || EI_ENERGY_MINIMIZATION(ir->eI))
-#ifndef GMX_FAHCORE
             &&
             !(EI_DYNAMICS(ir->eI) &&
               ir->nstxout == 0 &&
               ir->nstvout == 0 &&
               ir->nstfout == 0)
-#endif
             )
         {
             of->fp_trn = open_trn(ftp2fn(efTRN, nfile, fnm), filemode);

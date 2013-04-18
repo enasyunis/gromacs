@@ -32,7 +32,6 @@
 #include "orires.h"
 #include "pme.h"
 #include "mdatoms.h"
-#include "repl_ex.h"
 #include "qmmm.h"
 #include "mpelogging.h"
 #include "domdec.h"
@@ -101,7 +100,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     matrix           *scale_tot, pcoupl_mu, M, ebox;
     gmx_nlheur_t      nlh;
     t_trxframe        rerun_fr;
-    gmx_repl_ex_t     repl_ex = NULL;
     int               nchkpt  = 1;
     gmx_localtop_t   *top;
     t_mdebin         *mdebin = NULL;

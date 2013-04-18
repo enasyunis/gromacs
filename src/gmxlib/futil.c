@@ -115,18 +115,10 @@ void push_ps(FILE *fp)
 #endif
 }
 
-#ifdef GMX_FAHCORE
-/* don't use pipes!*/
-#define popen fah_fopen
-#define pclose fah_fclose
-#define SKIP_FFOPS 1
-#else
 #ifdef ffclose
 #undef ffclose
 #endif
-#endif
 
-#ifndef GMX_FAHCORE
 #ifndef HAVE_PIPES
 static FILE *popen(const char *nm, const char *mode)
 {
@@ -141,7 +133,6 @@ static int pclose(FILE *fp)
 
     return 0;
 }
-#endif
 #endif
 
 int ffclose(FILE *fp)
@@ -476,9 +467,6 @@ gmx_bool make_backup(const char * name)
     int    count_max;
     char * backup;
 
-#ifdef GMX_FAHCORE
-    return FALSE; /* skip making backups */
-#else
 
     if (gmx_fexist(name))
     {
@@ -512,7 +500,6 @@ gmx_bool make_backup(const char * name)
         sfree(backup);
     }
     return TRUE;
-#endif
 }
 
 FILE *ffopen(const char *file, const char *mode)
@@ -1237,10 +1224,6 @@ int gmx_fsync(FILE *fp)
 {
     int rc = 0;
 
-#ifdef GMX_FAHCORE
-    /* the fahcore defines its own os-independent fsync */
-    rc = fah_fsync(fp);
-#else /* GMX_FAHCORE */
     {
         int fn = -1;
 
@@ -1261,7 +1244,6 @@ int gmx_fsync(FILE *fp)
 #endif
         }
     }
-#endif /* GMX_FAHCORE */
 
     /* We check for these error codes this way because POSIX requires them
        to be defined, and using anything other than macros is unlikely: */

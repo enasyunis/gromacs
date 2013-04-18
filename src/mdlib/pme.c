@@ -99,9 +99,7 @@
 
 #define PME_SSE
 /* Some old AMD processors could have problems with unaligned loads+stores */
-#ifndef GMX_FAHCORE
 #define PME_SSE_UNALIGNED
-#endif
 #endif
 
 #include "mpelogging.h"

@@ -89,11 +89,7 @@ int gmx_setup(int *argc, char **argv, int *nnodes)
 
     /* Call the MPI routines */
 #ifdef GMX_LIB_MPI
-#ifdef GMX_FAHCORE
-    (void) fah_MPI_Init(argc, &argv);
-#else
     (void) MPI_Init(argc, &argv);
-#endif
 #endif
     (void) MPI_Comm_size( MPI_COMM_WORLD, &mpi_num_nodes );
     (void) MPI_Comm_rank( MPI_COMM_WORLD, &mpi_my_rank );
@@ -222,6 +218,31 @@ int gmx_setup(int *argc, char **argv, int *nnodes)
 
     }
     MPE_Init_log();
+#endif
+
+printf("*****KKKKKKK***** GMX_LIB_MPI %d GMX_THREAD_MPI %d GMX_LIB %d GMX_MPI %d ****\n",
+#ifdef GMX_LIB_MPI
+1,
+#else
+0, 
+#endif 
+
+#ifdef GMX_THREAD_MPI
+1,
+#else
+0,
+#endif
+
+#ifdef GMX_LIB
+1,
+#else
+0,
+#endif
+
+#ifdef GMX_MPI
+1);
+#else
+0);
 #endif
 
 #ifdef GMX_LIB_MPI

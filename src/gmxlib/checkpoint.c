@@ -76,9 +76,6 @@
 
 #include "buildinfo.h"
 
-#ifdef GMX_FAHCORE
-#include "corewrap.h"
-#endif
 
 
 /* Portable version of ctime_r implemented in src/gmxlib/string2.c, but we do not want it declared in public installed headers */
@@ -164,10 +161,6 @@ const char *edfh_names[edfhNR] =
 static int
 gmx_wintruncate(const char *filename, __int64 size)
 {
-#ifdef GMX_FAHCORE
-    /*we do this elsewhere*/
-    return 0;
-#else
     FILE *fp;
     int   rc;
 
@@ -179,7 +172,6 @@ gmx_wintruncate(const char *filename, __int64 size)
     }
 
     return _chsize_s( fileno(fp), size);
-#endif
 }
 #endif
 
@@ -1600,7 +1592,6 @@ void write_checkpoint(const char *fn, gmx_bool bNumberAndKeep,
             buf[strlen(fn) - strlen(ftp2ext(fn2ftp(fn))) - 1] = '\0';
             strcat(buf, "_prev");
             strcat(buf, fn+strlen(fn) - strlen(ftp2ext(fn2ftp(fn))) - 1);
-#ifndef GMX_FAHCORE
             /* we copy here so that if something goes wrong between now and
              * the rename below, there's always a state.cpt.
              * If renames are atomic (such as in POSIX systems),
@@ -1610,9 +1601,6 @@ void write_checkpoint(const char *fn, gmx_bool bNumberAndKeep,
             /* We don't really care if this fails:
              * there's already a new checkpoint.
              */
-#else
-            gmx_file_rename(fn, buf);
-#endif
         }
         if (gmx_file_rename(fntemp, fn) != 0)
         {
@@ -1623,15 +1611,6 @@ void write_checkpoint(const char *fn, gmx_bool bNumberAndKeep,
     sfree(outputfiles);
     sfree(fntemp);
 
-#ifdef GMX_FAHCORE
-    /*code for alternate checkpointing scheme.  moved from top of loop over
-       steps */
-    fcRequestCheckPoint();
-    if (fcCheckPointParallel( cr->nodeid, NULL, 0) == 0)
-    {
-        gmx_fatal( 3, __FILE__, __LINE__, "Checkpoint error on step %d\n", step );
-    }
-#endif /* end GMX_FAHCORE block */
 }
 
 static void print_flag_mismatch(FILE *fplog, int sflags, int fflags)
@@ -2061,10 +2040,6 @@ static void read_checkpoint(const char *fn, FILE **pfplog,
                           " offsets. Can not append. Run mdrun with -noappend",
                           outputfiles[i].filename);
             }
-#ifdef GMX_FAHCORE
-            chksum_file = gmx_fio_open(outputfiles[i].filename, "a");
-
-#else
             chksum_file = gmx_fio_open(outputfiles[i].filename, "r+");
 
             /* lock log file */
@@ -2127,7 +2102,6 @@ static void read_checkpoint(const char *fn, FILE **pfplog,
                     gmx_fatal(FARGS, "Seek error! Failed to truncate log-file: %s.", strerror(errno));
                 }
             }
-#endif
 
             if (i == 0) /*open log file here - so that lock is never lifted
                            after chksum is calculated */
@@ -2138,7 +2112,6 @@ static void read_checkpoint(const char *fn, FILE **pfplog,
             {
                 gmx_fio_close(chksum_file);
             }
-#ifndef GMX_FAHCORE
             /* compare md5 chksum */
             if (outputfiles[i].chksum_size != -1 &&
                 memcmp(digest, outputfiles[i].chksum, 16) != 0)
@@ -2155,7 +2128,6 @@ static void read_checkpoint(const char *fn, FILE **pfplog,
                 gmx_fatal(FARGS, "Checksum wrong for '%s'. The file has been replaced or its contents have been modified. Cannot do appending because of this condition.",
                           outputfiles[i].filename);
             }
-#endif
 
 
             if (i != 0) /*log file is already seeked to correct position */

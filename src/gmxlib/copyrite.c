@@ -269,20 +269,12 @@ void CopyRight(FILE *out, const char *szProgram)
      */
 #define NCR (int)asize(CopyrightText)
 /* TODO: Is this exception still needed? */
-#ifdef GMX_FAHCORE
-#define NLICENSE 0 /*FAH has an exception permission from GPL to allow digital signatures in Gromacs*/
-#else
 #define NLICENSE (int)asize(LicenseText)
-#endif
 
     char buf[256], tmpstr[1024];
     int  i;
 
-#ifdef GMX_FAHCORE
-    set_program_name("Gromacs");
-#else
     set_program_name(szProgram);
-#endif
 
     ster_print(out, "G  R  O  M  A  C  S");
     fprintf(out, "\n");

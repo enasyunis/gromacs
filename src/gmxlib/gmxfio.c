@@ -511,10 +511,8 @@ t_fileio *gmx_fio_open(const char *fn, const char *mode)
              */
             if (newmode[0] == 'w')
             {
-#ifndef GMX_FAHCORE
                 /* only make backups for normal gromacs */
                 make_backup(fn);
-#endif
             }
             else
             {
@@ -882,12 +880,10 @@ int gmx_fio_get_output_file_positions(gmx_file_position_t **p_outputfiles,
             else
             {
                 gmx_fio_int_get_file_position(cur, &outputfiles[nfiles].offset);
-#ifndef GMX_FAHCORE
                 outputfiles[nfiles].chksum_size
                     = gmx_fio_int_get_file_md5(cur,
                                                outputfiles[nfiles].offset,
                                                outputfiles[nfiles].chksum);
-#endif
             }
 
             nfiles++;

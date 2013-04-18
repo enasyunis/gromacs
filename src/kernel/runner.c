@@ -57,7 +57,6 @@
 #include "orires.h"
 #include "pme.h"
 #include "mdatoms.h"
-#include "repl_ex.h"
 #include "qmmm.h"
 #include "mpelogging.h"
 #include "domdec.h"
