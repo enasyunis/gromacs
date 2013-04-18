@@ -1,40 +1,3 @@
-/*
- * This file is part of the GROMACS molecular simulation package.
- *
- * Copyright (c) 1991-2000, University of Groningen, The Netherlands.
- * Copyright (c) 2001-2004, The GROMACS development team,
- * check out http://www.gromacs.org for more information.
- * Copyright (c) 2012,2013, by the GROMACS development team, led by
- * David van der Spoel, Berk Hess, Erik Lindahl, and including many
- * others, as listed in the AUTHORS file in the top-level source
- * directory and at http://www.gromacs.org.
- *
- * GROMACS is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License
- * as published by the Free Software Foundation; either version 2.1
- * of the License, or (at your option) any later version.
- *
- * GROMACS is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with GROMACS; if not, see
- * http://www.gnu.org/licenses, or write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA.
- *
- * If you want to redistribute modifications to GROMACS, please
- * consider that scientific software is very special. Version
- * control is crucial - bugs must be traceable. We will be happy to
- * consider code for inclusion in the official distribution, but
- * derived work must not be called official GROMACS. Details are found
- * in the README & COPYING files - if they are missing, get the
- * official version at http://www.gromacs.org.
- *
- * To help us fund GROMACS development, we humbly ask that you cite
- * the research papers on the package. Check out http://www.gromacs.org.
- */
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -149,20 +112,6 @@ static int get_tmpi_omp_thread_division(const gmx_hw_info_t *hwinfo,
      * and a conditional ensures we would not have ended up here.
      * Note that separate PME nodes might be switched on later.
      */
-    if (ngpu > 0)
-    {
-        nthreads_tmpi = ngpu;
-        if (nthreads_tot > 0 && nthreads_tot < nthreads_tmpi)
-        {
-            nthreads_tmpi = nthreads_tot;
-        }
-    }
-    else if (hw_opt->nthreads_omp > 0)
-    {
-        /* Here we could oversubscribe, when we do, we issue a warning later */
-        nthreads_tmpi = max(1, nthreads_tot/hw_opt->nthreads_omp);
-    }
-    else
     {
         /* TODO choose nthreads_omp based on hardware topology
            when we have a hardware topology detection library */
@@ -192,11 +141,13 @@ static int get_tmpi_omp_thread_division(const gmx_hw_info_t *hwinfo,
              ((gmx_cpuid_model(hwinfo->cpuid_info) >= nthreads_omp_always_faster_Nehalem && nthreads_tot <= nthreads_omp_always_faster_Nehalem) ||
               (gmx_cpuid_model(hwinfo->cpuid_info) >= nthreads_omp_always_faster_SandyBridge && nthreads_tot <= nthreads_omp_always_faster_SandyBridge))))
         {
+            printf("\n---- runner.c Using pure OpenMP ---- \n");
             /* Use pure OpenMP parallelization */
             nthreads_tmpi = 1;
         }
         else
         {
+            printf("\n----- runner.c  Not using OpenMP -----\n");
             /* Don't use OpenMP parallelization */
             nthreads_tmpi = nthreads_tot;
         }
@@ -219,116 +170,21 @@ static int get_nthreads_mpi(gmx_hw_info_t *hwinfo,
                             const t_commrec *cr,
                             FILE *fplog)
 {
-    int      nthreads_hw, nthreads_tot_max, nthreads_tmpi, nthreads_new, ngpu;
+    int      nthreads_hw, nthreads_tot_max, nthreads_tmpi, nthreads_new;
     int      min_atoms_per_mpi_thread;
     char    *env;
     char     sbuf[STRLEN];
-    gmx_bool bCanUseGPU;
 
-    if (hw_opt->nthreads_tmpi > 0)
-    {
-        /* Trivial, return right away */
-        return hw_opt->nthreads_tmpi;
-    }
 
     nthreads_hw = hwinfo->nthreads_hw_avail;
 
-    /* How many total (#tMPI*#OpenMP) threads can we start? */
-    if (hw_opt->nthreads_tot > 0)
-    {
-        nthreads_tot_max = hw_opt->nthreads_tot;
-    }
-    else
-    {
-        nthreads_tot_max = nthreads_hw;
-    }
+    nthreads_tot_max = nthreads_hw;
 
-    bCanUseGPU = (hwinfo->bCanUseGPU);
-    if (bCanUseGPU)
-    {
-        ngpu = hwinfo->gpu_info.ncuda_dev_use;
-    }
-    else
-    {
-        ngpu = 0;
-    }
 
     nthreads_tmpi =
-        get_tmpi_omp_thread_division(hwinfo, hw_opt, nthreads_tot_max, ngpu);
+    get_tmpi_omp_thread_division(hwinfo, hw_opt, nthreads_tot_max, 0);
+    min_atoms_per_mpi_thread = MIN_ATOMS_PER_MPI_THREAD;
 
-    if (inputrec->eI == eiNM || EI_TPI(inputrec->eI))
-    {
-        /* Steps are divided over the nodes iso splitting the atoms */
-        min_atoms_per_mpi_thread = 0;
-    }
-    else
-    {
-        if (bCanUseGPU)
-        {
-            min_atoms_per_mpi_thread = MIN_ATOMS_PER_GPU;
-        }
-        else
-        {
-            min_atoms_per_mpi_thread = MIN_ATOMS_PER_MPI_THREAD;
-        }
-    }
-
-    /* Check if an algorithm does not support parallel simulation.  */
-    if (nthreads_tmpi != 1 &&
-        ( inputrec->eI == eiLBFGS ||
-          inputrec->coulombtype == eelEWALD ) )
-    {
-        nthreads_tmpi = 1;
-
-        md_print_warn(cr, fplog, "The integration or electrostatics algorithm doesn't support parallel runs. Using a single thread-MPI thread.\n");
-        if (hw_opt->nthreads_tmpi > nthreads_tmpi)
-        {
-            gmx_fatal(FARGS, "You asked for more than 1 thread-MPI thread, but an algorithm doesn't support that");
-        }
-    }
-    else if (mtop->natoms/nthreads_tmpi < min_atoms_per_mpi_thread)
-    {
-        /* the thread number was chosen automatically, but there are too many
-           threads (too few atoms per thread) */
-        nthreads_new = max(1, mtop->natoms/min_atoms_per_mpi_thread);
-
-        /* Avoid partial use of Hyper-Threading */
-        if (gmx_cpuid_x86_smt(hwinfo->cpuid_info) == GMX_CPUID_X86_SMT_ENABLED &&
-            nthreads_new > nthreads_hw/2 && nthreads_new < nthreads_hw)
-        {
-            nthreads_new = nthreads_hw/2;
-        }
-
-        /* Avoid large prime numbers in the thread count */
-        if (nthreads_new >= 6)
-        {
-            /* Use only 6,8,10 with additional factors of 2 */
-            int fac;
-
-            fac = 2;
-            while (3*fac*2 <= nthreads_new)
-            {
-                fac *= 2;
-            }
-
-            nthreads_new = (nthreads_new/fac)*fac;
-        }
-        else
-        {
-            /* Avoid 5 */
-            if (nthreads_new == 5)
-            {
-                nthreads_new = 4;
-            }
-        }
-
-        nthreads_tmpi = nthreads_new;
-
-        fprintf(stderr, "\n");
-        fprintf(stderr, "NOTE: Parallelization is limited by the small number of atoms,\n");
-        fprintf(stderr, "      only starting %d thread-MPI threads.\n", nthreads_tmpi);
-        fprintf(stderr, "      You can use the -nt and/or -ntmpi option to optimize the number of threads.\n\n");
-    }
 
     return nthreads_tmpi;
 }
@@ -358,7 +214,6 @@ static void prepare_verlet_scheme(FILE             *fplog,
      * as here we don't know how many GPUs we will use yet.
      * We check for a GPU on all processes later.
      */
-    *bUseGPU = hwinfo->bCanUseGPU || (getenv("GMX_EMULATE_GPU") != NULL);
 
         /* Update the Verlet buffer size for the current run setup */
         verletbuf_list_setup_t ls;
@@ -373,17 +228,6 @@ static void prepare_verlet_scheme(FILE             *fplog,
         calc_verlet_buffer_size(mtop, det(box), ir,
                                 ir->verletbuf_drift, &ls,
                                 NULL, &rlist_new);
-        if (rlist_new != ir->rlist)
-        {
-            if (fplog != NULL)
-            {
-                fprintf(fplog, "\nChanging rlist from %g to %g for non-bonded %dx%d atom kernels\n\n",
-                        ir->rlist, rlist_new,
-                        ls.cluster_size_i, ls.cluster_size_j);
-            }
-            ir->rlist     = rlist_new;
-            ir->rlistlong = rlist_new;
-        }
 }
 
 
@@ -393,74 +237,6 @@ static void check_and_update_hw_opt(gmx_hw_opt_t *hw_opt,
 {
     gmx_omp_nthreads_read_env(&hw_opt->nthreads_omp, bIsSimMaster);
 
-
-    if (hw_opt->nthreads_tot > 0 && hw_opt->nthreads_omp_pme <= 0)
-    {
-        /* We have the same number of OpenMP threads for PP and PME processes,
-         * thus we can perform several consistency checks.
-         */
-        if (hw_opt->nthreads_tmpi > 0 &&
-            hw_opt->nthreads_omp > 0 &&
-            hw_opt->nthreads_tot != hw_opt->nthreads_tmpi*hw_opt->nthreads_omp)
-        {
-            gmx_fatal(FARGS, "The total number of threads requested (%d) does not match the thread-MPI threads (%d) times the OpenMP threads (%d) requested",
-                      hw_opt->nthreads_tot, hw_opt->nthreads_tmpi, hw_opt->nthreads_omp);
-        }
-
-        if (hw_opt->nthreads_tmpi > 0 &&
-            hw_opt->nthreads_tot % hw_opt->nthreads_tmpi != 0)
-        {
-            gmx_fatal(FARGS, "The total number of threads requested (%d) is not divisible by the number of thread-MPI threads requested (%d)",
-                      hw_opt->nthreads_tot, hw_opt->nthreads_tmpi);
-        }
-
-        if (hw_opt->nthreads_omp > 0 &&
-            hw_opt->nthreads_tot % hw_opt->nthreads_omp != 0)
-        {
-            gmx_fatal(FARGS, "The total number of threads requested (%d) is not divisible by the number of OpenMP threads requested (%d)",
-                      hw_opt->nthreads_tot, hw_opt->nthreads_omp);
-        }
-
-        if (hw_opt->nthreads_tmpi > 0 &&
-            hw_opt->nthreads_omp <= 0)
-        {
-            hw_opt->nthreads_omp = hw_opt->nthreads_tot/hw_opt->nthreads_tmpi;
-        }
-    }
-
-
-    if (hw_opt->nthreads_omp_pme > 0 && hw_opt->nthreads_omp <= 0)
-    {
-        gmx_fatal(FARGS, "You need to specify -ntomp in addition to -ntomp_pme");
-    }
-
-    if (hw_opt->nthreads_tot == 1)
-    {
-        hw_opt->nthreads_tmpi = 1;
-
-        if (hw_opt->nthreads_omp > 1)
-        {
-            gmx_fatal(FARGS, "You requested %d OpenMP threads with %d total threads",
-                      hw_opt->nthreads_tmpi, hw_opt->nthreads_tot);
-        }
-        hw_opt->nthreads_omp = 1;
-    }
-
-    if (hw_opt->nthreads_omp_pme <= 0 && hw_opt->nthreads_omp > 0)
-    {
-        hw_opt->nthreads_omp_pme = hw_opt->nthreads_omp;
-    }
-
-    if (debug)
-    {
-        fprintf(debug, "hw_opt: nt %d ntmpi %d ntomp %d ntomp_pme %d gpu_id '%s'\n",
-                hw_opt->nthreads_tot,
-                hw_opt->nthreads_tmpi,
-                hw_opt->nthreads_omp,
-                hw_opt->nthreads_omp_pme,
-                hw_opt->gpu_id != NULL ? hw_opt->gpu_id : "");
-
-    }
 }
 
 
