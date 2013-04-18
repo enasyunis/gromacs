@@ -34,45 +34,16 @@
 #
 
 set(GMXPREPROCESS_SOURCES 
-    add_par.c       
     calc_verletbuf.c
     compute_io.c    
-    convparm.c      
-    gen_ad.c        
-    gen_vsite.c     
-    genhydro.c   
-    gpp_atomtype.c  
-    gpp_bond_atomtype.c     
-    h_db.c          
-    hackblock.c             
-    hizzie.c        
-    nm2type.c
-    pdb2top.c       
-    pgutil.c        
-    readir.c        
-    readpull.c      
     readadress.c      
-    readrot.c
-    resall.c        
-    sorting.c       
-    specbond.c      
-    ter_db.c        
-    tomorse.c       
-    topdirs.c       
-    topexcl.c       
-    topio.c         
-    toppush.c       
-    topshake.c      
-    toputil.c       
-    tpbcmp.c        
-    vsite_parm.c    
     fflibutil.c
-    xlate.c)
+    )
 
 set(MDRUN_SOURCES 
     gctio.c    ionize.c runner.c
     do_gct.c     repl_ex.c  xutils.c pme_loadbal.c
-    md.c         mdrun.c    genalg.c membed.c)
+    md.c         mdrun.c    genalg.c )
 
 add_library(gmxpreprocess ${GMXPREPROCESS_SOURCES})
 target_link_libraries(gmxpreprocess md)

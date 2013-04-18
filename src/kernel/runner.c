@@ -943,7 +943,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     t_commrec      *cr_old       = cr;
     int             nthreads_pme = 1;
     int             nthreads_pp  = 1;
-    gmx_membed_t    membed       = NULL;
     gmx_hw_info_t  *hwinfo       = NULL;
     master_inf_t    minf         = {-1, FALSE};
 
@@ -1086,17 +1085,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
 #endif
     /* END OF CAUTION: cr is now reliable */
 
-    /* g_membed initialisation *
-     * Because we change the mtop, init_membed is called before the init_parallel *
-     * (in case we ever want to make it run in parallel) */
-    if (opt2bSet("-membed", nfile, fnm))
-    {
-        if (MASTER(cr))
-        {
-            fprintf(stderr, "Initializing membed");
-        }
-        membed = init_membed(fplog, nfile, fnm, mtop, inputrec, state, cr, &cpt_period);
-    }
 
     if (PAR(cr))
     {
@@ -1581,7 +1569,7 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
                                       fcd, state,
                                       mdatoms, nrnb, wcycle, ed, fr,
                                       repl_ex_nst, repl_ex_nex, repl_ex_seed,
-                                      membed,
+                                      NULL,
                                       cpt_period, max_hours,
                                       deviceOptions,
                                       Flags,
@@ -1646,10 +1634,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
         }
     }
 
-    if (opt2bSet("-membed", nfile, fnm))
-    {
-        sfree(membed);
-    }
 
 #ifdef GMX_THREAD_MPI
     if (PAR(cr) && SIMMASTER(cr))
