@@ -40,6 +40,3 @@ add_subdirectory(gmxlib)
 add_subdirectory(mdlib)
 add_subdirectory(kernel)
 
-if(NOT GMX_FAHCORE)
-  add_subdirectory(ngmx)
-endif(NOT GMX_FAHCORE)
