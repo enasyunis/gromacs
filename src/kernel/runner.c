@@ -77,7 +77,7 @@
 #include "../mdlib/nbnxn_search.h"
 #include "../mdlib/nbnxn_consts.h"
 #include "gmx_fatal_collective.h"
-#include "membed.h"
+#include "types/membedt.h"
 #include "gmx_omp.h"
 #include "gmx_thread_affinity.h"
 

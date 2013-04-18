@@ -87,7 +87,7 @@
 #include "txtdump.h"
 #include "string2.h"
 #include "bondf.h"
-#include "membed.h"
+#include "types/membedt.h"
 #include "types/nlistheuristics.h"
 #include "types/iteratedconstraints.h"
 #include "nbnxn_cuda_data_mgmt.h"
