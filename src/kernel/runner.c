@@ -136,120 +136,6 @@ struct mdrunner_arglist
 };
 
 
-/* The function used for spawning threads. Extracts the mdrunner()
-   arguments from its one argument and calls mdrunner(), after making
-   a commrec. */
-static void mdrunner_start_fn(void *arg)
-{
-    struct mdrunner_arglist *mda = (struct mdrunner_arglist*)arg;
-    struct mdrunner_arglist  mc  = *mda; /* copy the arg list to make sure
-                                            that it's thread-local. This doesn't
-                                            copy pointed-to items, of course,
-                                            but those are all const. */
-    t_commrec *cr;                       /* we need a local version of this */
-    FILE      *fplog = NULL;
-    t_filenm  *fnm;
-
-    fnm = dup_tfn(mc.nfile, mc.fnm);
-
-    cr = init_par_threads(mc.cr);
-
-    if (MASTER(cr))
-    {
-        fplog = mc.fplog;
-    }
-
-    mda->ret = mdrunner(mc.hw_opt, fplog, cr, mc.nfile, fnm, mc.oenv,
-                        mc.bVerbose, mc.bCompact, mc.nstglobalcomm,
-                        mc.ddxyz, mc.dd_node_order, mc.rdd,
-                        mc.rconstr, mc.dddlb_opt, mc.dlb_scale,
-                        mc.ddcsx, mc.ddcsy, mc.ddcsz,
-                        mc.nbpu_opt,
-                        mc.nsteps_cmdline, mc.nstepout, mc.resetstep,
-                        mc.nmultisim, mc.repl_ex_nst, mc.repl_ex_nex, mc.repl_ex_seed, mc.pforce,
-                        mc.cpt_period, mc.max_hours, mc.deviceOptions, mc.Flags);
-}
-
-/* called by mdrunner() to start a specific number of threads (including
-   the main thread) for thread-parallel runs. This in turn calls mdrunner()
-   for each thread.
-   All options besides nthreads are the same as for mdrunner(). */
-static t_commrec *mdrunner_start_threads(gmx_hw_opt_t *hw_opt,
-                                         FILE *fplog, t_commrec *cr, int nfile,
-                                         const t_filenm fnm[], const output_env_t oenv, gmx_bool bVerbose,
-                                         gmx_bool bCompact, int nstglobalcomm,
-                                         ivec ddxyz, int dd_node_order, real rdd, real rconstr,
-                                         const char *dddlb_opt, real dlb_scale,
-                                         const char *ddcsx, const char *ddcsy, const char *ddcsz,
-                                         const char *nbpu_opt,
-                                         int nsteps_cmdline, int nstepout, int resetstep,
-                                         int nmultisim, int repl_ex_nst, int repl_ex_nex, int repl_ex_seed,
-                                         real pforce, real cpt_period, real max_hours,
-                                         const char *deviceOptions, unsigned long Flags)
-{
-    int                      ret;
-    struct mdrunner_arglist *mda;
-    t_commrec               *crn; /* the new commrec */
-    t_filenm                *fnmn;
-
-    /* first check whether we even need to start tMPI */
-    if (hw_opt->nthreads_tmpi < 2)
-    {
-        return cr;
-    }
-
-    /* a few small, one-time, almost unavoidable memory leaks: */
-    snew(mda, 1);
-    fnmn = dup_tfn(nfile, fnm);
-
-    /* fill the data structure to pass as void pointer to thread start fn */
-    mda->hw_opt         = hw_opt;
-    mda->fplog          = fplog;
-    mda->cr             = cr;
-    mda->nfile          = nfile;
-    mda->fnm            = fnmn;
-    mda->oenv           = oenv;
-    mda->bVerbose       = bVerbose;
-    mda->bCompact       = bCompact;
-    mda->nstglobalcomm  = nstglobalcomm;
-    mda->ddxyz[XX]      = ddxyz[XX];
-    mda->ddxyz[YY]      = ddxyz[YY];
-    mda->ddxyz[ZZ]      = ddxyz[ZZ];
-    mda->dd_node_order  = dd_node_order;
-    mda->rdd            = rdd;
-    mda->rconstr        = rconstr;
-    mda->dddlb_opt      = dddlb_opt;
-    mda->dlb_scale      = dlb_scale;
-    mda->ddcsx          = ddcsx;
-    mda->ddcsy          = ddcsy;
-    mda->ddcsz          = ddcsz;
-    mda->nbpu_opt       = nbpu_opt;
-    mda->nsteps_cmdline = nsteps_cmdline;
-    mda->nstepout       = nstepout;
-    mda->resetstep      = resetstep;
-    mda->nmultisim      = nmultisim;
-    mda->repl_ex_nst    = repl_ex_nst;
-    mda->repl_ex_nex    = repl_ex_nex;
-    mda->repl_ex_seed   = repl_ex_seed;
-    mda->pforce         = pforce;
-    mda->cpt_period     = cpt_period;
-    mda->max_hours      = max_hours;
-    mda->deviceOptions  = deviceOptions;
-    mda->Flags          = Flags;
-
-    /* now spawn new threads that start mdrunner_start_fn(), while
-       the main thread returns, we set thread affinity later */
-    ret = tMPI_Init_fn(TRUE, hw_opt->nthreads_tmpi, TMPI_AFFINITY_NONE,
-                       mdrunner_start_fn, (void*)(mda) );
-    if (ret != TMPI_SUCCESS)
-    {
-        return NULL;
-    }
-
-    /* make a new comm_rec to reflect the new situation */
-    crn = init_par_threads(cr);
-    return crn;
-}
 
 
 static int get_tmpi_omp_thread_division(const gmx_hw_info_t *hwinfo,
@@ -334,6 +220,7 @@ static int get_nthreads_mpi(gmx_hw_info_t *hwinfo,
                             const t_commrec *cr,
                             FILE *fplog)
 {
+printf("**** inside of get_nthreads_mpi ****\n");
     int      nthreads_hw, nthreads_tot_max, nthreads_tmpi, nthreads_new, ngpu;
     int      min_atoms_per_mpi_thread;
     char    *env;
@@ -501,82 +388,6 @@ static void prepare_verlet_scheme(FILE             *fplog,
         }
 }
 
-static void convert_to_verlet_scheme(FILE *fplog,
-                                     t_inputrec *ir,
-                                     gmx_mtop_t *mtop, real box_vol)
-{
-    char *conv_mesg = "Converting input file with group cut-off scheme to the Verlet cut-off scheme";
-
-    md_print_warn(NULL, fplog, "%s\n", conv_mesg);
-
-    ir->cutoff_scheme   = ecutsVERLET;
-    ir->verletbuf_drift = 0.005;
-
-    if (ir->rcoulomb != ir->rvdw)
-    {
-        gmx_fatal(FARGS, "The VdW and Coulomb cut-offs are different, whereas the Verlet scheme only supports equal cut-offs");
-    }
-
-    if (ir->vdwtype == evdwUSER || EEL_USER(ir->coulombtype))
-    {
-        gmx_fatal(FARGS, "User non-bonded potentials are not (yet) supported with the Verlet scheme");
-    }
-    else if (EVDW_SWITCHED(ir->vdwtype) || EEL_SWITCHED(ir->coulombtype))
-    {
-        md_print_warn(NULL, fplog, "Converting switched or shifted interactions to a shifted potential (without force shift), this will lead to slightly different interaction potentials");
-
-        if (EVDW_SWITCHED(ir->vdwtype))
-        {
-            ir->vdwtype = evdwCUT;
-        }
-        if (EEL_SWITCHED(ir->coulombtype))
-        {
-            if (EEL_FULL(ir->coulombtype))
-            {
-                /* With full electrostatic only PME can be switched */
-                ir->coulombtype = eelPME;
-            }
-            else
-            {
-                md_print_warn(NULL, fplog, "NOTE: Replacing %s electrostatics with reaction-field with epsilon-rf=inf\n", eel_names[ir->coulombtype]);
-                ir->coulombtype = eelRF;
-                ir->epsilon_rf  = 0.0;
-            }
-        }
-
-        /* We set the target energy drift to a small number.
-         * Note that this is only for testing. For production the user
-         * should think about this and set the mdp options.
-         */
-        ir->verletbuf_drift = 1e-4;
-    }
-
-    if (inputrec2nboundeddim(ir) != 3)
-    {
-        gmx_fatal(FARGS, "Can only convert old tpr files to the Verlet cut-off scheme with 3D pbc");
-    }
-
-    if (ir->efep != efepNO || ir->implicit_solvent != eisNO)
-    {
-        gmx_fatal(FARGS, "Will not convert old tpr files to the Verlet cut-off scheme with free-energy calculations or implicit solvent");
-    }
-
-    if (EI_DYNAMICS(ir->eI) && !(EI_MD(ir->eI) && ir->etc == etcNO))
-    {
-        verletbuf_list_setup_t ls;
-
-        verletbuf_get_list_setup(FALSE, &ls);
-        calc_verlet_buffer_size(mtop, box_vol, ir, ir->verletbuf_drift, &ls,
-                                NULL, &ir->rlist);
-    }
-    else
-    {
-        ir->verletbuf_drift = -1;
-        ir->rlist           = 1.05*max(ir->rvdw, ir->rcoulomb);
-    }
-
-    gmx_mtop_remove_chargegroups(mtop);
-}
 
 static void check_and_update_hw_opt(gmx_hw_opt_t *hw_opt,
                                     int           cutoff_scheme,
@@ -804,25 +615,7 @@ printf("****** inside of mdrunner *******\n");
             hw_opt->nthreads_omp = hw_opt->nthreads_tot/hw_opt->nthreads_tmpi;
         }
 
-        if (hw_opt->nthreads_tmpi > 1)
-        {
-            /* now start the threads. */
-            cr = mdrunner_start_threads(hw_opt, fplog, cr_old, nfile, fnm,
-                                        oenv, bVerbose, bCompact, nstglobalcomm,
-                                        ddxyz, dd_node_order, rdd, rconstr,
-                                        dddlb_opt, dlb_scale, ddcsx, ddcsy, ddcsz,
-                                        nbpu_opt,
-                                        nsteps_cmdline, nstepout, resetstep, nmultisim,
-                                        repl_ex_nst, repl_ex_nex, repl_ex_seed, pforce,
-                                        cpt_period, max_hours, deviceOptions,
-                                        Flags);
-            /* the main thread continues here with a new cr. We don't deallocate
-               the old cr because other threads may still be reading it. */
-            if (cr == NULL)
-            {
-                gmx_comm("Failed to spawn threads");
-            }
-        }
+printf("***** (hw_opt->nthreads_tmpi > 1) %d ****\n", (hw_opt->nthreads_tmpi > 1)); 
     /* END OF CAUTION: cr is now reliable */
 
 
