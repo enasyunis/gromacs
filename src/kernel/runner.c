@@ -25,7 +25,6 @@
 #include "domdec.h"
 #include "partdec.h"
 #include "coulomb.h"
-#include "constr.h"
 #include "mvdata.h"
 #include "checkpoint.h"
 #include "mtop_util.h"
@@ -49,13 +48,8 @@
 #include "gpu_utils.h"
 #include "nbnxn_cuda_data_mgmt.h"
 
-typedef struct {
-    gmx_integrator_t *func;
-} gmx_intp_t;
 
 /* The array should match the eI array in include/types/enums.h */
-const gmx_intp_t    integrator[eiNR] = { {do_md}, {do_steep}, {do_cg}, {do_md}, {do_md}, {do_nm}, {do_lbfgs}, {do_tpi}, {do_tpi}, {do_md}, {do_md}, {do_md}};
-
 gmx_large_int_t     deform_init_init_step_tpx;
 matrix              deform_init_box_tpx;
 tMPI_Thread_mutex_t deform_init_box_mutex = TMPI_THREAD_MUTEX_INITIALIZER;
@@ -264,7 +258,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
              const char *deviceOptions, unsigned long Flags)
 {
 
-    gmx_bool        bForceUseGPU, bTryUseGPU;
     double          nodetime = 0, realtime;
     t_inputrec     *inputrec;
     t_state        *state = NULL;
@@ -277,10 +270,7 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     t_mdatoms      *mdatoms    = NULL;
     t_forcerec     *fr         = NULL;
     t_fcdata       *fcd        = NULL;
-    real            ewaldcoeff = 0;
     gmx_pme_t      *pmedata    = NULL;
-    gmx_vsite_t    *vsite      = NULL;
-    gmx_constr_t    constr;
     int             i, m, nChargePerturbed = -1, status, nalloc;
     char           *gro;
     gmx_wallcycle_t wcycle;
@@ -301,10 +291,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     snew(inputrec, 1);
     snew(mtop, 1);
 
-
-    bForceUseGPU = (strncmp(nbpu_opt, "gpu", 3) == 0);
-    bTryUseGPU   = (strncmp(nbpu_opt, "auto", 4) == 0) || bForceUseGPU;
-
     snew(state, 1);
     /* Read (nearly) all data required for the simulation */
     read_tpx_state(ftp2fn(efTPX, nfile, fnm), inputrec, state, NULL, mtop);
@@ -313,7 +299,7 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
      * and after threads are started broadcasts hwinfo around. */
     snew(hwinfo, 1);
     gmx_detect_hardware(fplog, hwinfo, cr,
-                            bForceUseGPU, bTryUseGPU, hw_opt->gpu_id);
+                            0,0, hw_opt->gpu_id);
 
     minf.cutoff_scheme = inputrec->cutoff_scheme;
     minf.bUseGPU       = FALSE;
@@ -442,44 +428,24 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
          */
         mdatoms = init_mdatoms(fplog, mtop, inputrec->efep != efepNO);
 
-        /* Initialize the virtual site communication */
-        vsite = init_vsite(mtop, cr, FALSE);
+	// EWALD fr->shift_vec = 15010112, 15010136, 15010160
 
-        calc_shifts(box, fr->shift_vec);
+	// PME fr->shift_vec = 27920800, 27920824, 27920848
 
         /* With periodic molecules the charge groups should be whole at start up
          * and the virtual sites should not be far from their proper positions.
          */
-        if (!inputrec->bContinuation && MASTER(cr) &&
-            !(inputrec->ePBC != epbcNONE && inputrec->bPeriodicMols))
-        {
-            /* Make molecules whole at start of run */
-            if (fr->ePBC != epbcNONE)
-            {
-                do_pbc_first_mtop(fplog, inputrec->ePBC, box, mtop, state->x);
-            }
-            if (vsite)
-            {
-                /* Correct initial vsite positions are required
-                 * for the initial distribution in the domain decomposition
-                 * and for the initial shell prediction.
-                 */
-                construct_vsites_mtop(fplog, vsite, mtop, state->x);
-            }
-        }
-
-        if (EEL_PME(fr->eeltype))
-        {
-            ewaldcoeff = fr->ewaldcoeff;
+        /* Make molecules whole at start of run */
+        do_pbc_first_mtop(fplog, inputrec->ePBC, box, mtop, state->x);
+        if (EEL_PME(fr->eeltype)) // PME HERE
+        { 
             pmedata    = &fr->pmedata;
         }
-        else
+        else // EWALD HERE
         {
             pmedata = NULL;
         }
 
-    if (hw_opt->thread_affinity != threadaffOFF)
-    {
         /* Before setting affinity, check whether the affinity has changed
          * - which indicates that probably the OpenMP library has changed it
          * since we first checked).
@@ -489,63 +455,34 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
 
         /* Set the CPU affinity */
         gmx_set_thread_affinity(fplog, cr, hw_opt, nthreads_pme, hwinfo, inputrec);
-    }
 
     /* Initiate PME if necessary,
      * either on all nodes or on dedicated PME nodes only. */
-    if (EEL_PME(inputrec->coulombtype))
+    if (EEL_PME(inputrec->coulombtype)) // PME 1, EWALD 0
     {
-        if (mdatoms)
-        {
-            nChargePerturbed = mdatoms->nChargePerturbed;
-        }
-        if (cr->npmenodes > 0)
-        {
-            /* The PME only nodes need to know nChargePerturbed */
-            gmx_bcast_sim(sizeof(nChargePerturbed), &nChargePerturbed, cr);
-        }
+        nChargePerturbed = mdatoms->nChargePerturbed;
 
-            status = gmx_pme_init(pmedata, cr, npme_major, npme_minor, inputrec,
+        status = gmx_pme_init(pmedata, cr, npme_major, npme_minor, inputrec,
                                   mtop ? mtop->natoms : 0, nChargePerturbed,
                                   (Flags & MD_REPRODUCIBLE), nthreads_pme);
-            if (status != 0)
-            {
-                gmx_fatal(FARGS, "Error %d initializing PME", status);
-            }
+        if (status != 0)
+        {
+            gmx_fatal(FARGS, "Error %d initializing PME", status);
+         }
     }
 
-
-    if (integrator[inputrec->eI].func == do_md)
-    {
-        /* Turn on signal handling on all nodes */
-        /*
-         * (A user signal from the PME nodes (if any)
-         * is communicated to the PP nodes.
-         */
-        signal_handler_install();
-    }
-
-        if (inputrec->ePull != epullNO)
-        {
-            /* Initialize pull code */
-            init_pull(fplog, inputrec, nfile, fnm, mtop, cr, oenv, inputrec->fepvals->init_lambda,
-                      EI_DYNAMICS(inputrec->eI) && MASTER(cr), Flags);
-        }
-
-        if (inputrec->bRot)
-        {
-            /* Initialize enforced rotation code */
-            init_rot(fplog, inputrec, nfile, fnm, cr, state->x, box, mtop, oenv,
-                     bVerbose, Flags);
-        }
-
-        constr = init_constraints(fplog, mtop, inputrec, ed, state, cr);
+    /* Turn on signal handling on all nodes */
+    /*
+     * (A user signal from the PME nodes (if any)
+     * is communicated to the PP nodes.
+     */
+    signal_handler_install();
 
 
-        do_md(fplog, cr, nfile, fnm,
+    do_md(fplog, cr, nfile, fnm,
                                       oenv, bVerbose, bCompact,
                                       nstglobalcomm,
-                                      vsite, constr,
+                                      NULL, NULL,
                                       nstepout, inputrec, mtop,
                                       fcd, state,
                                       mdatoms, nrnb, wcycle, ed, fr,
@@ -556,25 +493,9 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
                                       Flags,
                                       &runtime);
 
-        if (inputrec->ePull != epullNO)
-        {
-            finish_pull(fplog, inputrec->pull);
-        }
-
-        if (inputrec->bRot)
-        {
-            finish_rot(fplog, inputrec->rot);
-        }
 
 
-    if (EI_DYNAMICS(inputrec->eI) || EI_TPI(inputrec->eI))
-    {
-        /* Some timing stats */
-            if (runtime.proc == 0)
-            {
-                runtime.proc = runtime.real;
-            }
-    }
+    runtime.proc = runtime.real;
 
     wallcycle_stop(wcycle, ewcRUN);
 
@@ -587,22 +508,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
                nbnxn_cuda_get_timings(fr->nbv->cu_nbv) : NULL,
                nthreads_pp,
                EI_DYNAMICS(inputrec->eI) && !MULTISIM(cr));
-
-    if (fr->nbv != NULL && fr->nbv->bUseGPU)
-    {
-        char gpu_err_str[STRLEN];
-
-        /* free GPU memory and uninitialize GPU (by destroying the context) */
-        nbnxn_cuda_free(fplog, fr->nbv->cu_nbv);
-
-        if (!free_gpu(gpu_err_str))
-        {
-            gmx_warning("On node %d failed to free GPU #%d: %s",
-                        cr->nodeid, get_current_gpu_device_id(), gpu_err_str);
-        }
-    }
-
-
 
     /* Does what it says */
     print_date_and_time(fplog, cr->nodeid, "Finished mdrun", &runtime);
