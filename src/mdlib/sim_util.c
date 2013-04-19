@@ -107,15 +107,6 @@
 #include "adress.h"
 #include "qmmm.h"
 
-#include "nbnxn_cuda_data_mgmt.h"
-#include "nbnxn_cuda/nbnxn_cuda.h"
-
-#if 0
-typedef struct gmx_timeprint {
-
-} t_gmx_timeprint;
-#endif
-
 /* Portable version of ctime_r implemented in src/gmxlib/string2.c, but we do not want it declared in public installed headers */
 GMX_LIBGMX_EXPORT
 char *
@@ -678,25 +669,6 @@ static void do_nb_verlet(t_forcerec *fr,
                                    enerd->grpp.ener[egBHAMSR] :
                                    enerd->grpp.ener[egLJSR]);
             break;
-
-        case nbnxnk8x8x8_CUDA:
-            nbnxn_cuda_launch_kernel(fr->nbv->cu_nbv, nbvg->nbat, flags, ilocality);
-            break;
-
-        case nbnxnk8x8x8_PlainC:
-            nbnxn_kernel_gpu_ref(nbvg->nbl_lists.nbl[0],
-                                 nbvg->nbat, ic,
-                                 fr->shift_vec,
-                                 flags,
-                                 clearF,
-                                 nbvg->nbat->out[0].f,
-                                 fr->fshift[0],
-                                 enerd->grpp.ener[egCOULSR],
-                                 fr->bBHAM ?
-                                 enerd->grpp.ener[egBHAMSR] :
-                                 enerd->grpp.ener[egLJSR]);
-            break;
-
         default:
             gmx_incons("Invalid nonbonded kernel type passed!");
 
@@ -757,7 +729,7 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
     int                 nb_kernel_type;
     double              mu[2*DIM];
     gmx_bool            bSepDVDL, bStateChanged, bNS, bFillGrid, bCalcCGCM, bBS;
-    gmx_bool            bDoLongRange, bDoForces, bSepLRF, bUseGPU, bUseOrEmulGPU;
+    gmx_bool            bDoLongRange, bDoForces, bSepLRF;
     gmx_bool            bDiffKernels = FALSE;
     matrix              boxs;
     rvec                vzero, box_diag;
@@ -797,8 +769,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
     bDoLongRange  = (fr->bTwinRange && bNS && (flags & GMX_FORCE_DO_LR));
     bDoForces     = (flags & GMX_FORCE_FORCES);
     bSepLRF       = (bDoLongRange && bDoForces && (flags & GMX_FORCE_SEPLRF));
-    bUseGPU       = fr->nbv->bUseGPU;
-    bUseOrEmulGPU = bUseGPU || (nbv->grp[0].kernel_type == nbnxnk8x8x8_PlainC);
 
     if (bStateChanged)
     {
@@ -919,20 +889,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
         wallcycle_stop(wcycle, ewcNS);
     }
 
-    /* initialize the GPU atom data and copy shift vector */
-    if (bUseGPU)
-    {
-        if (bNS)
-        {
-            wallcycle_start_nocount(wcycle, ewcLAUNCH_GPU_NB);
-            nbnxn_cuda_init_atomdata(nbv->cu_nbv, nbv->grp[eintLocal].nbat);
-            wallcycle_stop(wcycle, ewcLAUNCH_GPU_NB);
-        }
-
-        wallcycle_start_nocount(wcycle, ewcLAUNCH_GPU_NB);
-        nbnxn_cuda_upload_shiftvec(nbv->cu_nbv, nbv->grp[eintLocal].nbat);
-        wallcycle_stop(wcycle, ewcLAUNCH_GPU_NB);
-    }
 
     /* do local pair search */
     if (bNS)
@@ -949,13 +905,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
                             nrnb);
         wallcycle_sub_stop(wcycle, ewcsNBS_SEARCH_LOCAL);
 
-        if (bUseGPU)
-        {
-            /* initialize local pair-list on the GPU */
-            nbnxn_cuda_init_pairlist(nbv->cu_nbv,
-                                     nbv->grp[eintLocal].nbl_lists.nbl[0],
-                                     eintLocal);
-        }
         wallcycle_stop(wcycle, ewcNS);
     }
     else
@@ -968,14 +917,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
         wallcycle_stop(wcycle, ewcNB_XF_BUF_OPS);
     }
 
-    if (bUseGPU)
-    {
-        wallcycle_start(wcycle, ewcLAUNCH_GPU_NB);
-        /* launch local nonbonded F on GPU */
-        do_nb_verlet(fr, ic, enerd, flags, eintLocal, enbvClearFNo,
-                     nrnb, wcycle);
-        wallcycle_stop(wcycle, ewcLAUNCH_GPU_NB);
-    }
 
     /* Communicate coordinates and sum dipole if necessary +
        do non-local pair search */
@@ -1020,13 +961,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
 
             wallcycle_sub_stop(wcycle, ewcsNBS_SEARCH_NONLOCAL);
 
-            if (nbv->grp[eintNonlocal].kernel_type == nbnxnk8x8x8_CUDA)
-            {
-                /* initialize non-local pair-list on the GPU */
-                nbnxn_cuda_init_pairlist(nbv->cu_nbv,
-                                         nbv->grp[eintNonlocal].nbl_lists.nbl[0],
-                                         eintNonlocal);
-            }
             wallcycle_stop(wcycle, ewcNS);
         }
         else
@@ -1049,29 +983,8 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
             cycles_force += wallcycle_stop(wcycle, ewcNB_XF_BUF_OPS);
         }
 
-        if (bUseGPU && !bDiffKernels)
-        {
-            wallcycle_start(wcycle, ewcLAUNCH_GPU_NB);
-            /* launch non-local nonbonded F on GPU */
-            do_nb_verlet(fr, ic, enerd, flags, eintNonlocal, enbvClearFNo,
-                         nrnb, wcycle);
-            cycles_force += wallcycle_stop(wcycle, ewcLAUNCH_GPU_NB);
-        }
     }
 
-    if (bUseGPU)
-    {
-        /* launch D2H copy-back F */
-        wallcycle_start_nocount(wcycle, ewcLAUNCH_GPU_NB);
-        if (DOMAINDECOMP(cr) && !bDiffKernels)
-        {
-            nbnxn_cuda_launch_cpyback(nbv->cu_nbv, nbv->grp[eintNonlocal].nbat,
-                                      flags, eatNonlocal);
-        }
-        nbnxn_cuda_launch_cpyback(nbv->cu_nbv, nbv->grp[eintLocal].nbat,
-                                  flags, eatLocal);
-        cycles_force += wallcycle_stop(wcycle, ewcLAUNCH_GPU_NB);
-    }
 
     if (bStateChanged && NEED_MUTOT(*inputrec))
     {
@@ -1199,15 +1112,11 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
         }
     }
 
-    if (!bUseOrEmulGPU)
-    {
-        /* Maybe we should move this into do_force_lowlevel */
-        do_nb_verlet(fr, ic, enerd, flags, eintLocal, enbvClearFYes,
+    /* Maybe we should move this into do_force_lowlevel */
+    do_nb_verlet(fr, ic, enerd, flags, eintLocal, enbvClearFYes,
                      nrnb, wcycle);
-    }
 
 
-    if (!bUseOrEmulGPU || bDiffKernels)
     {
         int aloc;
 
@@ -1218,14 +1127,7 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
                          nrnb, wcycle);
         }
 
-        if (!bUseOrEmulGPU)
-        {
-            aloc = eintLocal;
-        }
-        else
-        {
-            aloc = eintNonlocal;
-        }
+        aloc = eintLocal;
 
         /* Add all the non-bonded force to the normal force array.
          * This can be split into a local a non-local part when overlapping
@@ -1256,40 +1158,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
         do_flood(cr, inputrec, x, f, ed, box, step, bNS);
     }
 
-    if (bUseOrEmulGPU && !bDiffKernels)
-    {
-        /* wait for non-local forces (or calculate in emulation mode) */
-        if (DOMAINDECOMP(cr))
-        {
-            if (bUseGPU)
-            {
-                wallcycle_start(wcycle, ewcWAIT_GPU_NB_NL);
-                nbnxn_cuda_wait_gpu(nbv->cu_nbv,
-                                    nbv->grp[eintNonlocal].nbat,
-                                    flags, eatNonlocal,
-                                    enerd->grpp.ener[egLJSR], enerd->grpp.ener[egCOULSR],
-                                    fr->fshift);
-                cycles_force += wallcycle_stop(wcycle, ewcWAIT_GPU_NB_NL);
-            }
-            else
-            {
-                wallcycle_start_nocount(wcycle, ewcFORCE);
-                do_nb_verlet(fr, ic, enerd, flags, eintNonlocal, enbvClearFYes,
-                             nrnb, wcycle);
-                cycles_force += wallcycle_stop(wcycle, ewcFORCE);
-            }
-            wallcycle_start(wcycle, ewcNB_XF_BUF_OPS);
-            wallcycle_sub_start(wcycle, ewcsNB_F_BUF_OPS);
-            /* skip the reduction if there was no non-local work to do */
-            if (nbv->grp[eintLocal].nbl_lists.nbl[0]->nsci > 0)
-            {
-                nbnxn_atomdata_add_nbat_f_to_f(nbv->nbs, eatNonlocal,
-                                               nbv->grp[eintNonlocal].nbat, f);
-            }
-            wallcycle_sub_stop(wcycle, ewcsNB_F_BUF_OPS);
-            cycles_force += wallcycle_stop(wcycle, ewcNB_XF_BUF_OPS);
-        }
-    }
 
     if (bDoForces)
     {
@@ -1321,54 +1189,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
                 }
             }
             wallcycle_stop(wcycle, ewcMOVEF);
-        }
-    }
-
-    if (bUseOrEmulGPU)
-    {
-        /* wait for local forces (or calculate in emulation mode) */
-        if (bUseGPU)
-        {
-            wallcycle_start(wcycle, ewcWAIT_GPU_NB_L);
-            nbnxn_cuda_wait_gpu(nbv->cu_nbv,
-                                nbv->grp[eintLocal].nbat,
-                                flags, eatLocal,
-                                enerd->grpp.ener[egLJSR], enerd->grpp.ener[egCOULSR],
-                                fr->fshift);
-            wallcycle_stop(wcycle, ewcWAIT_GPU_NB_L);
-
-            /* now clear the GPU outputs while we finish the step on the CPU */
-
-            wallcycle_start_nocount(wcycle, ewcLAUNCH_GPU_NB);
-            nbnxn_cuda_clear_outputs(nbv->cu_nbv, flags);
-            wallcycle_stop(wcycle, ewcLAUNCH_GPU_NB);
-        }
-        else
-        {
-            wallcycle_start_nocount(wcycle, ewcFORCE);
-            do_nb_verlet(fr, ic, enerd, flags, eintLocal,
-                         DOMAINDECOMP(cr) ? enbvClearFNo : enbvClearFYes,
-                         nrnb, wcycle);
-            wallcycle_stop(wcycle, ewcFORCE);
-        }
-        wallcycle_start(wcycle, ewcNB_XF_BUF_OPS);
-        wallcycle_sub_start(wcycle, ewcsNB_F_BUF_OPS);
-        if (nbv->grp[eintLocal].nbl_lists.nbl[0]->nsci > 0)
-        {
-            /* skip the reduction if there was no non-local work to do */
-            nbnxn_atomdata_add_nbat_f_to_f(nbv->nbs, eatLocal,
-                                           nbv->grp[eintLocal].nbat, f);
-        }
-        wallcycle_sub_stop(wcycle, ewcsNB_F_BUF_OPS);
-        wallcycle_stop(wcycle, ewcNB_XF_BUF_OPS);
-    }
-
-    if (DOMAINDECOMP(cr))
-    {
-        dd_force_flop_stop(cr->dd, nrnb);
-        if (wcycle)
-        {
-            dd_cycles_add(cr->dd, cycles_force-cycles_pme, ddCyclF);
         }
     }
 
