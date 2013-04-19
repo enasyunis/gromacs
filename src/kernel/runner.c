@@ -428,9 +428,10 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
          */
         mdatoms = init_mdatoms(fplog, mtop, inputrec->efep != efepNO);
 
-	// EWALD fr->shift_vec = 15010112, 15010136, 15010160
 
-	// PME fr->shift_vec = 27920800, 27920824, 27920848
+	/*** ENAS TODO SPEAK TO RIO ABOUT MASSIVE EFFECT OF CALC_SHIFTS */
+        calc_shifts(box, fr->shift_vec);
+
 
         /* With periodic molecules the charge groups should be whole at start up
          * and the virtual sites should not be far from their proper positions.
