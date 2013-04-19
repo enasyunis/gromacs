@@ -170,6 +170,7 @@ static int get_nthreads_mpi(gmx_hw_info_t *hwinfo,
                             const t_commrec *cr,
                             FILE *fplog)
 {
+// GETTING CALLED 
     int      nthreads_hw, nthreads_tot_max, nthreads_tmpi, nthreads_new;
     int      min_atoms_per_mpi_thread;
     char    *env;
@@ -240,35 +241,6 @@ static void check_and_update_hw_opt(gmx_hw_opt_t *hw_opt,
 }
 
 
-/* Override the value in inputrec with value passed on the command line (if any) */
-static void override_nsteps_cmdline(FILE            *fplog,
-                                    int              nsteps_cmdline,
-                                    t_inputrec      *ir,
-                                    const t_commrec *cr)
-{
-    assert(ir);
-    assert(cr);
-
-    /* override with anything else than the default -2 */
-    if (nsteps_cmdline > -2)
-    {
-        char stmp[STRLEN];
-
-        ir->nsteps = nsteps_cmdline;
-        if (EI_DYNAMICS(ir->eI))
-        {
-            sprintf(stmp, "Overriding nsteps with value passed on the command line: %d steps, %.3f ps",
-                    nsteps_cmdline, nsteps_cmdline*ir->delta_t);
-        }
-        else
-        {
-            sprintf(stmp, "Overriding nsteps with value passed on the command line: %d steps",
-                    nsteps_cmdline);
-        }
-
-        md_print_warn(cr, fplog, "%s\n", stmp);
-    }
-}
 
 /* Data structure set by SIMMASTER which needs to be passed to all nodes
  * before the other nodes have read the tpx file and called gmx_detect_hardware.
@@ -357,7 +329,8 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
      */
     gmx_omp_check_thread_affinity(fplog, cr, hw_opt);
 
-        check_and_update_hw_opt(hw_opt, minf.cutoff_scheme, 1);
+    gmx_omp_nthreads_read_env(&hw_opt->nthreads_omp, 1);
+
 
         /* Early check for externally set process affinity. Can't do over all
          * MPI processes because hwinfo is not available everywhere, but with
@@ -367,83 +340,22 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
                                       NULL,
                                       hw_opt, hwinfo->nthreads_hw_avail, FALSE);
 
-        if (cr->npmenodes > 0 && hw_opt->nthreads_tmpi <= 0)
-        {
-            gmx_fatal(FARGS, "You need to explicitly specify the number of MPI threads (-ntmpi) when using separate PME nodes");
-        }
 
-        if (hw_opt->nthreads_omp_pme != hw_opt->nthreads_omp &&
-            cr->npmenodes <= 0)
-        {
-            gmx_fatal(FARGS, "You need to explicitly specify the number of PME nodes (-npme) when using different number of OpenMP threads for PP and PME nodes");
-        }
 
         /* NOW the threads will be started: */
         hw_opt->nthreads_tmpi = get_nthreads_mpi(hwinfo,
                                                  hw_opt,
                                                  inputrec, mtop,
                                                  cr, fplog);
-        if (hw_opt->nthreads_tot > 0 && hw_opt->nthreads_omp <= 0)
-        {
-            hw_opt->nthreads_omp = hw_opt->nthreads_tot/hw_opt->nthreads_tmpi;
-        }
 
     /* END OF CAUTION: cr is now reliable */
 
+    pr_inputrec(fplog, 0, "Input Parameters", inputrec, FALSE);
 
-    if (fplog != NULL)
-    {
-        pr_inputrec(fplog, 0, "Input Parameters", inputrec, FALSE);
-    }
-
-    /* With tMPI we detected on thread 0 and we'll just pass the hwinfo pointer
-     * to the other threads  -- slightly uncool, but works fine, just need to
-     * make sure that the data doesn't get freed twice. */
-    if (cr->nnodes > 1)
-    {
-        gmx_bcast(sizeof(&hwinfo), &hwinfo, cr);
-    }
 
     /* now make sure the state is initialized and propagated */
     set_state_entries(state, inputrec, cr->nnodes);
 
-    /* A parallel command line option consistency check that we can
-       only do after any threads have started. */
-    if (
-        (ddxyz[XX] > 1 || ddxyz[YY] > 1 || ddxyz[ZZ] > 1 || cr->npmenodes > 0))
-    {
-        gmx_fatal(FARGS,
-                  "The -dd or -npme option request a parallel simulation, "
-                  "but the number of threads (option -nt) is 1"
-                  , ShortProgram()
-                  );
-    }
-
-    if ((Flags & MD_RERUN) &&
-        (EI_ENERGY_MINIMIZATION(inputrec->eI) || eiNM == inputrec->eI))
-    {
-        gmx_fatal(FARGS, "The .mdp file specified an energy mininization or normal mode algorithm, and these are not compatible with mdrun -rerun");
-    }
-
-
-    if (!EEL_PME(inputrec->coulombtype) || (Flags & MD_PARTDEC))
-    {
-        if (cr->npmenodes > 0)
-        {
-            if (!EEL_PME(inputrec->coulombtype))
-            {
-                gmx_fatal_collective(FARGS, cr, NULL,
-                                     "PME nodes are requested, but the system does not use PME electrostatics");
-            }
-            if (Flags & MD_PARTDEC)
-            {
-                gmx_fatal_collective(FARGS, cr, NULL,
-                                     "PME nodes are requested, but particle decomposition does not support separate PME nodes");
-            }
-        }
-
-        cr->npmenodes = 0;
-    }
 
 
     /* NMR restraints must be initialized before load_checkpoint,
@@ -458,87 +370,15 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     /* This needs to be called before read_checkpoint to extend the state */
     init_disres(fplog, mtop, inputrec, cr, Flags & MD_PARTDEC, fcd, state, repl_ex_nst > 0);
 
-    if (gmx_mtop_ftype_count(mtop, F_ORIRES) > 0)
-    {
-        /* Orientation restraints */
-        if (MASTER(cr))
-        {
-            init_orires(fplog, mtop, state->x, inputrec, cr->ms, &(fcd->orires),
-                        state);
-        }
-    }
 
-    if (DEFORM(*inputrec))
-    {
-        /* Store the deform reference box before reading the checkpoint */
-            copy_mat(state->box, box);
-        /* Because we do not have the update struct available yet
-         * in which the reference values should be stored,
-         * we store them temporarily in static variables.
-         * This should be thread safe, since they are only written once
-         * and with identical values.
-         */
-        tMPI_Thread_mutex_lock(&deform_init_box_mutex);
-        deform_init_init_step_tpx = inputrec->init_step;
-        copy_mat(box, deform_init_box_tpx);
-        tMPI_Thread_mutex_unlock(&deform_init_box_mutex);
-    }
+    copy_mat(state->box, box);
 
-    if (opt2bSet("-cpi", nfile, fnm))
-    {
-        /* Check if checkpoint file exists before doing continuation.
-         * This way we can use identical input options for the first and subsequent runs...
-         */
-        if (gmx_fexist_master(opt2fn_master("-cpi", nfile, fnm, cr), cr) )
-        {
-            load_checkpoint(opt2fn_master("-cpi", nfile, fnm, cr), &fplog,
-                            cr, Flags & MD_PARTDEC, ddxyz,
-                            inputrec, state, &bReadRNG, &bReadEkin,
-                            0,
-                            0);
-
-            if (bReadRNG)
-            {
-                Flags |= MD_READ_RNG;
-            }
-            if (bReadEkin)
-            {
-                Flags |= MD_READ_EKIN;
-            }
-        }
-    }
-
-
-    /* override nsteps with value from cmdline */
-    override_nsteps_cmdline(fplog, nsteps_cmdline, inputrec, cr);
-
-
-        copy_mat(state->box, box);
-
-
-    /* Essential dynamics */
-    if (opt2bSet("-ei", nfile, fnm))
-    {
-        /* Open input and output files, allocate space for ED data structure */
-        ed = ed_open(mtop->natoms, &state->edsamstate, nfile, fnm, Flags, oenv, cr);
-    }
 
     /* PME, if used, is done on all nodes with 1D decomposition */
     cr->npmenodes = 0;
     cr->duty      = (DUTY_PP | DUTY_PME);
-    npme_major    = 1;
     npme_minor    = 1;
-    if (!EI_TPI(inputrec->eI))
-    {
-         npme_major = cr->nnodes;
-    }
-
-    if (inputrec->ePBC == epbcSCREW)
-    {
-       gmx_fatal(FARGS,
-                      "pbc=%s is only implemented with domain decomposition",
-                      epbc_names[inputrec->ePBC]);
-    }
+    npme_major = cr->nnodes;
 
 
     /* Initialize per-physical-node MPI process/thread ID and counters. */
@@ -555,7 +395,7 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
                           hwinfo->nthreads_hw_avail,
                           hw_opt->nthreads_omp,
                           hw_opt->nthreads_omp_pme,
-                          (cr->duty & DUTY_PP) == 0,
+                          0,
                           TRUE);
 
     gmx_check_hw_runconf_consistency(fplog, hwinfo, cr, hw_opt->nthreads_tmpi, minf.bUseGPU);
@@ -574,15 +414,9 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
 
 
     snew(nrnb, 1);
-    if (cr->duty & DUTY_PP)
-    {
         /* For domain decomposition we allocate dynamically
          * in dd_partition_system.
          */
-        if (DOMAINDECOMP(cr))
-        {
-            bcast_state_setup(cr, state);
-        }
 
         /* Initiate forcerecord */
         fr         = mk_forcerec();
@@ -601,11 +435,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
          */
         fr->bSepDVDL = ((Flags & MD_SEPPOT) == MD_SEPPOT);
 
-        /* Initialize QM-MM */
-        if (fr->bQMMM)
-        {
-            init_QMMMrec(cr, box, mtop, inputrec, fr);
-        }
 
         /* Initialize the mdatoms structure.
          * mdatoms is not filled with atom data,
@@ -648,17 +477,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
         {
             pmedata = NULL;
         }
-    }
-    else
-    {
-        /* This is a PME only node */
-
-        /* We don't need the state */
-        done_state(state);
-
-        ewaldcoeff = calc_ewaldcoeff(inputrec->rcoulomb, inputrec->ewald_rtol);
-        snew(pmedata, 1);
-    }
 
     if (hw_opt->thread_affinity != threadaffOFF)
     {
@@ -687,8 +505,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
             gmx_bcast_sim(sizeof(nChargePerturbed), &nChargePerturbed, cr);
         }
 
-        if (cr->duty & DUTY_PME)
-        {
             status = gmx_pme_init(pmedata, cr, npme_major, npme_minor, inputrec,
                                   mtop ? mtop->natoms : 0, nChargePerturbed,
                                   (Flags & MD_REPRODUCIBLE), nthreads_pme);
@@ -696,7 +512,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
             {
                 gmx_fatal(FARGS, "Error %d initializing PME", status);
             }
-        }
     }
 
 
@@ -710,8 +525,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
         signal_handler_install();
     }
 
-    if (cr->duty & DUTY_PP)
-    {
         if (inputrec->ePull != epullNO)
         {
             /* Initialize pull code */
@@ -728,18 +541,8 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
 
         constr = init_constraints(fplog, mtop, inputrec, ed, state, cr);
 
-        if (DOMAINDECOMP(cr))
-        {
-            dd_init_bondeds(fplog, cr->dd, mtop, vsite, constr, inputrec,
-                            Flags & MD_DDBONDCHECK, fr->cginfo_mb);
 
-            set_dd_parameters(fplog, cr->dd, dlb_scale, inputrec, fr, &ddbox);
-
-            setup_dd_grid(fplog, cr->dd);
-        }
-
-        /* Now do whatever the user wants us to do (how flexible...) */
-        integrator[inputrec->eI].func(fplog, cr, nfile, fnm,
+        do_md(fplog, cr, nfile, fnm,
                                       oenv, bVerbose, bCompact,
                                       nstglobalcomm,
                                       vsite, constr,
@@ -763,12 +566,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
             finish_rot(fplog, inputrec->rot);
         }
 
-    }
-    else
-    {
-        /* do PME only */
-        gmx_pmeonly(*pmedata, cr, nrnb, wcycle, ewaldcoeff, FALSE, inputrec);
-    }
 
     if (EI_DYNAMICS(inputrec->eI) || EI_TPI(inputrec->eI))
     {
@@ -791,7 +588,7 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
                nthreads_pp,
                EI_DYNAMICS(inputrec->eI) && !MULTISIM(cr));
 
-    if ((cr->duty & DUTY_PP) && fr->nbv != NULL && fr->nbv->bUseGPU)
+    if (fr->nbv != NULL && fr->nbv->bUseGPU)
     {
         char gpu_err_str[STRLEN];
 
