@@ -97,12 +97,7 @@
 #include "nbnxn_kernels/nbnxn_kernel_simd_2xnn.h"
 #include "nbnxn_kernels/nbnxn_kernel_gpu_ref.h"
 
-#ifdef GMX_LIB_MPI
-#include <mpi.h>
-#endif
-#ifdef GMX_THREAD_MPI
 #include "tmpi.h"
-#endif
 
 #include "adress.h"
 #include "qmmm.h"
@@ -145,12 +140,7 @@ void print_time(FILE *out, gmx_runtime_t *runtime, gmx_large_int_t step,
     double dt;
     char   buf[48];
 
-#ifndef GMX_THREAD_MPI
-    if (!PAR(cr))
-#endif
-    {
-        fprintf(out, "\r");
-    }
+    fprintf(out, "\r");
     fprintf(out, "step %s", gmx_step_str(step, buf));
     if ((step >= ir->nstlist))
     {
@@ -181,12 +171,6 @@ void print_time(FILE *out, gmx_runtime_t *runtime, gmx_large_int_t step,
                     ir->delta_t/1000*24*60*60/runtime->time_per_step);
         }
     }
-#ifndef GMX_THREAD_MPI
-    if (PAR(cr))
-    {
-        fprintf(out, "\n");
-    }
-#endif
 
     fflush(out);
 }
@@ -610,24 +594,8 @@ static void do_nb_verlet(t_forcerec *fr,
     char                      *env;
     nonbonded_verlet_group_t  *nbvg;
 
-    if (!(flags & GMX_FORCE_NONBONDED))
-    {
-        /* skip non-bonded calculation */
-        return;
-    }
-
     nbvg = &fr->nbv->grp[ilocality];
-
-    /* CUDA kernel launch overhead is already timed separately */
-    if (fr->cutoff_scheme != ecutsVERLET)
-    {
-        gmx_incons("Invalid cut-off scheme passed!");
-    }
-
-    if (nbvg->kernel_type != nbnxnk8x8x8_CUDA)
-    {
-        wallcycle_sub_start(wcycle, ewcsNONBONDED);
-    }
+    wallcycle_sub_start(wcycle, ewcsNONBONDED);
     switch (nbvg->kernel_type)
     {
         case nbnxnk4x4_PlainC:
@@ -749,14 +717,7 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
     clear_mat(vir_force);
 
     cg0 = 0;
-    if (DOMAINDECOMP(cr))
-    {
-        cg1 = cr->dd->ncg_tot;
-    }
-    else
-    {
-        cg1 = top->cgs.nr;
-    }
+    cg1 = top->cgs.nr;
     if (fr->n_tpi > 0)
     {
         cg1--;
@@ -765,7 +726,7 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
     bStateChanged = (flags & GMX_FORCE_STATECHANGED);
     bNS           = (flags & GMX_FORCE_NS) && (fr->bAllvsAll == FALSE);
     bFillGrid     = (bNS && bStateChanged);
-    bCalcCGCM     = (bFillGrid && !DOMAINDECOMP(cr));
+    bCalcCGCM     = (bFillGrid );
     bDoLongRange  = (fr->bTwinRange && bNS && (flags & GMX_FORCE_DO_LR));
     bDoForces     = (flags & GMX_FORCE_FORCES);
     bSepLRF       = (bDoLongRange && bDoForces && (flags & GMX_FORCE_SEPLRF));
@@ -808,34 +769,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
 
     nbnxn_atomdata_copy_shiftvec(flags & GMX_FORCE_DYNAMICBOX,
                                  fr->shift_vec, nbv->grp[0].nbat);
-
-#ifdef GMX_MPI
-    if (!(cr->duty & DUTY_PME))
-    {
-        /* Send particle coordinates to the pme nodes.
-         * Since this is only implemented for domain decomposition
-         * and domain decomposition does not use the graph,
-         * we do not need to worry about shifting.
-         */
-
-        wallcycle_start(wcycle, ewcPP_PMESENDX);
-        GMX_MPE_LOG(ev_send_coordinates_start);
-
-        bBS = (inputrec->nwall == 2);
-        if (bBS)
-        {
-            copy_mat(box, boxs);
-            svmul(inputrec->wall_ewald_zfac, boxs[ZZ], boxs[ZZ]);
-        }
-
-        gmx_pme_send_x(cr, bBS ? boxs : box, x,
-                       mdatoms->nChargePerturbed, lambda[efptCOUL],
-                       (flags & (GMX_FORCE_VIRIAL | GMX_FORCE_ENERGY)), step);
-
-        GMX_MPE_LOG(ev_send_coordinates_finish);
-        wallcycle_stop(wcycle, ewcPP_PMESENDX);
-    }
-#endif /* GMX_MPI */
 
     /* do gridding for pair search */
     if (bNS)
@@ -918,72 +851,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
     }
 
 
-    /* Communicate coordinates and sum dipole if necessary +
-       do non-local pair search */
-    if (DOMAINDECOMP(cr))
-    {
-        bDiffKernels = (nbv->grp[eintNonlocal].kernel_type !=
-                        nbv->grp[eintLocal].kernel_type);
-
-        if (bDiffKernels)
-        {
-            /* With GPU+CPU non-bonded calculations we need to copy
-             * the local coordinates to the non-local nbat struct
-             * (in CPU format) as the non-local kernel call also
-             * calculates the local - non-local interactions.
-             */
-            wallcycle_start(wcycle, ewcNB_XF_BUF_OPS);
-            wallcycle_sub_start(wcycle, ewcsNB_X_BUF_OPS);
-            nbnxn_atomdata_copy_x_to_nbat_x(nbv->nbs, eatLocal, TRUE, x,
-                                            nbv->grp[eintNonlocal].nbat);
-            wallcycle_sub_stop(wcycle, ewcsNB_X_BUF_OPS);
-            wallcycle_stop(wcycle, ewcNB_XF_BUF_OPS);
-        }
-
-        if (bNS)
-        {
-            wallcycle_start_nocount(wcycle, ewcNS);
-            wallcycle_sub_start(wcycle, ewcsNBS_SEARCH_NONLOCAL);
-
-            if (bDiffKernels)
-            {
-                nbnxn_grid_add_simple(nbv->nbs, nbv->grp[eintNonlocal].nbat);
-            }
-
-            nbnxn_make_pairlist(nbv->nbs, nbv->grp[eintNonlocal].nbat,
-                                &top->excls,
-                                ic->rlist,
-                                nbv->min_ci_balanced,
-                                &nbv->grp[eintNonlocal].nbl_lists,
-                                eintNonlocal,
-                                nbv->grp[eintNonlocal].kernel_type,
-                                nrnb);
-
-            wallcycle_sub_stop(wcycle, ewcsNBS_SEARCH_NONLOCAL);
-
-            wallcycle_stop(wcycle, ewcNS);
-        }
-        else
-        {
-            wallcycle_start(wcycle, ewcMOVEX);
-            dd_move_x(cr->dd, box, x);
-
-            /* When we don't need the total dipole we sum it in global_stat */
-            if (bStateChanged && NEED_MUTOT(*inputrec))
-            {
-                gmx_sumd(2*DIM, mu, cr);
-            }
-            wallcycle_stop(wcycle, ewcMOVEX);
-
-            wallcycle_start(wcycle, ewcNB_XF_BUF_OPS);
-            wallcycle_sub_start(wcycle, ewcsNB_X_BUF_OPS);
-            nbnxn_atomdata_copy_x_to_nbat_x(nbv->nbs, eatNonlocal, FALSE, x,
-                                            nbv->grp[eintNonlocal].nbat);
-            wallcycle_sub_stop(wcycle, ewcsNB_X_BUF_OPS);
-            cycles_force += wallcycle_stop(wcycle, ewcNB_XF_BUF_OPS);
-        }
-
-    }
 
 
     if (bStateChanged && NEED_MUTOT(*inputrec))
@@ -1019,14 +886,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
     reset_enerdata(&(inputrec->opts), fr, bNS, enerd, MASTER(cr));
     clear_rvecs(SHIFTS, fr->fshift);
 
-    if (DOMAINDECOMP(cr))
-    {
-        if (!(cr->duty & DUTY_PME))
-        {
-            wallcycle_start(wcycle, ewcPPDURINGPME);
-            dd_force_flop_start(cr->dd, nrnb);
-        }
-    }
 
     /* Start the force cycle counter.
      * This counter is stopped in do_forcelow_level.
@@ -1120,12 +979,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
     {
         int aloc;
 
-        if (DOMAINDECOMP(cr))
-        {
-            do_nb_verlet(fr, ic, enerd, flags, eintNonlocal,
-                         bDiffKernels ? enbvClearFYes : enbvClearFNo,
-                         nrnb, wcycle);
-        }
 
         aloc = eintLocal;
 
@@ -1165,29 +1018,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
         if (PAR(cr))
         {
             wallcycle_start(wcycle, ewcMOVEF);
-            if (DOMAINDECOMP(cr))
-            {
-                dd_move_f(cr->dd, f, fr->fshift);
-                /* Do we need to communicate the separate force array
-                 * for terms that do not contribute to the single sum virial?
-                 * Position restraints and electric fields do not introduce
-                 * inter-cg forces, only full electrostatics methods do.
-                 * When we do not calculate the virial, fr->f_novirsum = f,
-                 * so we have already communicated these forces.
-                 */
-                if (EEL_FULL(fr->eeltype) && cr->dd->n_intercg_excl &&
-                    (flags & GMX_FORCE_VIRIAL))
-                {
-                    dd_move_f(cr->dd, fr->f_novirsum, NULL);
-                }
-                if (bSepLRF)
-                {
-                    /* We should not update the shift forces here,
-                     * since f_twin is already included in f.
-                     */
-                    dd_move_f(cr->dd, fr->f_twin, NULL);
-                }
-            }
             wallcycle_stop(wcycle, ewcMOVEF);
         }
     }
@@ -1235,15 +1065,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
         pull_potential_wrapper(fplog, bSepDVDL, cr, inputrec, box, x,
                                f, vir_force, mdatoms, enerd, lambda, t);
     }
-
-    if (PAR(cr) && !(cr->duty & DUTY_PME))
-    {
-        /* In case of node-splitting, the PP nodes receive the long-range
-         * forces, virial and energy from the PME nodes here.
-         */
-        pme_receive_force_ener(fplog, bSepDVDL, cr, wcycle, enerd, fr);
-    }
-
     if (bDoForces)
     {
         post_process_forces(fplog, cr, step, nrnb, wcycle,
@@ -1291,21 +1112,9 @@ void do_force_cutsGROUP(FILE *fplog, t_commrec *cr,
 
     clear_mat(vir_force);
 
-    if (PARTDECOMP(cr))
-    {
-        pd_cg_range(cr, &cg0, &cg1);
-    }
-    else
     {
         cg0 = 0;
-        if (DOMAINDECOMP(cr))
-        {
-            cg1 = cr->dd->ncg_tot;
-        }
-        else
-        {
-            cg1 = top->cgs.nr;
-        }
+        cg1 = top->cgs.nr;
         if (fr->n_tpi > 0)
         {
             cg1--;
@@ -1318,7 +1127,7 @@ void do_force_cutsGROUP(FILE *fplog, t_commrec *cr,
     bDoLongRangeNS = fr->bTwinRange && bNS;
     /* Should we perform the long-range nonbonded evaluation inside the neighborsearching? */
     bFillGrid      = (bNS && bStateChanged);
-    bCalcCGCM      = (bFillGrid && !DOMAINDECOMP(cr));
+    bCalcCGCM      = (bFillGrid );
     bDoForces      = (flags & GMX_FORCE_FORCES);
     bDoPotential   = (flags & GMX_FORCE_ENERGY);
     bSepLRF        = ((inputrec->nstcalclr > 1) && bDoForces &&
@@ -1382,46 +1191,12 @@ void do_force_cutsGROUP(FILE *fplog, t_commrec *cr,
         }
     }
 
-#ifdef GMX_MPI
-    if (!(cr->duty & DUTY_PME))
-    {
-        /* Send particle coordinates to the pme nodes.
-         * Since this is only implemented for domain decomposition
-         * and domain decomposition does not use the graph,
-         * we do not need to worry about shifting.
-         */
-
-        wallcycle_start(wcycle, ewcPP_PMESENDX);
-        GMX_MPE_LOG(ev_send_coordinates_start);
-
-        bBS = (inputrec->nwall == 2);
-        if (bBS)
-        {
-            copy_mat(box, boxs);
-            svmul(inputrec->wall_ewald_zfac, boxs[ZZ], boxs[ZZ]);
-        }
-
-        gmx_pme_send_x(cr, bBS ? boxs : box, x,
-                       mdatoms->nChargePerturbed, lambda[efptCOUL],
-                       (flags & (GMX_FORCE_VIRIAL | GMX_FORCE_ENERGY)), step);
-
-        GMX_MPE_LOG(ev_send_coordinates_finish);
-        wallcycle_stop(wcycle, ewcPP_PMESENDX);
-    }
-#endif /* GMX_MPI */
 
     /* Communicate coordinates and sum dipole if necessary */
     if (PAR(cr))
     {
         wallcycle_start(wcycle, ewcMOVEX);
-        if (DOMAINDECOMP(cr))
-        {
-            dd_move_x(cr->dd, box, x);
-        }
-        else
-        {
-            move_x(fplog, cr, GMX_LEFT, GMX_RIGHT, x, nrnb);
-        }
+        move_x(fplog, cr, GMX_LEFT, GMX_RIGHT, x, nrnb);
         wallcycle_stop(wcycle, ewcMOVEX);
     }
 
@@ -1524,14 +1299,6 @@ void do_force_cutsGROUP(FILE *fplog, t_commrec *cr,
                        x, box, fr, &top->idef, graph, fr->born);
     }
 
-    if (DOMAINDECOMP(cr))
-    {
-        if (!(cr->duty & DUTY_PME))
-        {
-            wallcycle_start(wcycle, ewcPPDURINGPME);
-            dd_force_flop_start(cr->dd, nrnb);
-        }
-    }
 
     if (inputrec->bRot)
     {
@@ -1638,14 +1405,6 @@ void do_force_cutsGROUP(FILE *fplog, t_commrec *cr,
         do_flood(cr, inputrec, x, f, ed, box, step, bNS);
     }
 
-    if (DOMAINDECOMP(cr))
-    {
-        dd_force_flop_stop(cr->dd, nrnb);
-        if (wcycle)
-        {
-            dd_cycles_add(cr->dd, cycles_force-cycles_pme, ddCyclF);
-        }
-    }
 
     if (bDoForces)
     {
@@ -1668,30 +1427,6 @@ void do_force_cutsGROUP(FILE *fplog, t_commrec *cr,
         if (PAR(cr))
         {
             wallcycle_start(wcycle, ewcMOVEF);
-            if (DOMAINDECOMP(cr))
-            {
-                dd_move_f(cr->dd, f, fr->fshift);
-                /* Do we need to communicate the separate force array
-                 * for terms that do not contribute to the single sum virial?
-                 * Position restraints and electric fields do not introduce
-                 * inter-cg forces, only full electrostatics methods do.
-                 * When we do not calculate the virial, fr->f_novirsum = f,
-                 * so we have already communicated these forces.
-                 */
-                if (EEL_FULL(fr->eeltype) && cr->dd->n_intercg_excl &&
-                    (flags & GMX_FORCE_VIRIAL))
-                {
-                    dd_move_f(cr->dd, fr->f_novirsum, NULL);
-                }
-                if (bSepLRF)
-                {
-                    /* We should not update the shift forces here,
-                     * since f_twin is already included in f.
-                     */
-                    dd_move_f(cr->dd, fr->f_twin, NULL);
-                }
-            }
-            else
             {
                 pd_move_f(cr, f, nrnb);
                 if (bSepLRF)
@@ -1744,13 +1479,6 @@ void do_force_cutsGROUP(FILE *fplog, t_commrec *cr,
         wallcycle_stop(wcycle, ewcROTadd);
     }
 
-    if (PAR(cr) && !(cr->duty & DUTY_PME))
-    {
-        /* In case of node-splitting, the PP nodes receive the long-range
-         * forces, virial and energy from the PME nodes here.
-         */
-        pme_receive_force_ener(fplog, bSepDVDL, cr, wcycle, enerd, fr);
-    }
 
     if (bDoForces)
     {
@@ -2308,69 +2036,20 @@ void finish_run(FILE *fplog, t_commrec *cr, const char *confout,
     if (cr->nnodes > 1)
     {
         snew(nrnb_tot, 1);
-#ifdef GMX_MPI
         MPI_Allreduce(nrnb->n, nrnb_tot->n, eNRNB, MPI_DOUBLE, MPI_SUM,
                       cr->mpi_comm_mysim);
-#endif
     }
     else
     {
         nrnb_tot = nrnb;
     }
 
-#if defined(GMX_MPI) && !defined(GMX_THREAD_MPI)
-    if (cr->nnodes > 1)
-    {
-        /* reduce nodetime over all MPI processes in the current simulation */
-        double sum;
-        MPI_Allreduce(&runtime->proctime, &sum, 1, MPI_DOUBLE, MPI_SUM,
-                      cr->mpi_comm_mysim);
-        runtime->proctime = sum;
-    }
-#endif
 
-    if (SIMMASTER(cr))
-    {
-        print_flop(fplog, nrnb_tot, &nbfs, &mflop);
-    }
+    print_flop(fplog, nrnb_tot, &nbfs, &mflop);
     if (cr->nnodes > 1)
     {
         sfree(nrnb_tot);
     }
-
-    if ((cr->duty & DUTY_PP) && DOMAINDECOMP(cr))
-    {
-        print_dd_statistics(cr, inputrec, fplog);
-    }
-
-#ifdef GMX_MPI
-    if (PARTDECOMP(cr))
-    {
-        if (MASTER(cr))
-        {
-            t_nrnb     *nrnb_all;
-            int         s;
-            MPI_Status  stat;
-
-            snew(nrnb_all, cr->nnodes);
-            nrnb_all[0] = *nrnb;
-            for (s = 1; s < cr->nnodes; s++)
-            {
-                MPI_Recv(nrnb_all[s].n, eNRNB, MPI_DOUBLE, s, 0,
-                         cr->mpi_comm_mysim, &stat);
-            }
-            pr_load(fplog, cr, nrnb_all);
-            sfree(nrnb_all);
-        }
-        else
-        {
-            MPI_Send(nrnb->n, eNRNB, MPI_DOUBLE, MASTERRANK(cr), 0,
-                     cr->mpi_comm_mysim);
-        }
-    }
-#endif
-
-    if (SIMMASTER(cr))
     {
         wallcycle_print(fplog, cr->nnodes, cr->npmenodes, runtime->realtime,
                         wcycle, gputimes);
