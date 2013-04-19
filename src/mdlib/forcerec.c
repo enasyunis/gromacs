@@ -2861,7 +2861,7 @@ void init_forcerec(FILE              *fp,
     init_interaction_const(fp, &fr->ic, fr, rtab);
     if (ir->eDispCorr != edispcNO)
     {
-        calc_enervirdiff(fp, ir->eDispCorr, fr);
+        //calc_enervirdiff(fp, ir->eDispCorr, fr);
     }
 }
 
