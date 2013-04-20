@@ -69,30 +69,15 @@ typedef struct
 
 void verletbuf_get_list_setup(gmx_bool                bGPU,
                               verletbuf_list_setup_t *list_setup)
-{
+{//called
     list_setup->cluster_size_i     = NBNXN_CPU_CLUSTER_I_SIZE;
 
-    if (bGPU)
-    {
-        list_setup->cluster_size_j = NBNXN_GPU_CLUSTER_SIZE;
-    }
-    else
-    {
-#ifndef GMX_NBNXN_SIMD
-        list_setup->cluster_size_j = NBNXN_CPU_CLUSTER_I_SIZE;
-#else
-        list_setup->cluster_size_j = GMX_NBNXN_SIMD_BITWIDTH/(sizeof(real)*8);
-#ifdef GMX_NBNXN_SIMD_2XNN
-        /* We assume the smallest cluster size to be on the safe side */
-        list_setup->cluster_size_j /= 2;
-#endif
-#endif
-    }
+    list_setup->cluster_size_j = GMX_NBNXN_SIMD_BITWIDTH/(sizeof(real)*8);
 }
 
 static void add_at(verletbuf_atomtype_t **att_p, int *natt_p,
                    real mass, int type, real q, int con, int nmol)
-{
+{//called
     verletbuf_atomtype_t *att;
     int                   natt, i;
 
@@ -135,7 +120,7 @@ static void get_verlet_buffer_atomtypes(const gmx_mtop_t      *mtop,
                                         verletbuf_atomtype_t **att_p,
                                         int                   *natt_p,
                                         int                   *n_nonlin_vsite)
-{
+{//called
     verletbuf_atomtype_t *att;
     int                   natt;
     int                   mb, nmol, ft, i, j, a1, a2, a3, a;
@@ -284,25 +269,6 @@ static void get_verlet_buffer_atomtypes(const gmx_mtop_t      *mtop,
     *natt_p = natt;
 }
 
-static void approx_2dof(real s2, real x,
-                        real *shift, real *scale)
-{
-    /* A particle with 1 DOF constrained has 2 DOFs instead of 3.
-     * This code is also used for particles with multiple constraints,
-     * in which case we overestimate the displacement.
-     * The 2DOF distribution is sqrt(pi/2)*erfc(r/(sqrt(2)*s))/(2*s).
-     * We approximate this with scale*Gaussian(s,r+shift),
-     * by matching the distribution value and derivative at x.
-     * This is a tight overestimate for all r>=0 at any s and x.
-     */
-    real ex, er;
-
-    ex = exp(-x*x/(2*s2));
-    er = gmx_erfc(x/sqrt(2*s2));
-
-    *shift = -x + sqrt(2*s2/M_PI)*ex/er;
-    *scale = 0.5*M_PI*exp(ex*ex/(M_PI*er*er))*er;
-}
 
 static real ener_drift(const verletbuf_atomtype_t *att, int natt,
                        const gmx_ffparams_t *ffp,
@@ -310,7 +276,7 @@ static real ener_drift(const verletbuf_atomtype_t *att, int natt,
                        real md_ljd, real md_ljr, real md_el, real dd_el,
                        real r_buffer,
                        real rlist, real boxvol)
-{
+{//called
     double drift_tot, pot1, pot2, pot;
     int    i, j;
     real   s2i, s2j, s2, s;
@@ -348,21 +314,6 @@ static real ener_drift(const verletbuf_atomtype_t *att, int natt,
 
             rsh    = r_buffer;
             sc_fac = 1.0;
-            /* For constraints: adapt r and scaling for the Gaussian */
-            if (att[i].con)
-            {
-                real sh, sc;
-                approx_2dof(s2i, r_buffer*s2i/s2, &sh, &sc);
-                rsh    += sh;
-                sc_fac *= sc;
-            }
-            if (att[j].con)
-            {
-                real sh, sc;
-                approx_2dof(s2j, r_buffer*s2j/s2, &sh, &sc);
-                rsh    += sh;
-                sc_fac *= sc;
-            }
 
             /* Exact contribution of an atom pair with Gaussian displacement
              * with sigma s to the energy drift for a potential with
@@ -416,7 +367,7 @@ static real ener_drift(const verletbuf_atomtype_t *att, int natt,
 }
 
 static real surface_frac(int cluster_size, real particle_distance, real rlist)
-{
+{//called
     real d, area_rel;
 
     if (rlist < 0.5*particle_distance)
@@ -471,7 +422,7 @@ void calc_verlet_buffer_size(const gmx_mtop_t *mtop, real boxvol,
                              const verletbuf_list_setup_t *list_setup,
                              int *n_nonlin_vsite,
                              real *rlist)
-{
+{ // called
     double                resolution;
     char                 *env;
 
