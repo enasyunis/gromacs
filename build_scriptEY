@@ -7,7 +7,7 @@ exit(0)
 ############
 cd ~/gromacs_4.6/build
 cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DGMX_GPU=OFF -DGMX_DOUBLE=ON
-make install
+make -j install
 cd ../data
 ../exec/bin/grompp_d -c conf.gro -p topol.top -f gromppEwald.mdp -o ThsndWE.tpr -po mdoutE.mdp
 ../exec/bin/grompp_d -c conf.gro -p topol.top -f gromppPME.mdp -o ThsndWP.tpr -po mdoutP.mdp
@@ -20,13 +20,19 @@ rm -r \#*
 cd ~/gromacs_4.6rio/build
 
 rm -r ../build/* ../exec/* ../data/*
+cp ~/gromacs_4.6/data/* ../data/.
 
 CMAKE_PREFIX_PATH=../../externlib cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_GPU=OFF -DGMX_DOUBLE=ON -DGMX_FORCE_CXX=ON
 
-make install
+make -j install
 
-cp ~/gromacs_4.6/data/* ../data/.
+
 FILENAME=../data/ThsndWE ../exec/bin/mdrun_d
+FILENAME=../data/ThsndWP ../exec/bin/mdrun_d
+
+grep 9.01453 ../data/ThsndWP.log ../data/ThsndWE.log
+
+rm  -r ../build/* ../exec/* ../data/\#*
 
 ###########
 # GPU FMM #
@@ -37,10 +43,20 @@ rm -r ../build/* ../exec/* ../data/*
 
 CMAKE_PREFIX_PATH=../../externlib cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_GPU=ON -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda
 
-make install
+make -j install
 
 cp ~/gromacs_4.6/data/* ../data/.
-FILENAME=../data/ThsndWE ../exec/bin/mdrun
+../exec/bin/mdrun_d -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm ThsndWE../exec/bin/mdrun_d -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm ThsndWP
+
+grep 9.01453 ../data/ThsndWP.log ../data/ThsndWE.log
+
+
+#############
+# GIT STUFF #
+#############
+git checkout -b tempB <commit id> # create a branch from a committed revision
+git checkout release-4-6          # return to the proper branch
+git branch -D tempB               # delete tempB branch
 
 ################
 # FFTW Example #
