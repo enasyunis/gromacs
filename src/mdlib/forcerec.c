@@ -201,71 +201,25 @@ static int *cginfo_expand(int nmb, cginfo_mb_t *cgi_mb)
 static void set_chargesum(FILE *log, t_forcerec *fr, const gmx_mtop_t *mtop)
 {//called
     double         qsum, q2sum, q;
-    int            mb, nmol, i;
+    int            nmol, i;
     const t_atoms *atoms;
-
+// TODO ENAS RIO charges being added here
     qsum  = 0;
     q2sum = 0;
-    for (mb = 0; mb < mtop->nmolblock; mb++)
-    {
-        nmol  = mtop->molblock[mb].nmol;
-        atoms = &mtop->moltype[mtop->molblock[mb].type].atoms;
+    nmol  = mtop->molblock[0].nmol;
+    atoms = &mtop->moltype[mtop->molblock[0].type].atoms;
         for (i = 0; i < atoms->nr; i++)
         {
             q      = atoms->atom[i].q;
             qsum  += nmol*q;
             q2sum += nmol*q*q;
         }
-    }
     fr->qsum[0]  = qsum;
     fr->q2sum[0] = q2sum;
-    if (fr->efep != efepNO)
-    {
-        qsum  = 0;
-        q2sum = 0;
-        for (mb = 0; mb < mtop->nmolblock; mb++)
-        {
-            nmol  = mtop->molblock[mb].nmol;
-            atoms = &mtop->moltype[mtop->molblock[mb].type].atoms;
-            for (i = 0; i < atoms->nr; i++)
-            {
-                q      = atoms->atom[i].qB;
-                qsum  += nmol*q;
-                q2sum += nmol*q*q;
-            }
-            fr->qsum[1]  = qsum;
-            fr->q2sum[1] = q2sum;
-        }
-    }
-    else
-    {
-        fr->qsum[1]  = fr->qsum[0];
-        fr->q2sum[1] = fr->q2sum[0];
-    }
-    if (log)
-    {
-        if (fr->efep == efepNO)
-        {
-            fprintf(log, "System total charge: %.3f\n", fr->qsum[0]);
-        }
-        else
-        {
-            fprintf(log, "System total charge, top. A: %.3f top. B: %.3f\n",
-                    fr->qsum[0], fr->qsum[1]);
-        }
-    }
+    fr->qsum[1]  = fr->qsum[0];
+    fr->q2sum[1] = fr->q2sum[0];
+    fprintf(log, "System total charge: %.3f\n", fr->qsum[0]);
 }
-
-void update_forcerec(FILE *log, t_forcerec *fr, matrix box)
-{//called
-    if (fr->eeltype == eelGRF)
-    {
-        calc_rffac(NULL, fr->eeltype, fr->epsilon_r, fr->epsilon_rf,
-                   fr->rcoulomb, fr->temp, fr->zsquare, box,
-                   &fr->kappa, &fr->k_rf, &fr->c_rf);
-    }
-}
-
 
 static void make_nbf_tables(FILE *fp, const output_env_t oenv,
                             t_forcerec *fr, real rtab,
@@ -276,22 +230,7 @@ static void make_nbf_tables(FILE *fp, const output_env_t oenv,
     char buf[STRLEN];
     int  i, j;
 
-    if (tabfn == NULL)
-    {
-        if (debug)
-        {
-            fprintf(debug, "No table file name passed, can not read table, can not do non-bonded interactions\n");
-        }
-        return;
-    }
-
     sprintf(buf, "%s", tabfn);
-    if (eg1 && eg2)
-    {
-        /* Append the two energy group names */
-        sprintf(buf + strlen(tabfn) - strlen(ftp2ext(efXVG)) - 1, "_%s_%s.%s",
-                eg1, eg2, ftp2ext(efXVG));
-    }
     nbl->table_elec_vdw = make_tables(fp, oenv, fr, MASTER(cr), buf, rtab, 0);
     /* Copy the contents of the table to separate coulomb and LJ tables too,
      * to improve cache performance.
@@ -322,7 +261,7 @@ static void make_nbf_tables(FILE *fp, const output_env_t oenv,
     nbl->table_vdw.stride        = nbl->table_vdw.formatsize * nbl->table_vdw.ninteractions;
     snew_aligned(nbl->table_vdw.data, nbl->table_vdw.stride*(nbl->table_vdw.n+1), 32);
 
-    for (i = 0; i <= nbl->table_elec_vdw.n; i++)
+    for (i = 0; i <= nbl->table_elec_vdw.n; i++) // 4000
     {
         for (j = 0; j < 4; j++)
         {
@@ -333,79 +272,6 @@ static void make_nbf_tables(FILE *fp, const output_env_t oenv,
             nbl->table_vdw.data[8*i+j] = nbl->table_elec_vdw.data[12*i+4+j];
         }
     }
-}
-
-static void count_tables(int ftype1, int ftype2, const gmx_mtop_t *mtop,
-                         int *ncount, int **count)
-{//called
-    const gmx_moltype_t *molt;
-    const t_ilist       *il;
-    int                  mt, ftype, stride, i, j, tabnr;
-
-    for (mt = 0; mt < mtop->nmoltype; mt++)
-    {
-        molt = &mtop->moltype[mt];
-        for (ftype = 0; ftype < F_NRE; ftype++)
-        {
-            if (ftype == ftype1 || ftype == ftype2)
-            {
-                il     = &molt->ilist[ftype];
-                stride = 1 + NRAL(ftype);
-                for (i = 0; i < il->nr; i += stride)
-                {
-                    tabnr = mtop->ffparams.iparams[il->iatoms[i]].tab.table;
-                    if (tabnr < 0)
-                    {
-                        gmx_fatal(FARGS, "A bonded table number is smaller than 0: %d\n", tabnr);
-                    }
-                    if (tabnr >= *ncount)
-                    {
-                        srenew(*count, tabnr+1);
-                        for (j = *ncount; j < tabnr+1; j++)
-                        {
-                            (*count)[j] = 0;
-                        }
-                        *ncount = tabnr+1;
-                    }
-                    (*count)[tabnr]++;
-                }
-            }
-        }
-    }
-}
-
-static bondedtable_t *make_bonded_tables(FILE *fplog,
-                                         int ftype1, int ftype2,
-                                         const gmx_mtop_t *mtop,
-                                         const char *basefn, const char *tabext)
-{ //called
-    int            i, ncount, *count;
-    char           tabfn[STRLEN];
-    bondedtable_t *tab;
-
-    tab = NULL;
-
-    ncount = 0;
-    count  = NULL;
-    count_tables(ftype1, ftype2, mtop, &ncount, &count);
-
-    if (ncount > 0)
-    {
-        snew(tab, ncount);
-        for (i = 0; i < ncount; i++)
-        {
-            if (count[i] > 0)
-            {
-                sprintf(tabfn, "%s", basefn);
-                sprintf(tabfn + strlen(basefn) - strlen(ftp2ext(efXVG)) - 1, "_%s%d.%s",
-                        tabext, i, ftp2ext(efXVG));
-                tab[i] = make_bonded_table(fplog, tabfn, NRAL(ftype1)-2);
-            }
-        }
-        sfree(count);
-    }
-
-    return tab;
 }
 
 void forcerec_set_ranges(t_forcerec *fr,
@@ -845,20 +711,10 @@ static void init_nb_verlet(FILE                *fp,
                 gmx_fatal(FARGS, "Invalid value passed in GMX_NB_MIN_CI=%s, positive integer required", env);
             }
 
-            if (debug)
-            {
-                fprintf(debug, "Neighbor-list balancing parameter: %d (passed as env. var.)\n",
-                        nbv->min_ci_balanced);
-            }
         }
         else
         {
             nbv->min_ci_balanced = nbnxn_cuda_min_ci_balanced(nbv->cu_nbv);
-            if (debug)
-            {
-                fprintf(debug, "Neighbor-list balancing parameter: %d (auto-adjusted to the number of GPU multi-processors)\n",
-                        nbv->min_ci_balanced);
-            }
         }
     }
     else
@@ -1651,22 +1507,9 @@ void init_forcerec(FILE              *fp,
 
     if (fcd && tabbfn)
     {
-        fcd->bondtab  = make_bonded_tables(fp,
-                                           F_TABBONDS, F_TABBONDSNC,
-                                           mtop, tabbfn, "b");
-        fcd->angletab = make_bonded_tables(fp,
-                                           F_TABANGLES, -1,
-                                           mtop, tabbfn, "a");
-        fcd->dihtab   = make_bonded_tables(fp,
-                                           F_TABDIHS, -1,
-                                           mtop, tabbfn, "d");
-    }
-    else
-    {
-        if (debug)
-        {
-            fprintf(debug, "No fcdata or table file name passed, can not read table, can not do bonded interactions\n");
-        }
+        fcd->bondtab  = NULL; 
+        fcd->angletab = NULL; 
+        fcd->dihtab   = NULL; 
     }
 
     /* QM/MM initialization if requested

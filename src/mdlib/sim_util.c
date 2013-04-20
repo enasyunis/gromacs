@@ -371,8 +371,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
     cg0 = 0;
     cg1 = top->cgs.nr;
 
-    update_forcerec(fplog, fr, box);
-
     put_atoms_in_box_omp(fr->ePBC, box, homenr, x);
     inc_nrnb(nrnb, eNR_SHIFTX, homenr);
 
