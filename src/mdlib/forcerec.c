@@ -288,90 +288,11 @@ void forcerec_set_ranges(t_forcerec *fr,
     fr->ncg_force           = ncg_force;
     fr->natoms_force        = natoms_force;
     fr->natoms_force_constr = natoms_force_constr;
-
-    if (fr->natoms_force_constr > fr->nalloc_force)
-    {
-        fr->nalloc_force = over_alloc_dd(fr->natoms_force_constr);
-
-        if (fr->bTwinRange)
-        {
-            srenew(fr->f_twin, fr->nalloc_force);
-        }
-    }
-
-    if (fr->bF_NoVirSum)
-    {
-        fr->f_novirsum_n = natoms_f_novirsum;
-        if (fr->f_novirsum_n > fr->f_novirsum_nalloc)
-        {
-            fr->f_novirsum_nalloc = over_alloc_dd(fr->f_novirsum_n);
-            srenew(fr->f_novirsum_alloc, fr->f_novirsum_nalloc);
-        }
-    }
-    else
-    {
-        fr->f_novirsum_n = 0;
-    }
+    fr->nalloc_force = over_alloc_dd(fr->natoms_force_constr);
+    fr->f_novirsum_n = natoms_f_novirsum;
+    fr->f_novirsum_nalloc = over_alloc_dd(fr->f_novirsum_n);
+    srenew(fr->f_novirsum_alloc, fr->f_novirsum_nalloc);
 }
-
-static real cutoff_inf(real cutoff)
-{ //called 
-    if (cutoff == 0)
-    {
-        cutoff = GMX_CUTOFF_INF;
-    }
-
-    return cutoff;
-}
-
-
-gmx_bool can_use_allvsall(const t_inputrec *ir, const gmx_mtop_t *mtop,
-                          gmx_bool bPrintNote, t_commrec *cr, FILE *fp)
-{ //called 
-    gmx_bool bAllvsAll;
-
-    bAllvsAll =
-        (
-            ir->rlist == 0            &&
-            ir->rcoulomb == 0         &&
-            ir->rvdw == 0             &&
-            ir->ePBC == epbcNONE      &&
-            ir->vdwtype == evdwCUT    &&
-            ir->coulombtype == eelCUT &&
-            ir->efep == efepNO        &&
-            (ir->implicit_solvent == eisNO ||
-             (ir->implicit_solvent == eisGBSA && (ir->gb_algorithm == egbSTILL ||
-                                                  ir->gb_algorithm == egbHCT   ||
-                                                  ir->gb_algorithm == egbOBC))) &&
-            getenv("GMX_NO_ALLVSALL") == NULL
-        );
-
-    if (bAllvsAll && ir->opts.ngener > 1)
-    {
-        const char *note = "NOTE: Can not use all-vs-all force loops, because there are multiple energy monitor groups; you might get significantly higher performance when using only a single energy monitor group.\n";
-
-        if (bPrintNote)
-        {
-            if (MASTER(cr))
-            {
-                fprintf(stderr, "\n%s\n", note);
-            }
-            if (fp != NULL)
-            {
-                fprintf(fp, "\n%s\n", note);
-            }
-        }
-        bAllvsAll = FALSE;
-    }
-
-    if (bAllvsAll && fp && MASTER(cr))
-    {
-        fprintf(fp, "\nUsing accelerated all-vs-all kernels.\n\n");
-    }
-
-    return bAllvsAll;
-}
-
 
 static void init_forcerec_f_threads(t_forcerec *fr, int nenergrp)
 { // called
@@ -380,7 +301,7 @@ static void init_forcerec_f_threads(t_forcerec *fr, int nenergrp)
     /* These thread local data structures are used for bondeds only */
     fr->nthreads = gmx_omp_nthreads_get(emntBonded);
 
-    if (fr->nthreads > 1)
+    if (fr->nthreads > 1) // OpenMP threads used
     {
         snew(fr->f_t, fr->nthreads);
         /* Thread 0 uses the global force and energy arrays */
@@ -399,26 +320,6 @@ static void init_forcerec_f_threads(t_forcerec *fr, int nenergrp)
 }
 
 
-static void pick_nbnxn_kernel(FILE                *fp,
-                              const t_commrec     *cr,
-                              const gmx_hw_info_t *hwinfo,
-                              gmx_bool             use_cpu_acceleration,
-                              gmx_bool             bUseGPU,
-                              gmx_bool             bEmulateGPU,
-                              const t_inputrec    *ir,
-                              int                 *kernel_type,
-                              int                 *ewald_excl,
-                              gmx_bool             bDoNonbonded)
-{ //called 
-    assert(kernel_type);
-
-    *kernel_type = nbnxnkNotSet;
-    *ewald_excl  = ewaldexclTable;
-
-
-    *kernel_type = nbnxnk4x4_PlainC;
-
-}
 
 static void pick_nbnxn_resources(FILE                *fp,
                                  const t_commrec     *cr,
@@ -448,25 +349,6 @@ static void pick_nbnxn_resources(FILE                *fp,
     *bEmulateGPU = (bEmulateGPUEnvVarSet ||
                     (!bDoNonbonded && hwinfo->bCanUseGPU));
 
-    /* Enable GPU mode when GPUs are available or no GPU emulation is requested.
-     */
-    if (hwinfo->bCanUseGPU && !(*bEmulateGPU))
-    {
-        /* Each PP node will use the intra-node id-th device from the
-         * list of detected/selected GPUs. */
-        if (!init_gpu(cr->rank_pp_intranode, gpu_err_str, &hwinfo->gpu_info))
-        {
-            /* At this point the init should never fail as we made sure that
-             * we have all the GPUs we need. If it still does, we'll bail. */
-            gmx_fatal(FARGS, "On node %d failed to initialize GPU #%d: %s",
-                      cr->nodeid,
-                      get_gpu_device_id(&hwinfo->gpu_info, cr->rank_pp_intranode),
-                      gpu_err_str);
-        }
-
-        /* Here we actually turn on hardware GPU acceleration */
-        *bUseGPU = TRUE;
-    }
 }
 
 gmx_bool uses_simple_tables(int                 cutoff_scheme,
@@ -528,11 +410,8 @@ void init_interaction_const_tables(FILE                *fp,
     {
         init_ewald_f_table(ic, bUsesSimpleTables, rtab);
 
-        if (fp != NULL)
-        {
-            fprintf(fp, "Initialized non-bonded Ewald correction tables, spacing: %.2e size: %d\n\n",
+        fprintf(fp, "Initialized non-bonded Ewald correction tables, spacing: %.2e size: %d\n\n",
                     1/ic->tabq_scale, ic->tabq_size);
-        }
     }
 }
 
@@ -604,8 +483,6 @@ void init_interaction_const(FILE                 *fp,
         }
     }
 
-    if (fp != NULL)
-    {
         fprintf(fp, "Potential shift: LJ r^-12: %.3f r^-6 %.3f",
                 sqr(ic->sh_invrc6), ic->sh_invrc6);
         if (ic->eeltype == eelCUT)
@@ -617,14 +494,9 @@ void init_interaction_const(FILE                 *fp,
             fprintf(fp, ", Ewald %.3e", ic->sh_ewald);
         }
         fprintf(fp, "\n");
-    }
 
     *interaction_const = ic;
 
-    if (fr->nbv != NULL && fr->nbv->bUseGPU)
-    {
-        nbnxn_cuda_init_const(fr->nbv->cu_nbv, ic, fr->nbv);
-    }
 
     bUsesSimpleTables = uses_simple_tables(fr->cutoff_scheme, fr->nbv, -1);
     init_interaction_const_tables(fp, ic, bUsesSimpleTables, rtab);
@@ -642,8 +514,6 @@ static void init_nb_verlet(FILE                *fp,
     char               *env;
     gmx_bool            bEmulateGPU, bHybridGPURun = FALSE;
 
-    nbnxn_alloc_t      *nb_alloc;
-    nbnxn_free_t       *nb_free;
 
     snew(nbv, 1);
 
@@ -653,118 +523,38 @@ static void init_nb_verlet(FILE                *fp,
                          &bEmulateGPU);
 
     nbv->nbs = NULL;
+    nbv->ngrp = 1;
+    nbv->grp[0].nbl_lists.nnbl = 0;
+    nbv->grp[0].nbat           = NULL;
+    nbv->grp[0].kernel_type    = nbnxnkNotSet;
 
-    nbv->ngrp = (DOMAINDECOMP(cr) ? 2 : 1);
-    for (i = 0; i < nbv->ngrp; i++)
-    {
-        nbv->grp[i].nbl_lists.nnbl = 0;
-        nbv->grp[i].nbat           = NULL;
-        nbv->grp[i].kernel_type    = nbnxnkNotSet;
+    nbv->grp[0].ewald_excl  = ewaldexclTable;
+    nbv->grp[0].kernel_type = nbnxnk4x4_PlainC;
 
-        if (i == 0) /* local */
-        {
-            pick_nbnxn_kernel(fp, cr, fr->hwinfo, fr->use_cpu_acceleration,
-                              nbv->bUseGPU, bEmulateGPU,
-                              ir,
-                              &nbv->grp[i].kernel_type,
-                              &nbv->grp[i].ewald_excl,
-                              fr->bNonbonded);
-        }
-        else /* non-local */
-        {
-            if (nbpu_opt != NULL && strcmp(nbpu_opt, "gpu_cpu") == 0)
-            {
-                /* Use GPU for local, select a CPU kernel for non-local */
-                pick_nbnxn_kernel(fp, cr, fr->hwinfo, fr->use_cpu_acceleration,
-                                  FALSE, FALSE,
-                                  ir,
-                                  &nbv->grp[i].kernel_type,
-                                  &nbv->grp[i].ewald_excl,
-                                  fr->bNonbonded);
 
-                bHybridGPURun = TRUE;
-            }
-            else
-            {
-                /* Use the same kernel for local and non-local interactions */
-                nbv->grp[i].kernel_type = nbv->grp[0].kernel_type;
-                nbv->grp[i].ewald_excl  = nbv->grp[0].ewald_excl;
-            }
-        }
-    }
-
-    if (nbv->bUseGPU)
-    {
-        /* init the NxN GPU data; the last argument tells whether we'll have
-         * both local and non-local NB calculation on GPU */
-        nbnxn_cuda_init(fp, &nbv->cu_nbv,
-                        &fr->hwinfo->gpu_info, cr->rank_pp_intranode,
-                        (nbv->ngrp > 1) && !bHybridGPURun);
-
-        if ((env = getenv("GMX_NB_MIN_CI")) != NULL)
-        {
-            char *end;
-
-            nbv->min_ci_balanced = strtol(env, &end, 10);
-            if (!end || (*end != 0) || nbv->min_ci_balanced <= 0)
-            {
-                gmx_fatal(FARGS, "Invalid value passed in GMX_NB_MIN_CI=%s, positive integer required", env);
-            }
-
-        }
-        else
-        {
-            nbv->min_ci_balanced = nbnxn_cuda_min_ci_balanced(nbv->cu_nbv);
-        }
-    }
-    else
-    {
-        nbv->min_ci_balanced = 0;
-    }
+    nbv->min_ci_balanced = 0;
 
     *nb_verlet = nbv;
 
     nbnxn_init_search(&nbv->nbs,
-                      DOMAINDECOMP(cr) ? &cr->dd->nc : NULL,
-                      DOMAINDECOMP(cr) ? domdec_zones(cr->dd) : NULL,
+                      NULL,
+                      NULL,
                       gmx_omp_nthreads_get(emntNonbonded));
 
-    for (i = 0; i < nbv->ngrp; i++)
-    {
-        if (nbv->grp[0].kernel_type == nbnxnk8x8x8_CUDA)
-        {
-            nb_alloc = &pmalloc;
-            nb_free  = &pfree;
-        }
-        else
-        {
-            nb_alloc = NULL;
-            nb_free  = NULL;
-        }
 
-        nbnxn_init_pairlist_set(&nbv->grp[i].nbl_lists,
-                                nbnxn_kernel_pairlist_simple(nbv->grp[i].kernel_type),
-                                /* 8x8x8 "non-simple" lists are ATM always combined */
-                                !nbnxn_kernel_pairlist_simple(nbv->grp[i].kernel_type),
-                                nb_alloc, nb_free);
+    nbnxn_init_pairlist_set(&nbv->grp[0].nbl_lists,
+                                nbnxn_kernel_pairlist_simple(nbv->grp[0].kernel_type),
+                                !nbnxn_kernel_pairlist_simple(nbv->grp[0].kernel_type),
+                                NULL, NULL);
 
-        if (i == 0 ||
-            nbv->grp[0].kernel_type != nbv->grp[i].kernel_type)
-        {
-            snew(nbv->grp[i].nbat, 1);
-            nbnxn_atomdata_init(fp,
-                                nbv->grp[i].nbat,
-                                nbv->grp[i].kernel_type,
-                                fr->ntype, fr->nbfp,
-                                ir->opts.ngener,
-                                nbnxn_kernel_pairlist_simple(nbv->grp[i].kernel_type) ? gmx_omp_nthreads_get(emntNonbonded) : 1,
-                                nb_alloc, nb_free);
-        }
-        else
-        {
-            nbv->grp[i].nbat = nbv->grp[0].nbat;
-        }
-    }
+    snew(nbv->grp[0].nbat, 1);
+    nbnxn_atomdata_init(fp,
+                           nbv->grp[0].nbat,
+                           nbv->grp[0].kernel_type,
+                           fr->ntype, fr->nbfp,
+                           ir->opts.ngener,
+                           gmx_omp_nthreads_get(emntNonbonded),
+                           NULL, NULL);
 }
 
 void init_forcerec(FILE              *fp,
@@ -798,66 +588,14 @@ void init_forcerec(FILE              *fp,
     /* By default we turn acceleration on, but it might be turned off further down... */
     fr->use_cpu_acceleration = TRUE;
 
-    fr->bDomDec = DOMAINDECOMP(cr);
+    fr->bDomDec = FALSE; 
 
     natoms = mtop->natoms;
-
-    if (check_box(ir->ePBC, box))
-    {
-        gmx_fatal(FARGS, check_box(ir->ePBC, box));
-    }
-
-    /* Test particle insertion ? */
-    if (EI_TPI(ir->eI))
-    {
-        /* Set to the size of the molecule to be inserted (the last one) */
-        /* Because of old style topologies, we have to use the last cg
-         * instead of the last molecule type.
-         */
-        cgs       = &mtop->moltype[mtop->molblock[mtop->nmolblock-1].type].cgs;
-        fr->n_tpi = cgs->index[cgs->nr] - cgs->index[cgs->nr-1];
-        if (fr->n_tpi != mtop->mols.index[mtop->mols.nr] - mtop->mols.index[mtop->mols.nr-1])
-        {
-            gmx_fatal(FARGS, "The molecule to insert can not consist of multiple charge groups.\nMake it a single charge group.");
-        }
-    }
-    else
-    {
-        fr->n_tpi = 0;
-    }
+    fr->n_tpi = 0;
 
     /* Copy AdResS parameters */
-    if (ir->bAdress)
-    {
-        fr->adress_type           = ir->adress->type;
-        fr->adress_const_wf       = ir->adress->const_wf;
-        fr->adress_ex_width       = ir->adress->ex_width;
-        fr->adress_hy_width       = ir->adress->hy_width;
-        fr->adress_icor           = ir->adress->icor;
-        fr->adress_site           = ir->adress->site;
-        fr->adress_ex_forcecap    = ir->adress->ex_forcecap;
-        fr->adress_do_hybridpairs = ir->adress->do_hybridpairs;
-
-
-        snew(fr->adress_group_explicit, ir->adress->n_energy_grps);
-        for (i = 0; i < ir->adress->n_energy_grps; i++)
-        {
-            fr->adress_group_explicit[i] = ir->adress->group_explicit[i];
-        }
-
-        fr->n_adress_tf_grps = ir->adress->n_tf_grps;
-        snew(fr->adress_tf_table_index, fr->n_adress_tf_grps);
-        for (i = 0; i < fr->n_adress_tf_grps; i++)
-        {
-            fr->adress_tf_table_index[i] = ir->adress->tf_table_index[i];
-        }
-        copy_rvec(ir->adress->refs, fr->adress_refs);
-    }
-    else
-    {
-        fr->adress_type           = eAdressOff;
-        fr->adress_do_hybridpairs = FALSE;
-    }
+    fr->adress_type           = eAdressOff;
+    fr->adress_do_hybridpairs = FALSE;
 
     /* Copy the user determined parameters */
     fr->userint1  = ir->userint1;
@@ -875,77 +613,27 @@ void init_forcerec(FILE              *fp,
     /* Free energy */
     fr->efep        = ir->efep;
     fr->sc_alphavdw = ir->fepvals->sc_alpha;
-    if (ir->fepvals->bScCoul)
-    {
-        fr->sc_alphacoul  = ir->fepvals->sc_alpha;
-        fr->sc_sigma6_min = pow(ir->fepvals->sc_sigma_min, 6);
-    }
-    else
-    {
-        fr->sc_alphacoul  = 0;
-        fr->sc_sigma6_min = 0; /* only needed when bScCoul is on */
-    }
+    fr->sc_alphacoul  = 0;
+    fr->sc_sigma6_min = 0; /* only needed when bScCoul is on */
     fr->sc_power      = ir->fepvals->sc_power;
     fr->sc_r_power    = ir->fepvals->sc_r_power;
     fr->sc_sigma6_def = pow(ir->fepvals->sc_sigma, 6);
 
     env = getenv("GMX_SCSIGMA_MIN");
-    if (env != NULL)
-    {
-        dbl = 0;
-        sscanf(env, "%lf", &dbl);
-        fr->sc_sigma6_min = pow(dbl, 6);
-        if (fp)
-        {
-            fprintf(fp, "Setting the minimum soft core sigma to %g nm\n", dbl);
-        }
-    }
 
     fr->bNonbonded = TRUE;
-    if (getenv("GMX_NO_NONBONDED") != NULL)
-    {
-        /* turn off non-bonded calculations */
-        fr->bNonbonded = FALSE;
-        md_print_warn(cr, fp,
-                      "Found environment variable GMX_NO_NONBONDED.\n"
-                      "Disabling nonbonded calculations.\n");
-    }
-
     bGenericKernelOnly = FALSE;
 
-    /* We now check in the NS code whether a particular combination of interactions
-     * can be used with water optimization, and disable it if that is not the case.
-     */
-
-    if (getenv("GMX_NB_GENERIC") != NULL)
-    {
-        if (fp != NULL)
-        {
-            fprintf(fp,
-                    "Found environment variable GMX_NB_GENERIC.\n"
-                    "Disabling all interaction-specific nonbonded kernels, will only\n"
-                    "use the slow generic ones in src/gmxlib/nonbonded/nb_generic.c\n\n");
-        }
-        bGenericKernelOnly = TRUE;
-    }
-
-    if (bGenericKernelOnly == TRUE)
-    {
-        bNoSolvOpt         = TRUE;
-    }
 // ENAS DISABLED ACCELRAtiON
-        fr->use_cpu_acceleration = FALSE;
-        if (fp != NULL)
-        {
-            fprintf(fp,
+    fr->use_cpu_acceleration = FALSE;
+    fprintf(fp,
                     "\nFound environment variable GMX_DISABLE_CPU_ACCELERATION.\n"
                     "Disabling all CPU architecture-specific (e.g. SSE2/SSE4/AVX) routines.\n\n");
-        }
 
     fr->bBHAM = (mtop->ffparams.functype[0] == F_BHAM);
 
     /* Check if we can/should do all-vs-all kernels */
-    fr->bAllvsAll       = can_use_allvsall(ir, mtop, FALSE, NULL, NULL);
+    fr->bAllvsAll       = FALSE;
     fr->AllvsAll_work   = NULL;
     fr->AllvsAll_workgb = NULL;
 
@@ -956,49 +644,15 @@ void init_forcerec(FILE              *fp,
     fr->ePBC          = ir->ePBC;
 
     /* Determine if we will do PBC for distances in bonded interactions */
-    if (fr->ePBC == epbcNONE)
-    {
-        fr->bMolPBC = FALSE;
-    }
-    else
-    {
-        if (!DOMAINDECOMP(cr))
-        {
-            /* The group cut-off scheme and SHAKE assume charge groups
-             * are whole, but not using molpbc is faster in most cases.
-             */
-            if (fr->cutoff_scheme == ecutsGROUP ||
-                (ir->eConstrAlg == econtSHAKE &&
-                 (gmx_mtop_ftype_count(mtop, F_CONSTR) > 0 ||
-                  gmx_mtop_ftype_count(mtop, F_CONSTRNC) > 0)))
-            {
-                fr->bMolPBC = ir->bPeriodicMols;
-            }
-            else
-            {
-                fr->bMolPBC = TRUE;
-                if (getenv("GMX_USE_GRAPH") != NULL)
-                {
-                    fr->bMolPBC = FALSE;
-                    if (fp)
-                    {
-                        fprintf(fp, "\nGMX_MOLPBC is set, using the graph for bonded interactions\n\n");
-                    }
-                }
-            }
-        }
-        else
-        {
-            fr->bMolPBC = dd_bonded_molpbc(cr->dd, fr->ePBC);
-        }
-    }
+
+    fr->bMolPBC = TRUE;
     fr->bGB = (ir->implicit_solvent == eisGBSA);
 
     fr->rc_scaling = ir->refcoord_scaling;
     copy_rvec(ir->posres_com, fr->posres_com);
     copy_rvec(ir->posres_comB, fr->posres_comB);
-    fr->rlist      = cutoff_inf(ir->rlist);
-    fr->rlistlong  = cutoff_inf(ir->rlistlong);
+    fr->rlist      = ir->rlist;
+    fr->rlistlong  = ir->rlistlong;
     fr->eeltype    = ir->coulombtype;
     fr->vdwtype    = ir->vdwtype;
 
@@ -1006,68 +660,10 @@ void init_forcerec(FILE              *fp,
     fr->vdw_modifier     = ir->vdw_modifier;
 
     /* Electrostatics: Translate from interaction-setting-in-mdp-file to kernel interaction format */
-    switch (fr->eeltype)
-    {
-        case eelCUT:
-            fr->nbkernel_elec_interaction = (fr->bGB) ? GMX_NBKERNEL_ELEC_GENERALIZEDBORN : GMX_NBKERNEL_ELEC_COULOMB;
-            break;
-
-        case eelRF:
-        case eelGRF:
-        case eelRF_NEC:
-            fr->nbkernel_elec_interaction = GMX_NBKERNEL_ELEC_REACTIONFIELD;
-            break;
-
-        case eelRF_ZERO:
-            fr->nbkernel_elec_interaction = GMX_NBKERNEL_ELEC_REACTIONFIELD;
-            fr->coulomb_modifier          = eintmodEXACTCUTOFF;
-            break;
-
-        case eelSWITCH:
-        case eelSHIFT:
-        case eelUSER:
-        case eelENCADSHIFT:
-        case eelPMESWITCH:
-        case eelPMEUSER:
-        case eelPMEUSERSWITCH:
-            fr->nbkernel_elec_interaction = GMX_NBKERNEL_ELEC_CUBICSPLINETABLE;
-            break;
-
-        case eelPME:
-        case eelEWALD:
-            fr->nbkernel_elec_interaction = GMX_NBKERNEL_ELEC_EWALD;
-            break;
-
-        default:
-            gmx_fatal(FARGS, "Unsupported electrostatic interaction: %s", eel_names[fr->eeltype]);
-            break;
-    }
+    fr->nbkernel_elec_interaction = GMX_NBKERNEL_ELEC_EWALD;
 
     /* Vdw: Translate from mdp settings to kernel format */
-    switch (fr->vdwtype)
-    {
-        case evdwCUT:
-            if (fr->bBHAM)
-            {
-                fr->nbkernel_vdw_interaction = GMX_NBKERNEL_VDW_BUCKINGHAM;
-            }
-            else
-            {
-                fr->nbkernel_vdw_interaction = GMX_NBKERNEL_VDW_LENNARDJONES;
-            }
-            break;
-
-        case evdwSWITCH:
-        case evdwSHIFT:
-        case evdwUSER:
-        case evdwENCADSHIFT:
-            fr->nbkernel_vdw_interaction = GMX_NBKERNEL_VDW_CUBICSPLINETABLE;
-            break;
-
-        default:
-            gmx_fatal(FARGS, "Unsupported vdw interaction: %s", evdw_names[fr->vdwtype]);
-            break;
-    }
+    fr->nbkernel_vdw_interaction = GMX_NBKERNEL_VDW_LENNARDJONES;
 
     /* These start out identical to ir, but might be altered if we e.g. tabulate the interaction in the kernel */
     fr->nbkernel_elec_modifier    = fr->coulomb_modifier;
@@ -1186,7 +782,7 @@ void init_forcerec(FILE              *fp,
     fr->epsilon_rf      = ir->epsilon_rf;
     fr->fudgeQQ         = mtop->ffparams.fudgeQQ;
     fr->rcoulomb_switch = ir->rcoulomb_switch;
-    fr->rcoulomb        = cutoff_inf(ir->rcoulomb);
+    fr->rcoulomb        = ir->rcoulomb;
 
     /* Parameters for generalized RF */
     fr->zsquare = 0.0;
@@ -1216,7 +812,7 @@ void init_forcerec(FILE              *fp,
                        );
 
     if (fr->cutoff_scheme == ecutsGROUP &&
-        ncg_mtop(mtop) > fr->cg_nalloc && !DOMAINDECOMP(cr))
+        ncg_mtop(mtop) > fr->cg_nalloc )
     {
         /* Count the total number of charge groups */
         fr->cg_nalloc = ncg_mtop(mtop);
@@ -1242,7 +838,7 @@ void init_forcerec(FILE              *fp,
     fr->egp_flags = ir->opts.egp_flags;
 
     /* Van der Waals stuff */
-    fr->rvdw        = cutoff_inf(ir->rvdw);
+    fr->rvdw        = ir->rvdw;
     fr->rvdw_switch = ir->rvdw_switch;
     if ((fr->vdwtype != evdwCUT) && (fr->vdwtype != evdwUSER) && !fr->bBHAM)
     {
@@ -1323,10 +919,7 @@ void init_forcerec(FILE              *fp,
         init_gb(&fr->born, cr, fr, ir, mtop, ir->rgbradii, ir->gb_algorithm);
 
         /* Copy local gb data (for dd, this is done in dd_partition_system) */
-        if (!DOMAINDECOMP(cr))
-        {
-            make_local_gb(cr, fr->born, ir->gb_algorithm);
-        }
+        make_local_gb(cr, fr->born, ir->gb_algorithm);
     }
 
     /* Set the charge scaling */
@@ -1525,23 +1118,13 @@ void init_forcerec(FILE              *fp,
     /* Set all the static charge group info */
     fr->cginfo_mb = init_cginfo_mb(fp, mtop, fr, bNoSolvOpt,
                                    &fr->bExcl_IntraCGAll_InterCGNone);
-    if (DOMAINDECOMP(cr))
-    {
-        fr->cginfo = NULL;
-    }
-    else
-    {
-        fr->cginfo = cginfo_expand(mtop->nmolblock, fr->cginfo_mb);
-    }
+    fr->cginfo = cginfo_expand(mtop->nmolblock, fr->cginfo_mb);
 
-    if (!DOMAINDECOMP(cr))
-    {
-        /* When using particle decomposition, the effect of the second argument,
-         * which sets fr->hcg, is corrected later in do_md and init_em.
-         */
-        forcerec_set_ranges(fr, ncg_mtop(mtop), ncg_mtop(mtop),
+    /* When using particle decomposition, the effect of the second argument,
+     * which sets fr->hcg, is corrected later in do_md and init_em.
+     */
+    forcerec_set_ranges(fr, ncg_mtop(mtop), ncg_mtop(mtop),
                             mtop->natoms, mtop->natoms, mtop->natoms);
-    }
 
     fr->print_force = print_force;
 
