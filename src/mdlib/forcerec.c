@@ -119,248 +119,59 @@ static cginfo_mb_t *init_cginfo_mb(FILE *fplog, const gmx_mtop_t *mtop,
                                    gmx_bool *bExcl_IntraCGAll_InterCGNone)
 {//called
     const t_block        *cgs;
-    const t_blocka       *excl;
     const gmx_moltype_t  *molt;
     const gmx_molblock_t *molb;
     cginfo_mb_t          *cginfo_mb;
-    gmx_bool             *type_VDW;
     int                  *cginfo;
-    int                   cg_offset, a_offset, cgm, am;
-    int                   mb, m, ncg_tot, cg, a0, a1, gid, ai, j, aj, excl_nalloc;
-    int                  *a_con;
-    int                   ftype;
-    int                   ia;
-    gmx_bool              bId, *bExcl, bExclIntraAll, bExclInter, bHaveVDW, bHaveQ;
+    int                   mb, m, ncg_tot, cg, a0, a1, gid, ai, j, aj;
 
     ncg_tot = ncg_mtop(mtop);
     snew(cginfo_mb, mtop->nmolblock);
 
-    snew(type_VDW, fr->ntype);
-    for (ai = 0; ai < fr->ntype; ai++)
-    {
-        type_VDW[ai] = FALSE;
-        for (j = 0; j < fr->ntype; j++)
-        {
-            type_VDW[ai] = type_VDW[ai] ||
-                fr->bBHAM ||
-                C6(fr->nbfp, fr->ntype, ai, j) != 0 ||
-                C12(fr->nbfp, fr->ntype, ai, j) != 0;
-        }
-    }
 
     *bExcl_IntraCGAll_InterCGNone = TRUE;
 
-    excl_nalloc = 10;
-    snew(bExcl, excl_nalloc);
-    cg_offset = 0;
-    a_offset  = 0;
-    for (mb = 0; mb < mtop->nmolblock; mb++)
-    {
-        molb = &mtop->molblock[mb];
+        molb = &mtop->molblock[0];
         molt = &mtop->moltype[molb->type];
         cgs  = &molt->cgs;
-        excl = &molt->excls;
 
         /* Check if the cginfo is identical for all molecules in this block.
          * If so, we only need an array of the size of one molecule.
          * Otherwise we make an array of #mol times #cgs per molecule.
          */
-        bId = TRUE;
-        am  = 0;
-        for (m = 0; m < molb->nmol; m++)
-        {
-            am = m*cgs->index[cgs->nr];
-            for (cg = 0; cg < cgs->nr; cg++)
-            {
-                a0 = cgs->index[cg];
-                a1 = cgs->index[cg+1];
-                if (ggrpnr(&mtop->groups, egcENER, a_offset+am+a0) !=
-                    ggrpnr(&mtop->groups, egcENER, a_offset   +a0))
-                {
-                    bId = FALSE;
-                }
-                if (mtop->groups.grpnr[egcQMMM] != NULL)
-                {
-                    for (ai = a0; ai < a1; ai++)
-                    {
-                        if (mtop->groups.grpnr[egcQMMM][a_offset+am+ai] !=
-                            mtop->groups.grpnr[egcQMMM][a_offset   +ai])
-                        {
-                            bId = FALSE;
-                        }
-                    }
-                }
-            }
-        }
 
-        cginfo_mb[mb].cg_start = cg_offset;
-        cginfo_mb[mb].cg_end   = cg_offset + molb->nmol*cgs->nr;
-        cginfo_mb[mb].cg_mod   = (bId ? 1 : molb->nmol)*cgs->nr;
-        snew(cginfo_mb[mb].cginfo, cginfo_mb[mb].cg_mod);
-        cginfo = cginfo_mb[mb].cginfo;
+
+        cginfo_mb[0].cg_start = 0;
+        cginfo_mb[0].cg_end   = molb->nmol*cgs->nr;
+        cginfo_mb[0].cg_mod   = cgs->nr;
+        snew(cginfo_mb[0].cginfo, cginfo_mb[0].cg_mod);
+        cginfo = cginfo_mb[0].cginfo;
 
         /* Set constraints flags for constrained atoms */
-        snew(a_con, molt->atoms.nr);
-        for (ftype = 0; ftype < F_NRE; ftype++)
-        {
-            if (interaction_function[ftype].flags & IF_CONSTRAINT)
-            {
-                int nral;
 
-                nral = NRAL(ftype);
-                for (ia = 0; ia < molt->ilist[ftype].nr; ia += 1+nral)
-                {
-                    int a;
-
-                    for (a = 0; a < nral; a++)
-                    {
-                        a_con[molt->ilist[ftype].iatoms[ia+1+a]] =
-                            (ftype == F_SETTLE ? acSETTLE : acCONSTRAINT);
-                    }
-                }
-            }
-        }
-
-        for (m = 0; m < (bId ? 1 : molb->nmol); m++)
-        {
-            cgm = m*cgs->nr;
-            am  = m*cgs->index[cgs->nr];
-            for (cg = 0; cg < cgs->nr; cg++)
+            for (cg = 0; cg < cgs->nr; cg++) // 3
             {
                 a0 = cgs->index[cg];
                 a1 = cgs->index[cg+1];
 
                 /* Store the energy group in cginfo */
-                gid = ggrpnr(&mtop->groups, egcENER, a_offset+am+a0);
-                SET_CGINFO_GID(cginfo[cgm+cg], gid);
+                gid = ggrpnr(&mtop->groups, egcENER, a0);
+                SET_CGINFO_GID(cginfo[cg], gid);
 
-                /* Check the intra/inter charge group exclusions */
-                if (a1-a0 > excl_nalloc)
-                {
-                    excl_nalloc = a1 - a0;
-                    srenew(bExcl, excl_nalloc);
-                }
-                /* bExclIntraAll: all intra cg interactions excluded
-                 * bExclInter:    any inter cg interactions excluded
-                 */
-                bExclIntraAll = TRUE;
-                bExclInter    = FALSE;
-                bHaveVDW      = FALSE;
-                bHaveQ        = FALSE;
-                for (ai = a0; ai < a1; ai++)
-                {
-                    /* Check VDW and electrostatic interactions */
-                    bHaveVDW = bHaveVDW || (type_VDW[molt->atoms.atom[ai].type] ||
-                                            type_VDW[molt->atoms.atom[ai].typeB]);
-                    bHaveQ  = bHaveQ    || (molt->atoms.atom[ai].q != 0 ||
-                                            molt->atoms.atom[ai].qB != 0);
-
-                    /* Clear the exclusion list for atom ai */
-                    for (aj = a0; aj < a1; aj++)
-                    {
-                        bExcl[aj-a0] = FALSE;
-                    }
-                    /* Loop over all the exclusions of atom ai */
-                    for (j = excl->index[ai]; j < excl->index[ai+1]; j++)
-                    {
-                        aj = excl->a[j];
-                        if (aj < a0 || aj >= a1)
-                        {
-                            bExclInter = TRUE;
-                        }
-                        else
-                        {
-                            bExcl[aj-a0] = TRUE;
-                        }
-                    }
-                    /* Check if ai excludes a0 to a1 */
-                    for (aj = a0; aj < a1; aj++)
-                    {
-                        if (!bExcl[aj-a0])
-                        {
-                            bExclIntraAll = FALSE;
-                        }
-                    }
-
-                    switch (a_con[ai])
-                    {
-                        case acCONSTRAINT:
-                            SET_CGINFO_CONSTR(cginfo[cgm+cg]);
-                            break;
-                        case acSETTLE:
-                            SET_CGINFO_SETTLE(cginfo[cgm+cg]);
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                if (bExclIntraAll)
-                {
-                    SET_CGINFO_EXCL_INTRA(cginfo[cgm+cg]);
-                }
-                if (bExclInter)
-                {
-                    SET_CGINFO_EXCL_INTER(cginfo[cgm+cg]);
-                }
-                if (a1 - a0 > MAX_CHARGEGROUP_SIZE)
-                {
-                    /* The size in cginfo is currently only read with DD */
-                    gmx_fatal(FARGS, "A charge group has size %d which is larger than the limit of %d atoms", a1-a0, MAX_CHARGEGROUP_SIZE);
-                }
-                if (bHaveVDW)
-                {
-                    SET_CGINFO_HAS_VDW(cginfo[cgm+cg]);
-                }
-                if (bHaveQ)
-                {
-                    SET_CGINFO_HAS_Q(cginfo[cgm+cg]);
-                }
+                SET_CGINFO_EXCL_INTRA(cginfo[cg]);
+                
+                SET_CGINFO_HAS_Q(cginfo[cg]);
                 /* Store the charge group size */
-                SET_CGINFO_NATOMS(cginfo[cgm+cg], a1-a0);
+                SET_CGINFO_NATOMS(cginfo[cg], 1);
 
-                if (!bExclIntraAll || bExclInter)
-                {
-                    *bExcl_IntraCGAll_InterCGNone = FALSE;
-                }
             }
-        }
 
-        sfree(a_con);
-
-        cg_offset += molb->nmol*cgs->nr;
-        a_offset  += molb->nmol*cgs->index[cgs->nr];
-    }
-    sfree(bExcl);
-
-    /* the solvent optimizer is called after the QM is initialized,
-     * because we don't want to have the QM subsystemto become an
-     * optimized solvent
-     */
 
     check_solvent(fplog, mtop, fr, cginfo_mb);
 
-    if (getenv("GMX_NO_SOLV_OPT"))
+    for (cg = 0; cg < cginfo_mb[0].cg_mod; cg++) // 3
     {
-        if (fplog)
-        {
-            fprintf(fplog, "Found environment variable GMX_NO_SOLV_OPT.\n"
-                    "Disabling all solvent optimization\n");
-        }
-        fr->solvent_opt = esolNO;
-    }
-    if (bNoSolvOpt)
-    {
-        fr->solvent_opt = esolNO;
-    }
-    if (!fr->solvent_opt)
-    {
-        for (mb = 0; mb < mtop->nmolblock; mb++)
-        {
-            for (cg = 0; cg < cginfo_mb[mb].cg_mod; cg++)
-            {
-                SET_CGINFO_SOLOPT(cginfo_mb[mb].cginfo[cg], esolNO);
-            }
-        }
+          SET_CGINFO_SOLOPT(cginfo_mb[0].cginfo[cg], esolNO);
     }
 
     return cginfo_mb;
