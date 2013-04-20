@@ -86,7 +86,7 @@
 #include "nbnxn_cuda_data_mgmt.h"
 #include "pmalloc_cuda.h"
 
-t_forcerec *mk_forcerec(void)
+t_forcerec *mk_forcerec(void) // called
 {
     t_forcerec *fr;
 
@@ -95,33 +95,9 @@ t_forcerec *mk_forcerec(void)
     return fr;
 }
 
-#ifdef DEBUG
-static void pr_nbfp(FILE *fp, real *nbfp, gmx_bool bBHAM, int atnr)
-{
-    int i, j;
-
-    for (i = 0; (i < atnr); i++)
-    {
-        for (j = 0; (j < atnr); j++)
-        {
-            fprintf(fp, "%2d - %2d", i, j);
-            if (bBHAM)
-            {
-                fprintf(fp, "  a=%10g, b=%10g, c=%10g\n", BHAMA(nbfp, atnr, i, j),
-                        BHAMB(nbfp, atnr, i, j), BHAMC(nbfp, atnr, i, j)/6.0);
-            }
-            else
-            {
-                fprintf(fp, "  c6=%10g, c12=%10g\n", C6(nbfp, atnr, i, j)/6.0,
-                        C12(nbfp, atnr, i, j)/12.0);
-            }
-        }
-    }
-}
-#endif
 
 static real *mk_nbfp(const gmx_ffparams_t *idef, gmx_bool bBHAM)
-{
+{// called
     real *nbfp;
     int   i, j, k, atnr;
 
@@ -191,7 +167,7 @@ check_solvent_cg(const gmx_moltype_t    *molt,
                  solvent_parameters_t  **solvent_parameters_p,
                  int                     cginfo,
                  int                    *cg_sp)
-{
+{ //called
     const t_blocka     *  excl;
     t_atom               *atom;
     int                   j, k;
@@ -435,7 +411,7 @@ check_solvent(FILE  *                fp,
               const gmx_mtop_t  *    mtop,
               t_forcerec  *          fr,
               cginfo_mb_t           *cginfo_mb)
-{
+{//called
     const t_block     *   cgs;
     const t_block     *   mols;
     const gmx_moltype_t  *molt;
@@ -556,7 +532,7 @@ enum {
 static cginfo_mb_t *init_cginfo_mb(FILE *fplog, const gmx_mtop_t *mtop,
                                    t_forcerec *fr, gmx_bool bNoSolvOpt,
                                    gmx_bool *bExcl_IntraCGAll_InterCGNone)
-{
+{//called
     const t_block        *cgs;
     const t_blocka       *excl;
     const gmx_moltype_t  *molt;
@@ -806,7 +782,7 @@ static cginfo_mb_t *init_cginfo_mb(FILE *fplog, const gmx_mtop_t *mtop,
 }
 
 static int *cginfo_expand(int nmb, cginfo_mb_t *cgi_mb)
-{
+{//called
     int  ncg, mb, cg;
     int *cginfo;
 
@@ -827,7 +803,7 @@ static int *cginfo_expand(int nmb, cginfo_mb_t *cgi_mb)
 }
 
 static void set_chargesum(FILE *log, t_forcerec *fr, const gmx_mtop_t *mtop)
-{
+{//called
     double         qsum, q2sum, q;
     int            mb, nmol, i;
     const t_atoms *atoms;
@@ -885,7 +861,7 @@ static void set_chargesum(FILE *log, t_forcerec *fr, const gmx_mtop_t *mtop)
 }
 
 void update_forcerec(FILE *log, t_forcerec *fr, matrix box)
-{
+{//called
     if (fr->eeltype == eelGRF)
     {
         calc_rffac(NULL, fr->eeltype, fr->epsilon_r, fr->epsilon_rf,
@@ -894,296 +870,13 @@ void update_forcerec(FILE *log, t_forcerec *fr, matrix box)
     }
 }
 
-void set_avcsixtwelve(FILE *fplog, t_forcerec *fr, const gmx_mtop_t *mtop)
-{
-    const t_atoms  *atoms, *atoms_tpi;
-    const t_blocka *excl;
-    int             mb, nmol, nmolc, i, j, tpi, tpj, j1, j2, k, n, nexcl, q;
-#if (defined SIZEOF_LONG_LONG_INT) && (SIZEOF_LONG_LONG_INT >= 8)
-    long long int   npair, npair_ij, tmpi, tmpj;
-#else
-    double          npair, npair_ij, tmpi, tmpj;
-#endif
-    double          csix, ctwelve;
-    int             ntp, *typecount;
-    gmx_bool        bBHAM;
-    real           *nbfp;
-
-    ntp   = fr->ntype;
-    bBHAM = fr->bBHAM;
-    nbfp  = fr->nbfp;
-
-    for (q = 0; q < (fr->efep == efepNO ? 1 : 2); q++)
-    {
-        csix    = 0;
-        ctwelve = 0;
-        npair   = 0;
-        nexcl   = 0;
-        if (!fr->n_tpi)
-        {
-            /* Count the types so we avoid natoms^2 operations */
-            snew(typecount, ntp);
-            for (mb = 0; mb < mtop->nmolblock; mb++)
-            {
-                nmol  = mtop->molblock[mb].nmol;
-                atoms = &mtop->moltype[mtop->molblock[mb].type].atoms;
-                for (i = 0; i < atoms->nr; i++)
-                {
-                    if (q == 0)
-                    {
-                        tpi = atoms->atom[i].type;
-                    }
-                    else
-                    {
-                        tpi = atoms->atom[i].typeB;
-                    }
-                    typecount[tpi] += nmol;
-                }
-            }
-            for (tpi = 0; tpi < ntp; tpi++)
-            {
-                for (tpj = tpi; tpj < ntp; tpj++)
-                {
-                    tmpi = typecount[tpi];
-                    tmpj = typecount[tpj];
-                    if (tpi != tpj)
-                    {
-                        npair_ij = tmpi*tmpj;
-                    }
-                    else
-                    {
-                        npair_ij = tmpi*(tmpi - 1)/2;
-                    }
-                    if (bBHAM)
-                    {
-                        /* nbfp now includes the 6.0 derivative prefactor */
-                        csix    += npair_ij*BHAMC(nbfp, ntp, tpi, tpj)/6.0;
-                    }
-                    else
-                    {
-                        /* nbfp now includes the 6.0/12.0 derivative prefactors */
-                        csix    += npair_ij*   C6(nbfp, ntp, tpi, tpj)/6.0;
-                        ctwelve += npair_ij*  C12(nbfp, ntp, tpi, tpj)/12.0;
-                    }
-                    npair += npair_ij;
-                }
-            }
-            sfree(typecount);
-            /* Subtract the excluded pairs.
-             * The main reason for substracting exclusions is that in some cases
-             * some combinations might never occur and the parameters could have
-             * any value. These unused values should not influence the dispersion
-             * correction.
-             */
-            for (mb = 0; mb < mtop->nmolblock; mb++)
-            {
-                nmol  = mtop->molblock[mb].nmol;
-                atoms = &mtop->moltype[mtop->molblock[mb].type].atoms;
-                excl  = &mtop->moltype[mtop->molblock[mb].type].excls;
-                for (i = 0; (i < atoms->nr); i++)
-                {
-                    if (q == 0)
-                    {
-                        tpi = atoms->atom[i].type;
-                    }
-                    else
-                    {
-                        tpi = atoms->atom[i].typeB;
-                    }
-                    j1  = excl->index[i];
-                    j2  = excl->index[i+1];
-                    for (j = j1; j < j2; j++)
-                    {
-                        k = excl->a[j];
-                        if (k > i)
-                        {
-                            if (q == 0)
-                            {
-                                tpj = atoms->atom[k].type;
-                            }
-                            else
-                            {
-                                tpj = atoms->atom[k].typeB;
-                            }
-                            if (bBHAM)
-                            {
-                                /* nbfp now includes the 6.0 derivative prefactor */
-                                csix -= nmol*BHAMC(nbfp, ntp, tpi, tpj)/6.0;
-                            }
-                            else
-                            {
-                                /* nbfp now includes the 6.0/12.0 derivative prefactors */
-                                csix    -= nmol*C6 (nbfp, ntp, tpi, tpj)/6.0;
-                                ctwelve -= nmol*C12(nbfp, ntp, tpi, tpj)/12.0;
-                            }
-                            nexcl += nmol;
-                        }
-                    }
-                }
-            }
-        }
-        else
-        {
-            /* Only correct for the interaction of the test particle
-             * with the rest of the system.
-             */
-            atoms_tpi =
-                &mtop->moltype[mtop->molblock[mtop->nmolblock-1].type].atoms;
-
-            npair = 0;
-            for (mb = 0; mb < mtop->nmolblock; mb++)
-            {
-                nmol  = mtop->molblock[mb].nmol;
-                atoms = &mtop->moltype[mtop->molblock[mb].type].atoms;
-                for (j = 0; j < atoms->nr; j++)
-                {
-                    nmolc = nmol;
-                    /* Remove the interaction of the test charge group
-                     * with itself.
-                     */
-                    if (mb == mtop->nmolblock-1)
-                    {
-                        nmolc--;
-
-                        if (mb == 0 && nmol == 1)
-                        {
-                            gmx_fatal(FARGS, "Old format tpr with TPI, please generate a new tpr file");
-                        }
-                    }
-                    if (q == 0)
-                    {
-                        tpj = atoms->atom[j].type;
-                    }
-                    else
-                    {
-                        tpj = atoms->atom[j].typeB;
-                    }
-                    for (i = 0; i < fr->n_tpi; i++)
-                    {
-                        if (q == 0)
-                        {
-                            tpi = atoms_tpi->atom[i].type;
-                        }
-                        else
-                        {
-                            tpi = atoms_tpi->atom[i].typeB;
-                        }
-                        if (bBHAM)
-                        {
-                            /* nbfp now includes the 6.0 derivative prefactor */
-                            csix    += nmolc*BHAMC(nbfp, ntp, tpi, tpj)/6.0;
-                        }
-                        else
-                        {
-                            /* nbfp now includes the 6.0/12.0 derivative prefactors */
-                            csix    += nmolc*C6 (nbfp, ntp, tpi, tpj)/6.0;
-                            ctwelve += nmolc*C12(nbfp, ntp, tpi, tpj)/12.0;
-                        }
-                        npair += nmolc;
-                    }
-                }
-            }
-        }
-        if (npair - nexcl <= 0 && fplog)
-        {
-            fprintf(fplog, "\nWARNING: There are no atom pairs for dispersion correction\n\n");
-            csix     = 0;
-            ctwelve  = 0;
-        }
-        else
-        {
-            csix    /= npair - nexcl;
-            ctwelve /= npair - nexcl;
-        }
-        if (debug)
-        {
-            fprintf(debug, "Counted %d exclusions\n", nexcl);
-            fprintf(debug, "Average C6 parameter is: %10g\n", (double)csix);
-            fprintf(debug, "Average C12 parameter is: %10g\n", (double)ctwelve);
-        }
-        fr->avcsix[q]    = csix;
-        fr->avctwelve[q] = ctwelve;
-    }
-    if (fplog != NULL)
-    {
-        if (fr->eDispCorr == edispcAllEner ||
-            fr->eDispCorr == edispcAllEnerPres)
-        {
-            fprintf(fplog, "Long Range LJ corr.: <C6> %10.4e, <C12> %10.4e\n",
-                    fr->avcsix[0], fr->avctwelve[0]);
-        }
-        else
-        {
-            fprintf(fplog, "Long Range LJ corr.: <C6> %10.4e\n", fr->avcsix[0]);
-        }
-    }
-}
-
-
-static void set_bham_b_max(FILE *fplog, t_forcerec *fr,
-                           const gmx_mtop_t *mtop)
-{
-    const t_atoms *at1, *at2;
-    int            mt1, mt2, i, j, tpi, tpj, ntypes;
-    real           b, bmin;
-    real          *nbfp;
-
-    if (fplog)
-    {
-        fprintf(fplog, "Determining largest Buckingham b parameter for table\n");
-    }
-    nbfp   = fr->nbfp;
-    ntypes = fr->ntype;
-
-    bmin           = -1;
-    fr->bham_b_max = 0;
-    for (mt1 = 0; mt1 < mtop->nmoltype; mt1++)
-    {
-        at1 = &mtop->moltype[mt1].atoms;
-        for (i = 0; (i < at1->nr); i++)
-        {
-            tpi = at1->atom[i].type;
-            if (tpi >= ntypes)
-            {
-                gmx_fatal(FARGS, "Atomtype[%d] = %d, maximum = %d", i, tpi, ntypes);
-            }
-
-            for (mt2 = mt1; mt2 < mtop->nmoltype; mt2++)
-            {
-                at2 = &mtop->moltype[mt2].atoms;
-                for (j = 0; (j < at2->nr); j++)
-                {
-                    tpj = at2->atom[j].type;
-                    if (tpj >= ntypes)
-                    {
-                        gmx_fatal(FARGS, "Atomtype[%d] = %d, maximum = %d", j, tpj, ntypes);
-                    }
-                    b = BHAMB(nbfp, ntypes, tpi, tpj);
-                    if (b > fr->bham_b_max)
-                    {
-                        fr->bham_b_max = b;
-                    }
-                    if ((b < bmin) || (bmin == -1))
-                    {
-                        bmin = b;
-                    }
-                }
-            }
-        }
-    }
-    if (fplog)
-    {
-        fprintf(fplog, "Buckingham b parameters, min: %g, max: %g\n",
-                bmin, fr->bham_b_max);
-    }
-}
 
 static void make_nbf_tables(FILE *fp, const output_env_t oenv,
                             t_forcerec *fr, real rtab,
                             const t_commrec *cr,
                             const char *tabfn, char *eg1, char *eg2,
                             t_nblists *nbl)
-{
+{ //called
     char buf[STRLEN];
     int  i, j;
 
@@ -1248,7 +941,7 @@ static void make_nbf_tables(FILE *fp, const output_env_t oenv,
 
 static void count_tables(int ftype1, int ftype2, const gmx_mtop_t *mtop,
                          int *ncount, int **count)
-{
+{//called
     const gmx_moltype_t *molt;
     const t_ilist       *il;
     int                  mt, ftype, stride, i, j, tabnr;
@@ -1289,7 +982,7 @@ static bondedtable_t *make_bonded_tables(FILE *fplog,
                                          int ftype1, int ftype2,
                                          const gmx_mtop_t *mtop,
                                          const char *basefn, const char *tabext)
-{
+{ //called
     int            i, ncount, *count;
     char           tabfn[STRLEN];
     bondedtable_t *tab;
@@ -1323,7 +1016,7 @@ void forcerec_set_ranges(t_forcerec *fr,
                          int ncg_home, int ncg_force,
                          int natoms_force,
                          int natoms_force_constr, int natoms_f_novirsum)
-{
+{//called
     fr->cg0 = 0;
     fr->hcg = ncg_home;
 
@@ -1360,7 +1053,7 @@ void forcerec_set_ranges(t_forcerec *fr,
 }
 
 static real cutoff_inf(real cutoff)
-{
+{ //called 
     if (cutoff == 0)
     {
         cutoff = GMX_CUTOFF_INF;
@@ -1369,36 +1062,10 @@ static real cutoff_inf(real cutoff)
     return cutoff;
 }
 
-static void make_adress_tf_tables(FILE *fp, const output_env_t oenv,
-                                  t_forcerec *fr, const t_inputrec *ir,
-                                  const char *tabfn, const gmx_mtop_t *mtop,
-                                  matrix     box)
-{
-    char buf[STRLEN];
-    int  i, j;
-
-    if (tabfn == NULL)
-    {
-        gmx_fatal(FARGS, "No thermoforce table file given. Use -tabletf to specify a file\n");
-        return;
-    }
-
-    snew(fr->atf_tabs, ir->adress->n_tf_grps);
-
-    for (i = 0; i < ir->adress->n_tf_grps; i++)
-    {
-        j = ir->adress->tf_table_index[i]; /* get energy group index */
-        sprintf(buf + strlen(tabfn) - strlen(ftp2ext(efXVG)) - 1, "tf_%s.%s",
-                *(mtop->groups.grpname[mtop->groups.grps[egcENER].nm_ind[j]]), ftp2ext(efXVG));
-        printf("loading tf table for energygrp index %d from %s\n", ir->adress->tf_table_index[j], buf);
-        fr->atf_tabs[i] = make_atf_table(fp, oenv, fr, buf, box);
-    }
-
-}
 
 gmx_bool can_use_allvsall(const t_inputrec *ir, const gmx_mtop_t *mtop,
                           gmx_bool bPrintNote, t_commrec *cr, FILE *fp)
-{
+{ //called 
     gmx_bool bAllvsAll;
 
     bAllvsAll =
@@ -1445,7 +1112,7 @@ gmx_bool can_use_allvsall(const t_inputrec *ir, const gmx_mtop_t *mtop,
 
 
 static void init_forcerec_f_threads(t_forcerec *fr, int nenergrp)
-{
+{ // called
     int t, i;
 
     /* These thread local data structures are used for bondeds only */
@@ -1470,128 +1137,6 @@ static void init_forcerec_f_threads(t_forcerec *fr, int nenergrp)
 }
 
 
-static void pick_nbnxn_kernel_cpu(FILE             *fp,
-                                  const t_commrec  *cr,
-                                  const gmx_cpuid_t cpuid_info,
-                                  const t_inputrec *ir,
-                                  int              *kernel_type,
-                                  int              *ewald_excl)
-{
-    *kernel_type = nbnxnk4x4_PlainC;
-    *ewald_excl  = ewaldexclTable;
-
-#ifdef GMX_NBNXN_SIMD
-    {
-#ifdef GMX_NBNXN_SIMD_4XN
-        *kernel_type = nbnxnk4xN_SIMD_4xN;
-#endif
-#ifdef GMX_NBNXN_SIMD_2XNN
-        /* We expect the 2xNN kernels to be faster in most cases */
-        *kernel_type = nbnxnk4xN_SIMD_2xNN;
-#endif
-
-#if defined GMX_NBNXN_SIMD_4XN && defined GMX_X86_AVX_256
-        if (EEL_RF(ir->coulombtype) || ir->coulombtype == eelCUT)
-        {
-            /* The raw pair rate of the 4x8 kernel is higher than 2x(4+4),
-             * 10% with HT, 50% without HT, but extra zeros interactions
-             * can compensate. As we currently don't detect the actual use
-             * of HT, switch to 4x8 to avoid a potential performance hit.
-             */
-            *kernel_type = nbnxnk4xN_SIMD_4xN;
-        }
-#endif
-        if (getenv("GMX_NBNXN_SIMD_4XN") != NULL)
-        {
-#ifdef GMX_NBNXN_SIMD_4XN
-            *kernel_type = nbnxnk4xN_SIMD_4xN;
-#else
-            gmx_fatal(FARGS, "SIMD 4xN kernels requested, but Gromacs has been compiled without support for these kernels");
-#endif
-        }
-        if (getenv("GMX_NBNXN_SIMD_2XNN") != NULL)
-        {
-#ifdef GMX_NBNXN_SIMD_2XNN
-            *kernel_type = nbnxnk4xN_SIMD_2xNN;
-#else
-            gmx_fatal(FARGS, "SIMD 2x(N+N) kernels requested, but Gromacs has been compiled without support for these kernels");
-#endif
-        }
-
-        /* Analytical Ewald exclusion correction is only an option in the
-         * x86 SIMD kernel. This is faster in single precision
-         * on Bulldozer and slightly faster on Sandy Bridge.
-         */
-#if (defined GMX_X86_AVX_128_FMA || defined GMX_X86_AVX_256) && !defined GMX_DOUBLE
-        *ewald_excl = ewaldexclAnalytical;
-#endif
-        if (getenv("GMX_NBNXN_EWALD_TABLE") != NULL)
-        {
-            *ewald_excl = ewaldexclTable;
-        }
-        if (getenv("GMX_NBNXN_EWALD_ANALYTICAL") != NULL)
-        {
-            *ewald_excl = ewaldexclAnalytical;
-        }
-
-    }
-#endif /* GMX_X86_SSE2 */
-}
-
-
-const char *lookup_nbnxn_kernel_name(int kernel_type)
-{
-    const char *returnvalue = NULL;
-    switch (kernel_type)
-    {
-        case nbnxnkNotSet: returnvalue     = "not set"; break;
-        case nbnxnk4x4_PlainC: returnvalue = "plain C"; break;
-#ifndef GMX_NBNXN_SIMD
-        case nbnxnk4xN_SIMD_4xN: returnvalue  = "not available"; break;
-        case nbnxnk4xN_SIMD_2xNN: returnvalue = "not available"; break;
-#else
-#ifdef GMX_X86_SSE2
-#if GMX_NBNXN_SIMD_BITWIDTH == 128
-            /* x86 SIMD intrinsics can be converted to either SSE or AVX depending
-             * on compiler flags. As we use nearly identical intrinsics, using an AVX
-             * compiler flag without an AVX macro effectively results in AVX kernels.
-             * For gcc we check for __AVX__
-             * At least a check for icc should be added (if there is a macro)
-             */
-#if !(defined GMX_X86_AVX_128_FMA || defined __AVX__)
-#ifndef GMX_X86_SSE4_1
-        case nbnxnk4xN_SIMD_4xN: returnvalue  = "SSE2"; break;
-        case nbnxnk4xN_SIMD_2xNN: returnvalue = "SSE2"; break;
-#else
-        case nbnxnk4xN_SIMD_4xN: returnvalue  = "SSE4.1"; break;
-        case nbnxnk4xN_SIMD_2xNN: returnvalue = "SSE4.1"; break;
-#endif
-#else
-        case nbnxnk4xN_SIMD_4xN: returnvalue  = "AVX-128"; break;
-        case nbnxnk4xN_SIMD_2xNN: returnvalue = "AVX-128"; break;
-#endif
-#endif
-#if GMX_NBNXN_SIMD_BITWIDTH == 256
-        case nbnxnk4xN_SIMD_4xN: returnvalue  = "AVX-256"; break;
-        case nbnxnk4xN_SIMD_2xNN: returnvalue = "AVX-256"; break;
-#endif
-#else   /* not GMX_X86_SSE2 */
-        case nbnxnk4xN_SIMD_4xN: returnvalue  = "SIMD"; break;
-        case nbnxnk4xN_SIMD_2xNN: returnvalue = "SIMD"; break;
-#endif
-#endif
-        case nbnxnk8x8x8_CUDA: returnvalue   = "CUDA"; break;
-        case nbnxnk8x8x8_PlainC: returnvalue = "plain C"; break;
-
-        case nbnxnkNR:
-        default:
-            gmx_fatal(FARGS, "Illegal kernel type selected");
-            returnvalue = NULL;
-            break;
-    }
-    return returnvalue;
-};
-
 static void pick_nbnxn_kernel(FILE                *fp,
                               const t_commrec     *cr,
                               const gmx_hw_info_t *hwinfo,
@@ -1602,46 +1147,15 @@ static void pick_nbnxn_kernel(FILE                *fp,
                               int                 *kernel_type,
                               int                 *ewald_excl,
                               gmx_bool             bDoNonbonded)
-{
+{ //called 
     assert(kernel_type);
 
     *kernel_type = nbnxnkNotSet;
     *ewald_excl  = ewaldexclTable;
 
-    if (bEmulateGPU)
-    {
-        *kernel_type = nbnxnk8x8x8_PlainC;
 
-        if (bDoNonbonded)
-        {
-            md_print_warn(cr, fp, "Emulating a GPU run on the CPU (slow)");
-        }
-    }
-    else if (bUseGPU)
-    {
-        *kernel_type = nbnxnk8x8x8_CUDA;
-    }
+    *kernel_type = nbnxnk4x4_PlainC;
 
-    if (*kernel_type == nbnxnkNotSet)
-    {
-        if (use_cpu_acceleration)
-        {
-            pick_nbnxn_kernel_cpu(fp, cr, hwinfo->cpuid_info, ir,
-                                  kernel_type, ewald_excl);
-        }
-        else
-        {
-            *kernel_type = nbnxnk4x4_PlainC;
-        }
-    }
-
-    if (bDoNonbonded && fp != NULL)
-    {
-        fprintf(fp, "\nUsing %s %dx%d non-bonded kernels\n\n",
-                lookup_nbnxn_kernel_name(*kernel_type),
-                nbnxn_kernel_pairlist_simple(*kernel_type) ? NBNXN_CPU_CLUSTER_I_SIZE : NBNXN_GPU_CLUSTER_SIZE,
-                nbnxn_kernel_to_cj_size(*kernel_type));
-    }
 }
 
 static void pick_nbnxn_resources(FILE                *fp,
@@ -1650,7 +1164,7 @@ static void pick_nbnxn_resources(FILE                *fp,
                                  gmx_bool             bDoNonbonded,
                                  gmx_bool            *bUseGPU,
                                  gmx_bool            *bEmulateGPU)
-{
+{//called
     gmx_bool bEmulateGPUEnvVarSet;
     char     gpu_err_str[STRLEN];
 
@@ -1696,30 +1210,19 @@ static void pick_nbnxn_resources(FILE                *fp,
 gmx_bool uses_simple_tables(int                 cutoff_scheme,
                             nonbonded_verlet_t *nbv,
                             int                 group)
-{
+{//called
     gmx_bool bUsesSimpleTables = TRUE;
-    int      grp_index;
 
-    switch (cutoff_scheme)
-    {
-        case ecutsGROUP:
-            bUsesSimpleTables = TRUE;
-            break;
-        case ecutsVERLET:
-            assert(NULL != nbv && NULL != nbv->grp);
-            grp_index         = (group < 0) ? 0 : (nbv->ngrp - 1);
-            bUsesSimpleTables = nbnxn_kernel_pairlist_simple(nbv->grp[grp_index].kernel_type);
-            break;
-        default:
-            gmx_incons("unimplemented");
-    }
+    assert(NULL != nbv && NULL != nbv->grp);
+    int grp_index         = (group < 0) ? 0 : (nbv->ngrp - 1);
+    bUsesSimpleTables = nbnxn_kernel_pairlist_simple(nbv->grp[grp_index].kernel_type);
     return bUsesSimpleTables;
 }
 
 static void init_ewald_f_table(interaction_const_t *ic,
                                gmx_bool             bUsesSimpleTables,
                                real                 rtab)
-{
+{//called
     real maxr;
 
     if (bUsesSimpleTables)
@@ -1756,7 +1259,7 @@ void init_interaction_const_tables(FILE                *fp,
                                    interaction_const_t *ic,
                                    gmx_bool             bUsesSimpleTables,
                                    real                 rtab)
-{
+{//called
     real spacing;
 
     if (ic->eeltype == eelEWALD || EEL_PME(ic->eeltype))
@@ -1775,7 +1278,7 @@ void init_interaction_const(FILE                 *fp,
                             interaction_const_t **interaction_const,
                             const t_forcerec     *fr,
                             real                  rtab)
-{
+{//called
     interaction_const_t *ic;
     gmx_bool             bUsesSimpleTables = TRUE;
 
@@ -1871,7 +1374,7 @@ static void init_nb_verlet(FILE                *fp,
                            const t_forcerec    *fr,
                            const t_commrec     *cr,
                            const char          *nbpu_opt)
-{
+{//called
     nonbonded_verlet_t *nbv;
     int                 i;
     char               *env;
@@ -2028,7 +1531,7 @@ void init_forcerec(FILE              *fp,
                    const char        *nbpu_opt,
                    gmx_bool           bNoSolvOpt,
                    real               print_force)
-{
+{//called
     int            i, j, m, natoms, ngrp, negp_pp, negptable, egi, egj;
     real           rtab;
     char          *env;
@@ -2516,15 +2019,7 @@ void init_forcerec(FILE              *fp,
     }
 
     fr->eDispCorr = ir->eDispCorr;
-    if (ir->eDispCorr != edispcNO)
-    {
-        set_avcsixtwelve(fp, fr, mtop);
-    }
 
-    if (fr->bBHAM)
-    {
-        set_bham_b_max(fp, fr, mtop);
-    }
 
     fr->gb_epsilon_solvent = ir->gb_epsilon_solvent;
 
@@ -2746,17 +2241,9 @@ void init_forcerec(FILE              *fp,
     {
         /* old todo replace */
 
-        if (ir->adress->n_tf_grps > 0)
-        {
-            make_adress_tf_tables(fp, oenv, fr, ir, tabfn, mtop, box);
-
-        }
-        else
-        {
             /* load the default table */
             snew(fr->atf_tabs, 1);
             fr->atf_tabs[DEFAULT_TF_TABLE] = make_atf_table(fp, oenv, fr, tabafn, box);
-        }
     }
 
     /* Wall stuff */
@@ -2866,30 +2353,9 @@ void init_forcerec(FILE              *fp,
 #define pr_int(fp, i)  fprintf((fp), "%s: %d\n",#i, i)
 #define pr_bool(fp, b) fprintf((fp), "%s: %s\n",#b, bool_names[b])
 
-void pr_forcerec(FILE *fp, t_forcerec *fr, t_commrec *cr)
-{
-    int i;
-
-    pr_real(fp, fr->rlist);
-    pr_real(fp, fr->rcoulomb);
-    pr_real(fp, fr->fudgeQQ);
-    pr_bool(fp, fr->bGrid);
-    pr_bool(fp, fr->bTwinRange);
-    /*pr_int(fp,fr->cg0);
-       pr_int(fp,fr->hcg);*/
-    for (i = 0; i < fr->nnblists; i++)
-    {
-        pr_int(fp, fr->nblists[i].table_elec_vdw.n);
-    }
-    pr_real(fp, fr->rcoulomb_switch);
-    pr_real(fp, fr->rcoulomb);
-
-    fflush(fp);
-}
-
 void forcerec_set_excl_load(t_forcerec *fr,
                             const gmx_localtop_t *top, const t_commrec *cr)
-{
+{//called
     const int *ind, *a;
     int        t, i, j, ntot, n, ntarget;
 
