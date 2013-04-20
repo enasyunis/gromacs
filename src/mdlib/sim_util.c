@@ -306,11 +306,7 @@ static void do_nb_verlet(t_forcerec *fr,
 
     nbvg = &fr->nbv->grp[ilocality];
     wallcycle_sub_start(wcycle, ewcsNONBONDED);
-    switch (nbvg->kernel_type)
-    {
-        case nbnxnk4x4_PlainC:
-printf(" -------  nbnxnk4x4_PlainC -------- \n");
-            nbnxn_kernel_ref(&nbvg->nbl_lists,
+    nbnxn_kernel_ref(&nbvg->nbl_lists,
                              nbvg->nbat, ic,
                              fr->shift_vec,
                              flags,
@@ -320,26 +316,6 @@ printf(" -------  nbnxnk4x4_PlainC -------- \n");
                              fr->bBHAM ?
                              enerd->grpp.ener[egBHAMSR] :
                              enerd->grpp.ener[egLJSR]);
-            break;
-
-        case nbnxnk4xN_SIMD_4xN:
-printf(" ------- mdlib/sim_util.c TODO nbnxn_kernel_simd_4xn  ----------\n");
-            nbnxn_kernel_simd_4xn(&nbvg->nbl_lists,
-                                  nbvg->nbat, ic,
-                                  nbvg->ewald_excl,
-                                  fr->shift_vec,
-                                  flags,
-                                  clearF,
-                                  fr->fshift[0],
-                                  enerd->grpp.ener[egCOULSR],
-                                  fr->bBHAM ?
-                                  enerd->grpp.ener[egBHAMSR] :
-                                  enerd->grpp.ener[egLJSR]);
-            break;
-        default:
-            gmx_incons("Invalid nonbonded kernel type passed!");
-
-    }
     wallcycle_sub_stop(wcycle, ewcsNONBONDED);
     enr_nbnxn_kernel_ljc = eNR_NBNXN_LJ_TAB +1;
     enr_nbnxn_kernel_lj = eNR_NBNXN_LJ +1;

@@ -2178,9 +2178,7 @@ void init_forcerec(FILE              *fp,
     {
         bNoSolvOpt         = TRUE;
     }
-
-    if ( (getenv("GMX_DISABLE_CPU_ACCELERATION") != NULL) || (getenv("GMX_NOOPTIMIZEDKERNELS") != NULL) )
-    {
+// ENAS DISABLED ACCELRAtiON
         fr->use_cpu_acceleration = FALSE;
         if (fp != NULL)
         {
@@ -2188,7 +2186,6 @@ void init_forcerec(FILE              *fp,
                     "\nFound environment variable GMX_DISABLE_CPU_ACCELERATION.\n"
                     "Disabling all CPU architecture-specific (e.g. SSE2/SSE4/AVX) routines.\n\n");
         }
-    }
 
     fr->bBHAM = (mtop->ffparams.functype[0] == F_BHAM);
 
