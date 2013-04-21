@@ -179,20 +179,15 @@ static cginfo_mb_t *init_cginfo_mb(FILE *fplog, const gmx_mtop_t *mtop,
 
 static int *cginfo_expand(int nmb, cginfo_mb_t *cgi_mb)
 {//called
-    int  ncg, mb, cg;
+    int  ncg, cg;
     int *cginfo;
 
     ncg = cgi_mb[nmb-1].cg_end;
     snew(cginfo, ncg);
-    mb = 0;
-    for (cg = 0; cg < ncg; cg++)
+    for (cg = 0; cg < ncg; cg++) // 3000
     {
-        while (cg >= cgi_mb[mb].cg_end)
-        {
-            mb++;
-        }
         cginfo[cg] =
-            cgi_mb[mb].cginfo[(cg - cgi_mb[mb].cg_start) % cgi_mb[mb].cg_mod];
+            cgi_mb[0].cginfo[(cg - cgi_mb[0].cg_start) % cgi_mb[0].cg_mod];
     }
 
     return cginfo;
@@ -520,14 +515,14 @@ void init_forcerec(FILE              *fp,
                    gmx_bool           bNoSolvOpt,
                    real               print_force)
 {//called
-    int            i, j, m, natoms, ngrp, negp_pp, negptable, egi, egj;
+    int            i, j, m, natoms, ngrp, egi, egj;
     real           rtab;
     char          *env;
     double         dbl;
     rvec           box_size;
     const t_block *cgs;
     gmx_bool       bGenericKernelOnly;
-    gmx_bool       bTab, bSep14tab, bNormalnblists;
+    gmx_bool       bTab, bSep14tab;
     t_nblists     *nbl;
     int           *nm_ind, egp_flags;
 
@@ -709,28 +704,8 @@ void init_forcerec(FILE              *fp,
                   gmx_mtop_ftype_count(mtop, F_LJC14_Q) > 0 ||
                   gmx_mtop_ftype_count(mtop, F_LJC_PAIRS_NB) > 0));
 
-    negp_pp   = ir->opts.ngener - ir->nwall;
-    negptable = 0;
-        bNormalnblists = (ir->eDispCorr != edispcNO);
-        for (egi = 0; egi < negp_pp; egi++)
-        {
-            for (egj = egi; egj < negp_pp; egj++)
-            {
-                egp_flags = ir->opts.egp_flags[GID(egi, egj, ir->opts.ngener)];
-                if (!(egp_flags & EGP_EXCL))
-                {
-                    if (egp_flags & EGP_TABLE)
-                    {
-                        negptable++;
-                    }
-                    else
-                    {
-                        bNormalnblists = TRUE;
-                    }
-                }
-            }
-        }
-        fr->nnblists = negptable + 1;
+     egp_flags = ir->opts.egp_flags[GID(0, 0, ir->opts.ngener)];
+     fr->nnblists = 1;
 
     snew(fr->nblists, fr->nnblists);
 
@@ -747,13 +722,9 @@ void init_forcerec(FILE              *fp,
 
     /* Wall stuff */
     fr->nwall = ir->nwall;
-
-    if (fcd && tabbfn)
-    {
-        fcd->bondtab  = NULL; 
-        fcd->angletab = NULL; 
-        fcd->dihtab   = NULL; 
-    }
+    fcd->bondtab  = NULL; 
+    fcd->angletab = NULL; 
+    fcd->dihtab   = NULL; 
 
 
     fr->bQMMM      = ir->bQMMM;
@@ -780,11 +751,7 @@ void init_forcerec(FILE              *fp,
 
     /* Initialize neighbor search */
     init_ns(fp, cr, &fr->ns, fr, mtop, box);
-
-    if (cr->duty & DUTY_PP)
-    {
-        gmx_nonbonded_setup(fp, fr, bGenericKernelOnly);
-    }
+    gmx_nonbonded_setup(fp, fr, bGenericKernelOnly);
 
     /* Initialize the thread working data for bonded interactions */
     init_forcerec_f_threads(fr, mtop->groups.grps[egcENER].nr);
@@ -804,51 +771,11 @@ void init_forcerec(FILE              *fp,
 void forcerec_set_excl_load(t_forcerec *fr,
                             const gmx_localtop_t *top, const t_commrec *cr)
 {//called
-    const int *ind, *a;
-    int        t, i, j, ntot, n, ntarget;
-
-    if (cr != NULL && PARTDECOMP(cr))
-    {
-        /* No OpenMP with particle decomposition */
-        pd_at_range(cr,
-                    &fr->excl_load[0],
-                    &fr->excl_load[1]);
-
-        return;
-    }
-
-    ind = top->excls.index;
-    a   = top->excls.a;
-
-    ntot = 0;
-    for (i = 0; i < top->excls.nr; i++)
-    {
-        for (j = ind[i]; j < ind[i+1]; j++)
-        {
-            if (a[j] > i)
-            {
-                ntot++;
-            }
-        }
-    }
+    int        t;
 
     fr->excl_load[0] = 0;
-    n                = 0;
-    i                = 0;
-    for (t = 1; t <= fr->nthreads; t++)
+    for (t = 1; t <= fr->nthreads; t++) // =OpenMP thread count
     {
-        ntarget = (ntot*t)/fr->nthreads;
-        while (i < top->excls.nr && n < ntarget)
-        {
-            for (j = ind[i]; j < ind[i+1]; j++)
-            {
-                if (a[j] > i)
-                {
-                    n++;
-                }
-            }
-            i++;
-        }
-        fr->excl_load[t] = i;
+        fr->excl_load[t] = 0;
     }
 }
