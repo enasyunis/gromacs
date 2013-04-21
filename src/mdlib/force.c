@@ -314,77 +314,14 @@ void sum_dhdl(gmx_enerdata_t *enerd, real *lambda, t_lambda *fepvals)
 
     enerd->dvdl_lin[efptVDW] += enerd->term[F_DVDL_VDW];  /* include dispersion correction */
     enerd->term[F_DVDL]       = 0.0;
-    for (i = 0; i < efptNR; i++)
+    for (i = 0; i < efptNR; i++)//7
     {
-        if (fepvals->separate_dvdl[i])
-        {
-            /* could this be done more readably/compactly? */
-            switch (i)
-            {
-                case (efptCOUL):
-                    index = F_DVDL_COUL;
-                    break;
-                case (efptVDW):
-                    index = F_DVDL_VDW;
-                    break;
-                case (efptBONDED):
-                    index = F_DVDL_BONDED;
-                    break;
-                case (efptRESTRAINT):
-                    index = F_DVDL_RESTRAINT;
-                    break;
-                case (efptMASS):
-                    index = F_DKDL;
-                    break;
-                default:
-                    index = F_DVDL;
-                    break;
-            }
-            enerd->term[index] = enerd->dvdl_lin[i] + enerd->dvdl_nonlin[i];
-        }
-        else
-        {
-            enerd->term[F_DVDL] += enerd->dvdl_lin[i] + enerd->dvdl_nonlin[i];
-        }
+        enerd->term[F_DVDL] += enerd->dvdl_lin[i] + enerd->dvdl_nonlin[i];
+// printf("\n------ enerd->dvdl_lin[i] %d\n", enerd->dvdl_lin[i]);
+// printf("-------- enerd->dvdl_nonlin[i] %d\n", enerd->dvdl_nonlin[i]);
     }
-
-    /* Notes on the foreign lambda free energy difference evaluation:
-     * Adding the potential and ekin terms that depend linearly on lambda
-     * as delta lam * dvdl to the energy differences is exact.
-     * For the constraints this is not exact, but we have no other option
-     * without literally changing the lengths and reevaluating the energies at each step.
-     * (try to remedy this post 4.6 - MRS)
-     * For the non-bonded LR term we assume that the soft-core (if present)
-     * no longer affects the energy beyond the short-range cut-off,
-     * which is a very good approximation (except for exotic settings).
-     * (investigate how to overcome this post 4.6 - MRS)
-     */
-
-    for (i = 0; i < fepvals->n_lambda; i++)
-    {                                         /* note we are iterating over fepvals here!
-                                                 For the current lam, dlam = 0 automatically,
-                                                 so we don't need to add anything to the
-                                                 enerd->enerpart_lambda[0] */
-
-        /* we don't need to worry about dvdl contributions to the current lambda, because
-           it's automatically zero */
-
-        /* first kinetic energy term */
-        dlam = (fepvals->all_lambda[efptMASS][i] - lambda[efptMASS]);
-
-        enerd->enerpart_lambda[i+1] += enerd->term[F_DKDL]*dlam;
-
-        for (j = 0; j < efptNR; j++)
-        {
-            if (j == efptMASS)
-            {
-                continue;
-            }                            /* no other mass term to worry about */
-
-            dlam = (fepvals->all_lambda[j][i]-lambda[j]);
-            enerd->enerpart_lambda[i+1] += dlam*enerd->dvdl_lin[j];
-        }
-    }
+// printf("\n--------- enerd->term[F_DVDL] %d\n", enerd->term[F_DVDL]);
+ // ENAS - Question enerd->term[F_DVDL] value changes with each run.. it is acting as a memory address!!!
 }
 
 
@@ -394,19 +331,13 @@ void reset_foreign_enerdata(gmx_enerdata_t *enerd)
 
     /* First reset all foreign energy components.  Foreign energies always called on
        neighbor search steps */
-    for (i = 0; (i < egNR); i++)
+    for (i = 0; (i < egNR); i++) // 9
     {
-        for (j = 0; (j < enerd->grpp.nener); j++)
-        {
-            enerd->foreign_grpp.ener[i][j] = 0.0;
-        }
+            enerd->foreign_grpp.ener[i][0] = 0.0;
     }
-
     /* potential energy components */
-    for (i = 0; (i <= F_EPOT); i++)
-    {
-        enerd->foreign_term[i] = 0.0;
-    }
+    enerd->foreign_term[0] = 0.0;
+    enerd->foreign_term[1] = 0.0;
 }
 
 void reset_enerdata(t_grpopts *opts,
@@ -414,35 +345,25 @@ void reset_enerdata(t_grpopts *opts,
                     gmx_enerdata_t *enerd,
                     gmx_bool bMaster)
 {// called                                 
-    gmx_bool bKeepLR;
-    int      i, j;
+    int      i;
 
     /* First reset all energy components, except for the long range terms
      * on the master at non neighbor search steps, since the long range
      * terms have already been summed at the last neighbor search step.
      */
-    bKeepLR = (fr->bTwinRange && !bNS);
-    for (i = 0; (i < egNR); i++)
+    for (i = 0; (i < egNR); i++) // 9
     {
-        if (!(bKeepLR && bMaster && (i == egCOULLR || i == egLJLR)))
-        {
-            for (j = 0; (j < enerd->grpp.nener); j++)
-            {
-                enerd->grpp.ener[i][j] = 0.0;
-            }
-        }
+        enerd->grpp.ener[i][0] = 0.0;
     }
-    for (i = 0; i < efptNR; i++)
+    for (i = 0; i < efptNR; i++) // 7
     {
         enerd->dvdl_lin[i]    = 0.0;
         enerd->dvdl_nonlin[i] = 0.0;
     }
 
     /* Normal potential energy components */
-    for (i = 0; (i <= F_EPOT); i++)
-    {
-        enerd->term[i] = 0.0;
-    }
+    enerd->term[0] = 0.0;
+    enerd->term[1] = 0.0;
     /* Initialize the dVdlambda term with the long range contribution */
     /* Initialize the dvdl term with the long range contribution */
     enerd->term[F_DVDL]            = 0.0;
@@ -451,13 +372,6 @@ void reset_enerdata(t_grpopts *opts,
     enerd->term[F_DVDL_BONDED]     = 0.0;
     enerd->term[F_DVDL_RESTRAINT]  = 0.0;
     enerd->term[F_DKDL]            = 0.0;
-    if (enerd->n_lambda > 0)
-    {
-        for (i = 0; i < enerd->n_lambda; i++)
-        {
-            enerd->enerpart_lambda[i] = 0.0;
-        }
-    }
     /* reset foreign energy data - separate function since we also call it elsewhere */
     reset_foreign_enerdata(enerd);
 }
