@@ -368,24 +368,14 @@ static void init_ewald_f_table(interaction_const_t *ic,
                                real                 rtab)
 {//called
     real maxr;
-
-    if (bUsesSimpleTables)
-    {
-        /* With a spacing of 0.0005 we are at the force summation accuracy
-         * for the SSE kernels for "normal" atomistic simulations.
-         */
-        ic->tabq_scale = ewald_spline3_table_scale(ic->ewaldcoeff,
+    /* With a spacing of 0.0005 we are at the force summation accuracy
+     * for the SSE kernels for "normal" atomistic simulations.
+     */
+    ic->tabq_scale = ewald_spline3_table_scale(ic->ewaldcoeff,
                                                    ic->rcoulomb);
 
-        maxr           = (rtab > ic->rcoulomb) ? rtab : ic->rcoulomb;
-        ic->tabq_size  = (int)(maxr*ic->tabq_scale) + 2;
-    }
-    else
-    {
-        ic->tabq_size = GPU_EWALD_COULOMB_FORCE_TABLE_SIZE;
-        /* Subtract 2 iso 1 to avoid access out of range due to rounding */
-        ic->tabq_scale = (ic->tabq_size - 2)/ic->rcoulomb;
-    }
+    maxr           = (rtab > ic->rcoulomb) ? rtab : ic->rcoulomb;
+    ic->tabq_size  = (int)(maxr*ic->tabq_scale) + 2;
 
     sfree_aligned(ic->tabq_coul_FDV0);
     sfree_aligned(ic->tabq_coul_F);
@@ -397,22 +387,6 @@ static void init_ewald_f_table(interaction_const_t *ic,
     snew_aligned(ic->tabq_coul_V, ic->tabq_size, 32);
     table_spline3_fill_ewald_lr(ic->tabq_coul_F, ic->tabq_coul_V, ic->tabq_coul_FDV0,
                                 ic->tabq_size, 1/ic->tabq_scale, ic->ewaldcoeff);
-}
-
-void init_interaction_const_tables(FILE                *fp,
-                                   interaction_const_t *ic,
-                                   gmx_bool             bUsesSimpleTables,
-                                   real                 rtab)
-{//called
-    real spacing;
-
-    if (ic->eeltype == eelEWALD || EEL_PME(ic->eeltype))
-    {
-        init_ewald_f_table(ic, bUsesSimpleTables, rtab);
-
-        fprintf(fp, "Initialized non-bonded Ewald correction tables, spacing: %.2e size: %d\n\n",
-                    1/ic->tabq_scale, ic->tabq_size);
-    }
 }
 
 void init_interaction_const(FILE                 *fp,
@@ -435,14 +409,7 @@ void init_interaction_const(FILE                 *fp,
 
     /* Lennard-Jones */
     ic->rvdw        = fr->rvdw;
-    if (fr->vdw_modifier == eintmodPOTSHIFT)
-    {
-        ic->sh_invrc6 = pow(ic->rvdw, -6.0);
-    }
-    else
-    {
-        ic->sh_invrc6 = 0;
-    }
+    ic->sh_invrc6 = pow(ic->rvdw, -6.0);
 
     /* Electrostatics */
     ic->eeltype     = fr->eeltype;
@@ -452,44 +419,19 @@ void init_interaction_const(FILE                 *fp,
 
     /* Ewald */
     ic->ewaldcoeff  = fr->ewaldcoeff;
-    if (fr->coulomb_modifier == eintmodPOTSHIFT)
-    {
-        ic->sh_ewald = gmx_erfc(ic->ewaldcoeff*ic->rcoulomb);
-    }
-    else
-    {
-        ic->sh_ewald = 0;
-    }
+
+    ic->sh_ewald = gmx_erfc(ic->ewaldcoeff*ic->rcoulomb);
 
     /* Reaction-field */
-    if (EEL_RF(ic->eeltype))
-    {
-        ic->epsilon_rf = fr->epsilon_rf;
-        ic->k_rf       = fr->k_rf;
-        ic->c_rf       = fr->c_rf;
-    }
-    else
-    {
+
         /* For plain cut-off we might use the reaction-field kernels */
         ic->epsilon_rf = ic->epsilon_r;
         ic->k_rf       = 0;
-        if (fr->coulomb_modifier == eintmodPOTSHIFT)
-        {
-            ic->c_rf   = 1/ic->rcoulomb;
-        }
-        else
-        {
-            ic->c_rf   = 0;
-        }
-    }
+        ic->c_rf   = 1/ic->rcoulomb;
 
         fprintf(fp, "Potential shift: LJ r^-12: %.3f r^-6 %.3f",
                 sqr(ic->sh_invrc6), ic->sh_invrc6);
-        if (ic->eeltype == eelCUT)
-        {
-            fprintf(fp, ", Coulomb %.3f", ic->c_rf);
-        }
-        else if (EEL_PME(ic->eeltype))
+        if (EEL_PME(ic->eeltype))// 0 EWALD, 1 PME
         {
             fprintf(fp, ", Ewald %.3e", ic->sh_ewald);
         }
@@ -499,7 +441,11 @@ void init_interaction_const(FILE                 *fp,
 
 
     bUsesSimpleTables = uses_simple_tables(fr->cutoff_scheme, fr->nbv, -1);
-    init_interaction_const_tables(fp, ic, bUsesSimpleTables, rtab);
+
+    init_ewald_f_table(ic, bUsesSimpleTables, rtab);
+
+    fprintf(fp, "Initialized non-bonded Ewald correction tables, spacing: %.2e size: %d\n\n",
+                    1/ic->tabq_scale, ic->tabq_size);
 }
 
 static void init_nb_verlet(FILE                *fp,
@@ -673,109 +619,19 @@ void init_forcerec(FILE              *fp,
     fr->bEwald     = (EEL_PME(fr->eeltype) || fr->eeltype == eelEWALD);
 
     fr->reppow     = mtop->ffparams.reppow;
-
-    if (ir->cutoff_scheme == ecutsGROUP)
-    {
-        fr->bvdwtab    = (fr->vdwtype != evdwCUT ||
-                          !gmx_within_tol(fr->reppow, 12.0, 10*GMX_DOUBLE_EPS));
-        /* We have special kernels for standard Ewald and PME, but the pme-switch ones are tabulated above */
-        fr->bcoultab   = !(fr->eeltype == eelCUT ||
-                           fr->eeltype == eelEWALD ||
-                           fr->eeltype == eelPME ||
-                           fr->eeltype == eelRF ||
-                           fr->eeltype == eelRF_ZERO);
-
-        /* If the user absolutely wants different switch/shift settings for coul/vdw, it is likely
-         * going to be faster to tabulate the interaction than calling the generic kernel.
-         */
-        if (fr->nbkernel_elec_modifier == eintmodPOTSWITCH && fr->nbkernel_vdw_modifier == eintmodPOTSWITCH)
-        {
-            if ((fr->rcoulomb_switch != fr->rvdw_switch) || (fr->rcoulomb != fr->rvdw))
-            {
-                fr->bcoultab = TRUE;
-            }
-        }
-        else if ((fr->nbkernel_elec_modifier == eintmodPOTSHIFT && fr->nbkernel_vdw_modifier == eintmodPOTSHIFT) ||
-                 ((fr->nbkernel_elec_interaction == GMX_NBKERNEL_ELEC_REACTIONFIELD &&
-                   fr->nbkernel_elec_modifier == eintmodEXACTCUTOFF &&
-                   (fr->nbkernel_vdw_modifier == eintmodPOTSWITCH || fr->nbkernel_vdw_modifier == eintmodPOTSHIFT))))
-        {
-            if (fr->rcoulomb != fr->rvdw)
-            {
-                fr->bcoultab = TRUE;
-            }
-        }
-
-        if (getenv("GMX_REQUIRE_TABLES"))
-        {
-            fr->bvdwtab  = TRUE;
-            fr->bcoultab = TRUE;
-        }
-
-        if (fp)
-        {
-            fprintf(fp, "Table routines are used for coulomb: %s\n", bool_names[fr->bcoultab]);
-            fprintf(fp, "Table routines are used for vdw:     %s\n", bool_names[fr->bvdwtab ]);
-        }
-
-        if (fr->bvdwtab == TRUE)
-        {
-            fr->nbkernel_vdw_interaction = GMX_NBKERNEL_VDW_CUBICSPLINETABLE;
-            fr->nbkernel_vdw_modifier    = eintmodNONE;
-        }
-        if (fr->bcoultab == TRUE)
-        {
-            fr->nbkernel_elec_interaction = GMX_NBKERNEL_ELEC_CUBICSPLINETABLE;
-            fr->nbkernel_elec_modifier    = eintmodNONE;
-        }
-    }
-
-    if (ir->cutoff_scheme == ecutsVERLET)
-    {
-        if (!gmx_within_tol(fr->reppow, 12.0, 10*GMX_DOUBLE_EPS))
-        {
-            gmx_fatal(FARGS, "Cut-off scheme %S only supports LJ repulsion power 12", ecutscheme_names[ir->cutoff_scheme]);
-        }
-        fr->bvdwtab  = FALSE;
-        fr->bcoultab = FALSE;
-    }
+    fr->bvdwtab  = FALSE;
+    fr->bcoultab = FALSE;
 
     /* Tables are used for direct ewald sum */
-    if (fr->bEwald)
-    {
-        if (EEL_PME(ir->coulombtype))
+        if (EEL_PME(ir->coulombtype)) // 0 EWALD, 1 PME
         {
-            if (fp)
-            {
-                fprintf(fp, "Will do PME sum in reciprocal space.\n");
-            }
-            if (ir->coulombtype == eelP3M_AD)
-            {
-                please_cite(fp, "Hockney1988");
-                please_cite(fp, "Ballenegger2012");
-            }
-            else
-            {
-                please_cite(fp, "Essmann95a");
-            }
+            fprintf(fp, "Will do PME sum in reciprocal space.\n");
 
-            if (ir->ewald_geometry == eewg3DC)
-            {
-                if (fp)
-                {
-                    fprintf(fp, "Using the Ewald3DC correction for systems with a slab geometry.\n");
-                }
-                please_cite(fp, "In-Chul99a");
-            }
         }
         fr->ewaldcoeff = calc_ewaldcoeff(ir->rcoulomb, ir->ewald_rtol);
         init_ewald_tab(&(fr->ewald_table), cr, ir, fp);
-        if (fp)
-        {
-            fprintf(fp, "Using a Gaussian width (1/beta) of %g nm for Ewald\n",
+        fprintf(fp, "Using a Gaussian width (1/beta) of %g nm for Ewald\n",
                     1/fr->ewaldcoeff);
-        }
-    }
 
     /* Electrostatics */
     fr->epsilon_r       = ir->epsilon_r;
@@ -788,22 +644,6 @@ void init_forcerec(FILE              *fp,
     fr->zsquare = 0.0;
     fr->temp    = 0.0;
 
-    if (fr->eeltype == eelGRF)
-    {
-        init_generalized_rf(fp, mtop, ir, fr);
-    }
-    else if (fr->eeltype == eelSHIFT)
-    {
-        for (m = 0; (m < DIM); m++)
-        {
-            box_size[m] = box[m][m];
-        }
-
-        if ((fr->eeltype == eelSHIFT && fr->rcoulomb > fr->rcoulomb_switch))
-        {
-            set_shift_consts(fp, fr->rcoulomb_switch, fr->rcoulomb, box_size, fr);
-        }
-    }
 
     fr->bF_NoVirSum = (EEL_FULL(fr->eeltype) ||
                        gmx_mtop_ftype_count(mtop, F_POSRES) > 0 ||
@@ -811,28 +651,10 @@ void init_forcerec(FILE              *fp,
                        (fr->adress_icor != eAdressICOff)
                        );
 
-    if (fr->cutoff_scheme == ecutsGROUP &&
-        ncg_mtop(mtop) > fr->cg_nalloc )
-    {
-        /* Count the total number of charge groups */
-        fr->cg_nalloc = ncg_mtop(mtop);
-        srenew(fr->cg_cm, fr->cg_nalloc);
-    }
-    if (fr->shift_vec == NULL)
-    {
-        snew(fr->shift_vec, SHIFTS);
-    }
-
-    if (fr->fshift == NULL)
-    {
-        snew(fr->fshift, SHIFTS);
-    }
-
-    if (fr->nbfp == NULL)
-    {
-        fr->ntype = mtop->ffparams.atnr;
-        fr->nbfp  = mk_nbfp(&mtop->ffparams, fr->bBHAM);
-    }
+    snew(fr->shift_vec, SHIFTS);
+    snew(fr->fshift, SHIFTS);
+    fr->ntype = mtop->ffparams.atnr;
+    fr->nbfp  = mk_nbfp(&mtop->ffparams, fr->bBHAM);
 
     /* Copy the energy group exclusions */
     fr->egp_flags = ir->opts.egp_flags;
@@ -840,31 +662,10 @@ void init_forcerec(FILE              *fp,
     /* Van der Waals stuff */
     fr->rvdw        = ir->rvdw;
     fr->rvdw_switch = ir->rvdw_switch;
-    if ((fr->vdwtype != evdwCUT) && (fr->vdwtype != evdwUSER) && !fr->bBHAM)
-    {
-        if (fr->rvdw_switch >= fr->rvdw)
-        {
-            gmx_fatal(FARGS, "rvdw_switch (%f) must be < rvdw (%f)",
-                      fr->rvdw_switch, fr->rvdw);
-        }
-        if (fp)
-        {
-            fprintf(fp, "Using %s Lennard-Jones, switch between %g and %g nm\n",
-                    (fr->eeltype == eelSWITCH) ? "switched" : "shifted",
-                    fr->rvdw_switch, fr->rvdw);
-        }
-    }
 
-    if (fr->bBHAM && (fr->vdwtype == evdwSHIFT || fr->vdwtype == evdwSWITCH))
-    {
-        gmx_fatal(FARGS, "Switch/shift interaction not supported with Buckingham");
-    }
 
-    if (fp)
-    {
-        fprintf(fp, "Cut-off's:   NS: %g   Coulomb: %g   %s: %g\n",
+    fprintf(fp, "Cut-off's:   NS: %g   Coulomb: %g   %s: %g\n",
                 fr->rlist, fr->rcoulomb, fr->bBHAM ? "BHAM" : "LJ", fr->rvdw);
-    }
 
     fr->eDispCorr = ir->eDispCorr;
 
@@ -879,67 +680,14 @@ void init_forcerec(FILE              *fp,
     snew(fr->atype_surftens, fr->ntype);
     snew(fr->atype_gb_radius, fr->ntype);
     snew(fr->atype_S_hct, fr->ntype);
-
-    if (mtop->atomtypes.nr > 0)
-    {
-        for (i = 0; i < fr->ntype; i++)
-        {
-            fr->atype_radius[i] = mtop->atomtypes.radius[i];
-        }
-        for (i = 0; i < fr->ntype; i++)
-        {
-            fr->atype_vol[i] = mtop->atomtypes.vol[i];
-        }
-        for (i = 0; i < fr->ntype; i++)
-        {
-            fr->atype_surftens[i] = mtop->atomtypes.surftens[i];
-        }
-        for (i = 0; i < fr->ntype; i++)
-        {
-            fr->atype_gb_radius[i] = mtop->atomtypes.gb_radius[i];
-        }
-        for (i = 0; i < fr->ntype; i++)
-        {
-            fr->atype_S_hct[i] = mtop->atomtypes.S_hct[i];
-        }
-    }
-
-    /* Generate the GB table if needed */
-    if (fr->bGB)
-    {
-#ifdef GMX_DOUBLE
-        fr->gbtabscale = 2000;
-#else
-        fr->gbtabscale = 500;
-#endif
-
-        fr->gbtabr = 100;
-        fr->gbtab  = make_gb_table(fp, oenv, fr, tabpfn, fr->gbtabscale);
-
-        init_gb(&fr->born, cr, fr, ir, mtop, ir->rgbradii, ir->gb_algorithm);
-
-        /* Copy local gb data (for dd, this is done in dd_partition_system) */
-        make_local_gb(cr, fr->born, ir->gb_algorithm);
-    }
+    fr->atype_radius[0] = mtop->atomtypes.radius[0];
+    fr->atype_vol[0] = mtop->atomtypes.vol[0];
+    fr->atype_surftens[0] = mtop->atomtypes.surftens[0];
+    fr->atype_gb_radius[0] = mtop->atomtypes.gb_radius[0];
+    fr->atype_S_hct[0] = mtop->atomtypes.S_hct[0];
 
     /* Set the charge scaling */
-    if (fr->epsilon_r != 0)
-    {
-        fr->epsfac = ONE_4PI_EPS0/fr->epsilon_r;
-    }
-    else
-    {
-        /* eps = 0 is infinite dieletric: no coulomb interactions */
-        fr->epsfac = 0;
-    }
-
-    /* Reaction field constants */
-    if (EEL_RF(fr->eeltype))
-    {
-        calc_rffac(fp, fr->eeltype, fr->epsilon_r, fr->epsilon_rf,
-                   fr->rcoulomb, fr->temp, fr->zsquare, box,
-                   &fr->kappa, &fr->k_rf, &fr->c_rf);
-    }
+    fr->epsfac = ONE_4PI_EPS0/fr->epsilon_r;
 
     set_chargesum(fp, fr, mtop);
 
@@ -963,13 +711,6 @@ void init_forcerec(FILE              *fp,
 
     negp_pp   = ir->opts.ngener - ir->nwall;
     negptable = 0;
-    if (!bTab)
-    {
-        bNormalnblists = TRUE;
-        fr->nnblists   = 1;
-    }
-    else
-    {
         bNormalnblists = (ir->eDispCorr != edispcNO);
         for (egi = 0; egi < negp_pp; egi++)
         {
@@ -989,24 +730,7 @@ void init_forcerec(FILE              *fp,
                 }
             }
         }
-        if (bNormalnblists)
-        {
-            fr->nnblists = negptable + 1;
-        }
-        else
-        {
-            fr->nnblists = negptable;
-        }
-        if (fr->nnblists > 1)
-        {
-            snew(fr->gid2nblists, ir->opts.ngener*ir->opts.ngener);
-        }
-    }
-
-    if (ir->adress)
-    {
-        fr->nnblists *= 2;
-    }
+        fr->nnblists = negptable + 1;
 
     snew(fr->nblists, fr->nnblists);
 
@@ -1016,87 +740,13 @@ void init_forcerec(FILE              *fp,
      */
     rtab = ir->rlistlong + ir->tabext;
 
-    if (bTab)
-    {
-        /* make tables for ordinary interactions */
-        if (bNormalnblists)
-        {
-            make_nbf_tables(fp, oenv, fr, rtab, cr, tabfn, NULL, NULL, &fr->nblists[0]);
-            if (ir->adress)
-            {
-                make_nbf_tables(fp, oenv, fr, rtab, cr, tabfn, NULL, NULL, &fr->nblists[fr->nnblists/2]);
-            }
-            if (!bSep14tab)
-            {
-                fr->tab14 = fr->nblists[0].table_elec_vdw;
-            }
-            m = 1;
-        }
-        else
-        {
-            m = 0;
-        }
-        if (negptable > 0)
-        {
-            /* Read the special tables for certain energy group pairs */
-            nm_ind = mtop->groups.grps[egcENER].nm_ind;
-            for (egi = 0; egi < negp_pp; egi++)
-            {
-                for (egj = egi; egj < negp_pp; egj++)
-                {
-                    egp_flags = ir->opts.egp_flags[GID(egi, egj, ir->opts.ngener)];
-                    if ((egp_flags & EGP_TABLE) && !(egp_flags & EGP_EXCL))
-                    {
-                        nbl = &(fr->nblists[m]);
-                        if (fr->nnblists > 1)
-                        {
-                            fr->gid2nblists[GID(egi, egj, ir->opts.ngener)] = m;
-                        }
-                        /* Read the table file with the two energy groups names appended */
-                        make_nbf_tables(fp, oenv, fr, rtab, cr, tabfn,
-                                        *mtop->groups.grpname[nm_ind[egi]],
-                                        *mtop->groups.grpname[nm_ind[egj]],
-                                        &fr->nblists[m]);
-                        if (ir->adress)
-                        {
-                            make_nbf_tables(fp, oenv, fr, rtab, cr, tabfn,
-                                            *mtop->groups.grpname[nm_ind[egi]],
-                                            *mtop->groups.grpname[nm_ind[egj]],
-                                            &fr->nblists[fr->nnblists/2+m]);
-                        }
-                        m++;
-                    }
-                    else if (fr->nnblists > 1)
-                    {
-                        fr->gid2nblists[GID(egi, egj, ir->opts.ngener)] = 0;
-                    }
-                }
-            }
-        }
-    }
-    if (bSep14tab)
-    {
-        /* generate extra tables with plain Coulomb for 1-4 interactions only */
-        fr->tab14 = make_tables(fp, oenv, fr, MASTER(cr), tabpfn, rtab,
-                                GMX_MAKETABLES_14ONLY);
-    }
-
-    /* Read AdResS Thermo Force table if needed */
-    if (fr->adress_icor == eAdressICThermoForce)
-    {
-        /* old todo replace */
-
-            /* load the default table */
-            snew(fr->atf_tabs, 1);
-            fr->atf_tabs[DEFAULT_TF_TABLE] = make_atf_table(fp, oenv, fr, tabafn, box);
-    }
+    /* make tables for ordinary interactions */
+    make_nbf_tables(fp, oenv, fr, rtab, cr, tabfn, NULL, NULL, &fr->nblists[0]);
+    fr->tab14 = fr->nblists[0].table_elec_vdw;
+    m = 1;
 
     /* Wall stuff */
     fr->nwall = ir->nwall;
-    if (ir->nwall && ir->wall_type == ewtTABLE)
-    {
-        make_wall_tables(fp, oenv, ir, tabfn, &mtop->groups, fr);
-    }
 
     if (fcd && tabbfn)
     {
@@ -1105,12 +755,6 @@ void init_forcerec(FILE              *fp,
         fcd->dihtab   = NULL; 
     }
 
-    /* QM/MM initialization if requested
-     */
-    if (ir->bQMMM)
-    {
-        fprintf(stderr, "QM/MM calculation requested.\n");
-    }
 
     fr->bQMMM      = ir->bQMMM;
     fr->qr         = mk_QMMMrec();
@@ -1140,12 +784,6 @@ void init_forcerec(FILE              *fp,
     if (cr->duty & DUTY_PP)
     {
         gmx_nonbonded_setup(fp, fr, bGenericKernelOnly);
-        /*
-           if (ir->bAdress)
-            {
-                gmx_setup_adress_kernels(fp,bGenericKernelOnly);
-            }
-         */
     }
 
     /* Initialize the thread working data for bonded interactions */
@@ -1153,22 +791,10 @@ void init_forcerec(FILE              *fp,
 
     snew(fr->excl_load, fr->nthreads+1);
 
-    if (fr->cutoff_scheme == ecutsVERLET)
-    {
-        if (ir->rcoulomb != ir->rvdw)
-        {
-            gmx_fatal(FARGS, "With Verlet lists rcoulomb and rvdw should be identical");
-        }
-
-        init_nb_verlet(fp, &fr->nbv, ir, fr, cr, nbpu_opt);
-    }
+    init_nb_verlet(fp, &fr->nbv, ir, fr, cr, nbpu_opt);
 
     /* fr->ic is used both by verlet and group kernels (to some extent) now */
     init_interaction_const(fp, &fr->ic, fr, rtab);
-    if (ir->eDispCorr != edispcNO)
-    {
-        //calc_enervirdiff(fp, ir->eDispCorr, fr);
-    }
 }
 
 #define pr_real(fp, r) fprintf(fp, "%s: %e\n",#r, r)
