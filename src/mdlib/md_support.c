@@ -369,18 +369,6 @@ void compute_globals(FILE *fplog, gmx_global_stat_t gstat, t_commrec *cr, t_inpu
                     gs_buf[i] = gs->sig[i];
                 }
             }
-            if (PAR(cr))
-            {
-                wallcycle_start(wcycle, ewcMoveE);
-                GMX_MPE_LOG(ev_global_stat_start);
-                global_stat(fplog, gstat, cr, enerd, force_vir, shake_vir, mu_tot,
-                            ir, ekind, constr, bStopCM ? vcm : NULL,
-                            gs != NULL ? eglsNR : 0, gs_buf,
-                            top_global, state,
-                            *bSumEkinhOld, flags);
-                GMX_MPE_LOG(ev_global_stat_finish);
-                wallcycle_stop(wcycle, ewcMoveE);
-            }
             if (gs != NULL)
             {
                 if (MULTISIM(cr) && bInterSimGS)
