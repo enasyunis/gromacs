@@ -1,40 +1,3 @@
-/*
- * This file is part of the GROMACS molecular simulation package.
- *
- * Copyright (c) 1991-2000, University of Groningen, The Netherlands.
- * Copyright (c) 2001-2004, The GROMACS development team,
- * check out http://www.gromacs.org for more information.
- * Copyright (c) 2012,2013, by the GROMACS development team, led by
- * David van der Spoel, Berk Hess, Erik Lindahl, and including many
- * others, as listed in the AUTHORS file in the top-level source
- * directory and at http://www.gromacs.org.
- *
- * GROMACS is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License
- * as published by the Free Software Foundation; either version 2.1
- * of the License, or (at your option) any later version.
- *
- * GROMACS is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with GROMACS; if not, see
- * http://www.gnu.org/licenses, or write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA.
- *
- * If you want to redistribute modifications to GROMACS, please
- * consider that scientific software is very special. Version
- * control is crucial - bugs must be traceable. We will be happy to
- * consider code for inclusion in the official distribution, but
- * derived work must not be called official GROMACS. Details are found
- * in the README & COPYING files - if they are missing, get the
- * official version at http://www.gromacs.org.
- *
- * To help us fund GROMACS development, we humbly ask that you cite
- * the research papers on the package. Check out http://www.gromacs.org.
- */
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -54,137 +17,12 @@
 /* Is the signal in one simulation independent of other simulations? */
 gmx_bool gs_simlocal[eglsNR] = { TRUE, FALSE, FALSE, TRUE };
 
-/* check which of the multisim simulations has the shortest number of
-   steps and return that number of nsteps */
-gmx_large_int_t get_multisim_nsteps(const t_commrec *cr,
-                                    gmx_large_int_t  nsteps)
-{
-    gmx_large_int_t steps_out;
-
-    if MASTER(cr)
-    {
-        gmx_large_int_t *buf;
-        int              s;
-
-        snew(buf, cr->ms->nsim);
-
-        buf[cr->ms->sim] = nsteps;
-        gmx_sumli_sim(cr->ms->nsim, buf, cr->ms);
-
-        steps_out = -1;
-        for (s = 0; s < cr->ms->nsim; s++)
-        {
-            /* find the smallest positive number */
-            if (buf[s] >= 0 && ((steps_out < 0) || (buf[s] < steps_out)) )
-            {
-                steps_out = buf[s];
-            }
-        }
-        sfree(buf);
-
-        /* if we're the limiting simulation, don't do anything */
-        if (steps_out >= 0 && steps_out < nsteps)
-        {
-            char strbuf[255];
-            snprintf(strbuf, 255, "Will stop simulation %%d after %s steps (another simulation will end then).\n", gmx_large_int_pfmt);
-            fprintf(stderr, strbuf, cr->ms->sim, steps_out);
-        }
-    }
-    /* broadcast to non-masters */
-    gmx_bcast(sizeof(gmx_large_int_t), &steps_out, cr);
-    return steps_out;
-}
-
-int multisim_min(const gmx_multisim_t *ms, int nmin, int n)
-{
-    int     *buf;
-    gmx_bool bPos, bEqual;
-    int      s, d;
-
-    snew(buf, ms->nsim);
-    buf[ms->sim] = n;
-    gmx_sumi_sim(ms->nsim, buf, ms);
-    bPos   = TRUE;
-    bEqual = TRUE;
-    for (s = 0; s < ms->nsim; s++)
-    {
-        bPos   = bPos   && (buf[s] > 0);
-        bEqual = bEqual && (buf[s] == buf[0]);
-    }
-    if (bPos)
-    {
-        if (bEqual)
-        {
-            nmin = min(nmin, buf[0]);
-        }
-        else
-        {
-            /* Find the least common multiple */
-            for (d = 2; d < nmin; d++)
-            {
-                s = 0;
-                while (s < ms->nsim && d % buf[s] == 0)
-                {
-                    s++;
-                }
-                if (s == ms->nsim)
-                {
-                    /* We found the LCM and it is less than nmin */
-                    nmin = d;
-                    break;
-                }
-            }
-        }
-    }
-    sfree(buf);
-
-    return nmin;
-}
-
-int multisim_nstsimsync(const t_commrec *cr,
-                        const t_inputrec *ir, int repl_ex_nst)
-{
-    int nmin;
-
-    if (MASTER(cr))
-    {
-        nmin = INT_MAX;
-        nmin = multisim_min(cr->ms, nmin, ir->nstlist);
-        nmin = multisim_min(cr->ms, nmin, ir->nstcalcenergy);
-        nmin = multisim_min(cr->ms, nmin, repl_ex_nst);
-        if (nmin == INT_MAX)
-        {
-            gmx_fatal(FARGS, "Can not find an appropriate interval for inter-simulation communication, since nstlist, nstcalcenergy and -replex are all <= 0");
-        }
-        /* Avoid inter-simulation communication at every (second) step */
-        if (nmin <= 2)
-        {
-            nmin = 10;
-        }
-    }
-
-    gmx_bcast(sizeof(int), &nmin, cr);
-
-    return nmin;
-}
-
 void init_global_signals(globsig_t *gs, const t_commrec *cr,
                          const t_inputrec *ir, int repl_ex_nst)
-{
+{ // called
     int i;
 
-    if (MULTISIM(cr))
-    {
-        gs->nstms = multisim_nstsimsync(cr, ir, repl_ex_nst);
-        if (debug)
-        {
-            fprintf(debug, "Syncing simulations for checkpointing and termination every %d steps\n", gs->nstms);
-        }
-    }
-    else
-    {
-        gs->nstms = 1;
-    }
+    gs->nstms = 1;
 
     for (i = 0; i < eglsNR; i++)
     {
@@ -193,71 +31,9 @@ void init_global_signals(globsig_t *gs, const t_commrec *cr,
     }
 }
 
-void copy_coupling_state(t_state *statea, t_state *stateb,
-                         gmx_ekindata_t *ekinda, gmx_ekindata_t *ekindb, t_grpopts* opts)
-{
-
-    /* MRS note -- might be able to get rid of some of the arguments.  Look over it when it's all debugged */
-
-    int i, j, nc;
-
-    /* Make sure we have enough space for x and v */
-    if (statea->nalloc > stateb->nalloc)
-    {
-        stateb->nalloc = statea->nalloc;
-        srenew(stateb->x, stateb->nalloc);
-        srenew(stateb->v, stateb->nalloc);
-    }
-
-    stateb->natoms     = statea->natoms;
-    stateb->ngtc       = statea->ngtc;
-    stateb->nnhpres    = statea->nnhpres;
-    stateb->veta       = statea->veta;
-    if (ekinda)
-    {
-        copy_mat(ekinda->ekin, ekindb->ekin);
-        for (i = 0; i < stateb->ngtc; i++)
-        {
-            ekindb->tcstat[i].T  = ekinda->tcstat[i].T;
-            ekindb->tcstat[i].Th = ekinda->tcstat[i].Th;
-            copy_mat(ekinda->tcstat[i].ekinh, ekindb->tcstat[i].ekinh);
-            copy_mat(ekinda->tcstat[i].ekinf, ekindb->tcstat[i].ekinf);
-            ekindb->tcstat[i].ekinscalef_nhc =  ekinda->tcstat[i].ekinscalef_nhc;
-            ekindb->tcstat[i].ekinscaleh_nhc =  ekinda->tcstat[i].ekinscaleh_nhc;
-            ekindb->tcstat[i].vscale_nhc     =  ekinda->tcstat[i].vscale_nhc;
-        }
-    }
-    copy_rvecn(statea->x, stateb->x, 0, stateb->natoms);
-    copy_rvecn(statea->v, stateb->v, 0, stateb->natoms);
-    copy_mat(statea->box, stateb->box);
-    copy_mat(statea->box_rel, stateb->box_rel);
-    copy_mat(statea->boxv, stateb->boxv);
-
-    for (i = 0; i < stateb->ngtc; i++)
-    {
-        nc = i*opts->nhchainlength;
-        for (j = 0; j < opts->nhchainlength; j++)
-        {
-            stateb->nosehoover_xi[nc+j]  = statea->nosehoover_xi[nc+j];
-            stateb->nosehoover_vxi[nc+j] = statea->nosehoover_vxi[nc+j];
-        }
-    }
-    if (stateb->nhpres_xi != NULL)
-    {
-        for (i = 0; i < stateb->nnhpres; i++)
-        {
-            nc = i*opts->nhchainlength;
-            for (j = 0; j < opts->nhchainlength; j++)
-            {
-                stateb->nhpres_xi[nc+j]  = statea->nhpres_xi[nc+j];
-                stateb->nhpres_vxi[nc+j] = statea->nhpres_vxi[nc+j];
-            }
-        }
-    }
-}
 
 real compute_conserved_from_auxiliary(t_inputrec *ir, t_state *state, t_extmass *MassQ)
-{
+{ // called
     real quantity = 0;
     switch (ir->etc)
     {
@@ -286,7 +62,7 @@ void compute_globals(FILE *fplog, gmx_global_stat_t gstat, t_commrec *cr, t_inpu
                      globsig_t *gs, gmx_bool bInterSimGS,
                      matrix box, gmx_mtop_t *top_global, real *pcurr,
                      int natoms, gmx_bool *bSumEkinhOld, int flags)
-{
+{ //called
     int      i, gsi;
     real     gs_buf[eglsNR];
     tensor   corr_vir, corr_pres, shakeall_vir;
@@ -472,100 +248,9 @@ void compute_globals(FILE *fplog, gmx_global_stat_t gstat, t_commrec *cr, t_inpu
     }
 }
 
-void check_nst_param(FILE *fplog, t_commrec *cr,
-                     const char *desc_nst, int nst,
-                     const char *desc_p, int *p)
-{
-    if (*p > 0 && *p % nst != 0)
-    {
-        /* Round up to the next multiple of nst */
-        *p = ((*p)/nst + 1)*nst;
-        md_print_warn(cr, fplog,
-                      "NOTE: %s changes %s to %d\n", desc_nst, desc_p, *p);
-    }
-}
-
-void set_current_lambdas(gmx_large_int_t step, t_lambda *fepvals, gmx_bool bRerunMD,
-                         t_trxframe *rerun_fr, t_state *state_global, t_state *state, double lam0[])
-/* find the current lambdas.  If rerunning, we either read in a state, or a lambda value,
-   requiring different logic. */
-{
-    real frac;
-    int  i, fep_state = 0;
-    if (bRerunMD)
-    {
-        if (rerun_fr->bLambda)
-        {
-            if (fepvals->delta_lambda != 0)
-            {
-                state_global->lambda[efptFEP] = rerun_fr->lambda;
-                for (i = 0; i < efptNR; i++)
-                {
-                    if (i != efptFEP)
-                    {
-                        state->lambda[i] = state_global->lambda[i];
-                    }
-                }
-            }
-            else
-            {
-                /* find out between which two value of lambda we should be */
-                frac      = (step*fepvals->delta_lambda);
-                fep_state = floor(frac*fepvals->n_lambda);
-                /* interpolate between this state and the next */
-                /* this assumes that the initial lambda corresponds to lambda==0, which is verified in grompp */
-                frac = (frac*fepvals->n_lambda)-fep_state;
-                for (i = 0; i < efptNR; i++)
-                {
-                    state_global->lambda[i] = lam0[i] + (fepvals->all_lambda[i][fep_state]) +
-                        frac*(fepvals->all_lambda[i][fep_state+1]-fepvals->all_lambda[i][fep_state]);
-                }
-            }
-        }
-        else if (rerun_fr->bFepState)
-        {
-            state_global->fep_state = rerun_fr->fep_state;
-            for (i = 0; i < efptNR; i++)
-            {
-                state_global->lambda[i] = fepvals->all_lambda[i][fep_state];
-            }
-        }
-    }
-    else
-    {
-        if (fepvals->delta_lambda != 0)
-        {
-            /* find out between which two value of lambda we should be */
-            frac = (step*fepvals->delta_lambda);
-            if (fepvals->n_lambda > 0)
-            {
-                fep_state = floor(frac*fepvals->n_lambda);
-                /* interpolate between this state and the next */
-                /* this assumes that the initial lambda corresponds to lambda==0, which is verified in grompp */
-                frac = (frac*fepvals->n_lambda)-fep_state;
-                for (i = 0; i < efptNR; i++)
-                {
-                    state_global->lambda[i] = lam0[i] + (fepvals->all_lambda[i][fep_state]) +
-                        frac*(fepvals->all_lambda[i][fep_state+1]-fepvals->all_lambda[i][fep_state]);
-                }
-            }
-            else
-            {
-                for (i = 0; i < efptNR; i++)
-                {
-                    state_global->lambda[i] = lam0[i] + frac;
-                }
-            }
-        }
-    }
-    for (i = 0; i < efptNR; i++)
-    {
-        state->lambda[i] = state_global->lambda[i];
-    }
-}
 
 static void min_zero(int *n, int i)
-{
+{ // called
     if (i > 0 && (*n == 0 || i < *n))
     {
         *n = i;
@@ -573,7 +258,7 @@ static void min_zero(int *n, int i)
 }
 
 static int lcd4(int i1, int i2, int i3, int i4)
-{
+{ // called
     int nst;
 
     nst = 0;
@@ -599,14 +284,8 @@ static int lcd4(int i1, int i2, int i3, int i4)
 
 int check_nstglobalcomm(FILE *fplog, t_commrec *cr,
                         int nstglobalcomm, t_inputrec *ir)
-{
-    if (!EI_DYNAMICS(ir->eI))
-    {
-        nstglobalcomm = 1;
-    }
+{ // called
 
-    if (nstglobalcomm == -1)
-    {
         if (!(ir->nstcalcenergy > 0 ||
               ir->nstlist > 0 ||
               ir->etc != etcNO ||
@@ -628,37 +307,6 @@ int check_nstglobalcomm(FILE *fplog, t_commrec *cr,
                                  ir->etc != etcNO ? ir->nsttcouple : 0,
                                  ir->epc != epcNO ? ir->nstpcouple : 0);
         }
-    }
-    else
-    {
-        if (ir->nstlist > 0 &&
-            nstglobalcomm > ir->nstlist && nstglobalcomm % ir->nstlist != 0)
-        {
-            nstglobalcomm = (nstglobalcomm / ir->nstlist)*ir->nstlist;
-            md_print_warn(cr, fplog, "WARNING: nstglobalcomm is larger than nstlist, but not a multiple, setting it to %d\n", nstglobalcomm);
-        }
-        if (ir->nstcalcenergy > 0)
-        {
-            check_nst_param(fplog, cr, "-gcom", nstglobalcomm,
-                            "nstcalcenergy", &ir->nstcalcenergy);
-        }
-        if (ir->etc != etcNO && ir->nsttcouple > 0)
-        {
-            check_nst_param(fplog, cr, "-gcom", nstglobalcomm,
-                            "nsttcouple", &ir->nsttcouple);
-        }
-        if (ir->epc != epcNO && ir->nstpcouple > 0)
-        {
-            check_nst_param(fplog, cr, "-gcom", nstglobalcomm,
-                            "nstpcouple", &ir->nstpcouple);
-        }
-
-        check_nst_param(fplog, cr, "-gcom", nstglobalcomm,
-                        "nstenergy", &ir->nstenergy);
-
-        check_nst_param(fplog, cr, "-gcom", nstglobalcomm,
-                        "nstlog", &ir->nstlog);
-    }
 
     if (ir->comm_mode != ecmNO && ir->nstcomm < nstglobalcomm)
     {
@@ -670,81 +318,4 @@ int check_nstglobalcomm(FILE *fplog, t_commrec *cr,
     return nstglobalcomm;
 }
 
-void check_ir_old_tpx_versions(t_commrec *cr, FILE *fplog,
-                               t_inputrec *ir, gmx_mtop_t *mtop)
-{
-    /* Check required for old tpx files */
-    if (IR_TWINRANGE(*ir) && ir->nstlist > 1 &&
-        ir->nstcalcenergy % ir->nstlist != 0)
-    {
-        md_print_warn(cr, fplog, "Old tpr file with twin-range settings: modifying energy calculation and/or T/P-coupling frequencies\n");
 
-        if (gmx_mtop_ftype_count(mtop, F_CONSTR) +
-            gmx_mtop_ftype_count(mtop, F_CONSTRNC) > 0 &&
-            ir->eConstrAlg == econtSHAKE)
-        {
-            md_print_warn(cr, fplog, "With twin-range cut-off's and SHAKE the virial and pressure are incorrect\n");
-            if (ir->epc != epcNO)
-            {
-                gmx_fatal(FARGS, "Can not do pressure coupling with twin-range cut-off's and SHAKE");
-            }
-        }
-        check_nst_param(fplog, cr, "nstlist", ir->nstlist,
-                        "nstcalcenergy", &ir->nstcalcenergy);
-        if (ir->epc != epcNO)
-        {
-            check_nst_param(fplog, cr, "nstlist", ir->nstlist,
-                            "nstpcouple", &ir->nstpcouple);
-        }
-        check_nst_param(fplog, cr, "nstcalcenergy", ir->nstcalcenergy,
-                        "nstenergy", &ir->nstenergy);
-        check_nst_param(fplog, cr, "nstcalcenergy", ir->nstcalcenergy,
-                        "nstlog", &ir->nstlog);
-        if (ir->efep != efepNO)
-        {
-            check_nst_param(fplog, cr, "nstcalcenergy", ir->nstcalcenergy,
-                            "nstdhdl", &ir->fepvals->nstdhdl);
-        }
-    }
-}
-
-void rerun_parallel_comm(t_commrec *cr, t_trxframe *fr,
-                         gmx_bool *bNotLastFrame)
-{
-    gmx_bool bAlloc;
-    rvec    *xp, *vp;
-
-    bAlloc = (fr->natoms == 0);
-
-    if (MASTER(cr) && !*bNotLastFrame)
-    {
-        fr->natoms = -1;
-    }
-    xp = fr->x;
-    vp = fr->v;
-    gmx_bcast(sizeof(*fr), fr, cr);
-    fr->x = xp;
-    fr->v = vp;
-
-    *bNotLastFrame = (fr->natoms >= 0);
-
-    if (*bNotLastFrame && PARTDECOMP(cr))
-    {
-        /* x and v are the only variable size quantities stored in trr
-         * that are required for rerun (f is not needed).
-         */
-        if (bAlloc)
-        {
-            snew(fr->x, fr->natoms);
-            snew(fr->v, fr->natoms);
-        }
-        if (fr->bX)
-        {
-            gmx_bcast(fr->natoms*sizeof(fr->x[0]), fr->x[0], cr);
-        }
-        if (fr->bV)
-        {
-            gmx_bcast(fr->natoms*sizeof(fr->v[0]), fr->v[0], cr);
-        }
-    }
-}

@@ -157,7 +157,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                                           is set at each step, as it depends on the frequency of temperature
                                           and pressure control.*/
 
-    check_ir_old_tpx_versions(cr, fplog, ir, top_global);
 
     nstglobalcomm   = check_nstglobalcomm(fplog, cr, nstglobalcomm, ir);
     bGStatEveryStep = (nstglobalcomm == 1);
