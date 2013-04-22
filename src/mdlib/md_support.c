@@ -32,27 +32,6 @@ void init_global_signals(globsig_t *gs, const t_commrec *cr,
 }
 
 
-real compute_conserved_from_auxiliary(t_inputrec *ir, t_state *state, t_extmass *MassQ)
-{ // called
-    real quantity = 0;
-    switch (ir->etc)
-    {
-        case etcNO:
-            break;
-        case etcBERENDSEN:
-            break;
-        case etcNOSEHOOVER:
-            quantity = NPT_energy(ir, state, MassQ);
-            break;
-        case etcVRESCALE:
-            quantity = vrescale_energy(&(ir->opts), state->therm_integral);
-            break;
-        default:
-            break;
-    }
-    return quantity;
-}
-
 void compute_globals(FILE *fplog, gmx_global_stat_t gstat, t_commrec *cr, t_inputrec *ir,
                      t_forcerec *fr, gmx_ekindata_t *ekind,
                      t_state *state, t_state *state_global, t_mdatoms *mdatoms,

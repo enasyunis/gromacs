@@ -511,7 +511,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         /* use the directly determined last velocity, not actually the averaged half steps */
         enerd->term[F_ETOT] = enerd->term[F_EPOT] + enerd->term[F_EKIN];
 
-        enerd->term[F_ECONSERVED] = enerd->term[F_ETOT] + compute_conserved_from_auxiliary(ir, state, &MassQ);
+        enerd->term[F_ECONSERVED] = enerd->term[F_ETOT];
         /* #########  END PREPARING EDR OUTPUT  ###########  */
 
         /* Time for performance */
