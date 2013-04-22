@@ -92,16 +92,6 @@
 #include "gmx_cyclecounter.h"
 #include "gmx_omp.h"
 
-/* Single precision, with SSE2 or higher available */
-#if defined(GMX_X86_SSE2) && !defined(GMX_DOUBLE)
-
-#include "gmx_x86_simd_single.h"
-
-#define PME_SSE
-/* Some old AMD processors could have problems with unaligned loads+stores */
-#define PME_SSE_UNALIGNED
-#endif
-
 #include "mpelogging.h"
 
 #define DFT_TOL 1e-7
@@ -112,11 +102,7 @@
 
 /* #define PME_TIME_THREADS */
 
-#ifdef GMX_DOUBLE
 #define mpi_type MPI_DOUBLE
-#else
-#define mpi_type MPI_FLOAT
-#endif
 
 /* GMX_CACHE_SEP should be a multiple of 16 to preserve alignment */
 #define GMX_CACHE_SEP 64
@@ -228,14 +214,6 @@ typedef struct {
 } pmegrids_t;
 
 
-typedef struct {
-#ifdef PME_SSE
-    /* Masks for SSE aligned spreading and gathering */
-    __m128 mask_SSE0[6], mask_SSE1[6];
-#else
-    int    dummy; /* C89 requires that struct has at least one member */
-#endif
-} pme_spline_work_t;
 
 typedef struct {
     /* work data for solve_pme */
@@ -289,8 +267,6 @@ typedef struct gmx_pme {
     /* The local PME grid starting indices */
     int     pmegrid_start_ix, pmegrid_start_iy, pmegrid_start_iz;
 
-    /* Work data for spreading and gathering */
-    pme_spline_work_t    *spline_work;
 
     real                 *fftgridA; /* Grids for FFT. With 1D FFT decomposition this can be a pointer */
     real                 *fftgridB; /* inside the interpolation grid, but separate for 2D PME decomp. */
@@ -1487,8 +1463,8 @@ static void clear_grid(int nx, int ny, int nz, real *grid,
 
 
 static void spread_q_bsplines_thread(pmegrid_t *pmegrid,
-                                     pme_atomcomm_t *atc, splinedata_t *spline,
-                                     pme_spline_work_t *work)
+                                     pme_atomcomm_t *atc, splinedata_t *spline
+                                     )
 {
 
     /* spread charges from home atoms to local grid */
@@ -1538,68 +1514,10 @@ static void spread_q_bsplines_thread(pmegrid_t *pmegrid,
             thy = spline->theta[YY] + norder;
             thz = spline->theta[ZZ] + norder;
 
-            switch (order)
-            {
-                case 4:
-#ifdef PME_SSE
-#ifdef PME_SSE_UNALIGNED
-#define PME_SPREAD_SSE_ORDER4
-#else
-#define PME_SPREAD_SSE_ALIGNED
-#define PME_ORDER 4
-#endif
-#include "pme_sse_single.h"
-#else
-                    DO_BSPLINE(4);
-#endif
-                    break;
-                case 5:
-#ifdef PME_SSE
-#define PME_SPREAD_SSE_ALIGNED
-#define PME_ORDER 5
-#include "pme_sse_single.h"
-#else
-                    DO_BSPLINE(5);
-#endif
-                    break;
-                default:
-                    DO_BSPLINE(order);
-                    break;
-            }
+	    DO_BSPLINE(order);
+
         }
     }
-}
-
-static void set_grid_alignment(int *pmegrid_nz, int pme_order)
-{
-#ifdef PME_SSE
-    if (pme_order == 5
-#ifndef PME_SSE_UNALIGNED
-        || pme_order == 4
-#endif
-        )
-    {
-        /* Round nz up to a multiple of 4 to ensure alignment */
-        *pmegrid_nz = ((*pmegrid_nz + 3) & ~3);
-    }
-#endif
-}
-
-static void set_gridsize_alignment(int *gridsize, int pme_order)
-{
-#ifdef PME_SSE
-#ifndef PME_SSE_UNALIGNED
-    if (pme_order == 4)
-    {
-        /* Add extra elements to ensured aligned operations do not go
-         * beyond the allocated grid size.
-         * Note that for pme_order=5, the pme grid z-size alignment
-         * ensures that we will not go beyond the grid size.
-         */
-        *gridsize += 4;
-    }
-#endif
-#endif
 }
 
 static void pmegrid_init(pmegrid_t *grid,
@@ -1624,7 +1542,6 @@ static void pmegrid_init(pmegrid_t *grid,
     copy_ivec(grid->n, grid->s);
 
     nz = grid->s[ZZ];
-    set_grid_alignment(&nz, pme_order);
     if (set_alignment)
     {
         grid->s[ZZ] = nz;
@@ -1638,7 +1555,6 @@ static void pmegrid_init(pmegrid_t *grid,
     if (ptr == NULL)
     {
         gridsize = grid->s[XX]*grid->s[YY]*grid->s[ZZ];
-        set_gridsize_alignment(&gridsize, pme_order);
         snew_aligned(grid->grid, gridsize, 16);
     }
     else
@@ -1740,7 +1656,6 @@ static void pmegrids_init(pmegrids_t *grids,
         {
             nst[d] = div_round_up(n[d], grids->nc[d]) + pme_order - 1;
         }
-        set_grid_alignment(&nst[ZZ], pme_order);
 
         if (debug)
         {
@@ -1754,7 +1669,6 @@ static void pmegrids_init(pmegrids_t *grids,
         snew(grids->grid_th, grids->nthread);
         t        = 0;
         gridsize = nst[XX]*nst[YY]*nst[ZZ];
-        set_gridsize_alignment(&gridsize, pme_order);
         snew_aligned(grids->grid_all,
                      grids->nthread*gridsize+(grids->nthread+1)*GMX_CACHE_SEP,
                      16);
@@ -1886,31 +1800,6 @@ static void free_work(pme_work_t *work)
 }
 
 
-#ifdef PME_SSE
-/* Calculate exponentials through SSE in float precision */
-inline static void calc_exponentials(int start, int end, real f, real *d_aligned, real *r_aligned, real *e_aligned)
-{
-    {
-        const __m128 two = _mm_set_ps(2.0f, 2.0f, 2.0f, 2.0f);
-        __m128 f_sse;
-        __m128 lu;
-        __m128 tmp_d1, d_inv, tmp_r, tmp_e;
-        int kx;
-        f_sse = _mm_load1_ps(&f);
-        for (kx = 0; kx < end; kx += 4)
-        {
-            tmp_d1   = _mm_load_ps(d_aligned+kx);
-            lu       = _mm_rcp_ps(tmp_d1);
-            d_inv    = _mm_mul_ps(lu, _mm_sub_ps(two, _mm_mul_ps(lu, tmp_d1)));
-            tmp_r    = _mm_load_ps(r_aligned+kx);
-            tmp_r    = gmx_mm_exp_ps(tmp_r);
-            tmp_e    = _mm_mul_ps(f_sse, d_inv);
-            tmp_e    = _mm_mul_ps(tmp_e, tmp_r);
-            _mm_store_ps(e_aligned+kx, tmp_e);
-        }
-    }
-}
-#else
 inline static void calc_exponentials(int start, int end, real f, real *d, real *r, real *e)
 {
     int kx;
@@ -1927,7 +1816,6 @@ inline static void calc_exponentials(int start, int end, real f, real *d, real *
         e[kx] = f*r[kx]*d[kx];
     }
 }
-#endif
 
 
 static int solve_pme_yzx(gmx_pme_t pme, t_complex *grid,
@@ -2244,9 +2132,7 @@ static void gather_f_bsplines(gmx_pme_t pme, real *grid,
     real    rxx, ryx, ryy, rzx, rzy, rzz;
     int     order;
 
-    pme_spline_work_t *work;
 
-    work = pme->spline_work;
 
     order = pme->pme_order;
     thx   = spline->theta[XX];
@@ -2299,35 +2185,7 @@ static void gather_f_bsplines(gmx_pme_t pme, real *grid,
             dthx = spline->dtheta[XX] + norder;
             dthy = spline->dtheta[YY] + norder;
             dthz = spline->dtheta[ZZ] + norder;
-
-            switch (order)
-            {
-                case 4:
-#ifdef PME_SSE
-#ifdef PME_SSE_UNALIGNED
-#define PME_GATHER_F_SSE_ORDER4
-#else
-#define PME_GATHER_F_SSE_ALIGNED
-#define PME_ORDER 4
-#endif
-#include "pme_sse_single.h"
-#else
-                    DO_FSPLINE(4);
-#endif
-                    break;
-                case 5:
-#ifdef PME_SSE
-#define PME_GATHER_F_SSE_ALIGNED
-#define PME_ORDER 5
-#include "pme_sse_single.h"
-#else
-                    DO_FSPLINE(5);
-#endif
-                    break;
-                default:
-                    DO_FSPLINE(order);
-                    break;
-            }
+	    DO_FSPLINE(order);
 
             atc->f[n][XX] += -qn*( fx*nx*rxx );
             atc->f[n][YY] += -qn*( fx*nx*ryx + fy*ny*ryy );
@@ -2989,40 +2847,6 @@ make_gridindex5_to_localindex(int n, int local_start, int local_range,
     *fraction_shift  = fsh;
 }
 
-static pme_spline_work_t *make_pme_spline_work(int order)
-{
-    pme_spline_work_t *work;
-
-#ifdef PME_SSE
-    float  tmp[8];
-    __m128 zero_SSE;
-    int    of, i;
-
-    snew_aligned(work, 1, 16);
-
-    zero_SSE = _mm_setzero_ps();
-
-    /* Generate bit masks to mask out the unused grid entries,
-     * as we only operate on order of the 8 grid entries that are
-     * load into 2 SSE float registers.
-     */
-    for (of = 0; of < 8-(order-1); of++)
-    {
-        for (i = 0; i < 8; i++)
-        {
-            tmp[i] = (i >= of && i < of+order ? 1 : 0);
-        }
-        work->mask_SSE0[of] = _mm_loadu_ps(tmp);
-        work->mask_SSE1[of] = _mm_loadu_ps(tmp+4);
-        work->mask_SSE0[of] = _mm_cmpgt_ps(work->mask_SSE0[of], zero_SSE);
-        work->mask_SSE1[of] = _mm_cmpgt_ps(work->mask_SSE1[of], zero_SSE);
-    }
-#else
-    work = NULL;
-#endif
-
-    return work;
-}
 
 static void
 gmx_pme_check_grid_restrictions(FILE *fplog, char dim, int nnodes, int *nk)
@@ -3285,7 +3109,6 @@ int gmx_pme_init(gmx_pme_t *         pmedata,
         pme->overlap[1].s2g0[pme->nodeid_minor];
     pme->pmegrid_nz_base = pme->nkz;
     pme->pmegrid_nz      = pme->pmegrid_nz_base + pme->pme_order - 1;
-    set_grid_alignment(&pme->pmegrid_nz, pme->pme_order);
 
     pme->pmegrid_start_ix = pme->overlap[0].s2g0[pme->nodeid_major];
     pme->pmegrid_start_iy = pme->overlap[1].s2g0[pme->nodeid_minor];
@@ -3312,7 +3135,6 @@ int gmx_pme_init(gmx_pme_t *         pmedata,
                   pme->overlap[0].s2g1[pme->nodeid_major]-pme->overlap[0].s2g0[pme->nodeid_major+1],
                   pme->overlap[1].s2g1[pme->nodeid_minor]-pme->overlap[1].s2g0[pme->nodeid_minor+1]);
 
-    pme->spline_work = make_pme_spline_work(pme->pme_order);
 
     ndata[0] = pme->nkx;
     ndata[1] = pme->nky;
@@ -3967,7 +3789,7 @@ static void spread_on_grid(gmx_pme_t pme,
 #ifdef PME_TIME_SPREAD
             ct1a = omp_cyc_start();
 #endif
-            spread_q_bsplines_thread(grid, atc, spline, pme->spline_work);
+            spread_q_bsplines_thread(grid, atc, spline);
 
             if (grids->nthread > 1)
             {
