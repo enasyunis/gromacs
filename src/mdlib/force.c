@@ -55,7 +55,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                        t_fcdata   *fcd,
                        gmx_mtop_t     *mtop,
                        gmx_localtop_t *top,
-                       gmx_genborn_t *born,
                        t_atomtypes *atype,
                        gmx_bool       bBornRadii,
                        matrix     box,
@@ -140,7 +139,7 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
         wallcycle_sub_start(wcycle, ewcsBONDED);
         calc_bonds(fplog, cr->ms,
                    idef, x, hist, f, fr, &pbc, graph, enerd, nrnb, lambda, md, fcd,
-                   DOMAINDECOMP(cr) ? cr->dd->gatindex : NULL, atype, born,
+                   DOMAINDECOMP(cr) ? cr->dd->gatindex : NULL, atype, NULL,
                    flags,
                    fr->bSepDVDL && do_per_step(step, ir->nstlog), step);
 

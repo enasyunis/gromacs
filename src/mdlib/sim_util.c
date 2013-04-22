@@ -446,7 +446,7 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
     /* Compute the bonded and non-bonded energies and optionally forces */
     do_force_lowlevel(fplog, step, fr, inputrec, &(top->idef),
                       cr, nrnb, wcycle, mdatoms, &(inputrec->opts),
-                      x, hist, f, f, enerd, fcd, mtop, top, fr->born,
+                      x, hist, f, f, enerd, fcd, mtop, top, 
                       &(top->atomtypes), bBornRadii, box,
                       inputrec->fepvals, lambda, graph, &(top->excls), fr->mu_tot,
                       flags, &cycles_pme);
