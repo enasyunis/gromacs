@@ -200,31 +200,6 @@ void write_traj(FILE *fplog, t_commrec *cr,
     local_v  = state_local->v;
     global_v = state_global->v;
 
-    if (DOMAINDECOMP(cr))
-    {
-        if (mdof_flags & MDOF_CPT)
-        {
-            dd_collect_state(cr->dd, state_local, state_global);
-        }
-        else
-        {
-            if (mdof_flags & (MDOF_X | MDOF_XTC))
-            {
-                dd_collect_vec(cr->dd, state_local, state_local->x,
-                               state_global->x);
-            }
-            if (mdof_flags & MDOF_V)
-            {
-                dd_collect_vec(cr->dd, state_local, local_v,
-                               global_v);
-            }
-        }
-        if (mdof_flags & MDOF_F)
-        {
-            dd_collect_vec(cr->dd, state_local, f_local, f_global);
-        }
-    }
-    else
     {
         if (mdof_flags & MDOF_CPT)
         {

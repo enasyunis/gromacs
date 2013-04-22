@@ -2115,23 +2115,18 @@ static int nsgrid_core(FILE *log, t_commrec *cr, t_forcerec *fr,
     rvec          xi, *cgcm, grid_offset;
     real          r2, rs2, rvdw2, rcoul2, rm2, rl2, XI, YI, ZI, dcx, dcy, dcz, tmp1, tmp2;
     int          *i_egp_flags;
-    gmx_bool      bDomDec, bTriclinicX, bTriclinicY;
+    gmx_bool      bTriclinicX, bTriclinicY;
     ivec          ncpddc;
 
     ns = &fr->ns;
 
-    bDomDec = DOMAINDECOMP(cr);
-    if (bDomDec)
-    {
-        dd = cr->dd;
-    }
 
     bTriclinicX = ((YY < grid->npbcdim &&
-                    (!bDomDec || dd->nc[YY] == 1) && box[YY][XX] != 0) ||
+                    box[YY][XX] != 0) ||
                    (ZZ < grid->npbcdim &&
-                    (!bDomDec || dd->nc[ZZ] == 1) && box[ZZ][XX] != 0));
+                    box[ZZ][XX] != 0));
     bTriclinicY =  (ZZ < grid->npbcdim &&
-                    (!bDomDec || dd->nc[ZZ] == 1) && box[ZZ][YY] != 0);
+                    box[ZZ][YY] != 0);
 
     cgsnr    = cgs->nr;
 
@@ -2207,7 +2202,7 @@ static int nsgrid_core(FILE *log, t_commrec *cr, t_forcerec *fr,
         /* Check if we need periodicity shifts.
          * Without PBC or with domain decomposition we don't need them.
          */
-        if (d >= ePBC2npbcdim(fr->ePBC) || (bDomDec && dd->nc[d] > 1))
+        if (d >= ePBC2npbcdim(fr->ePBC) )
         {
             shp[d] = 0;
         }
@@ -2259,13 +2254,6 @@ static int nsgrid_core(FILE *log, t_commrec *cr, t_forcerec *fr,
         {
             /* make a normal neighbourlist */
 
-            if (bDomDec)
-            {
-                /* Get the j charge-group and dd cell shift ranges */
-                dd_get_ns_ranges(cr->dd, icg, &jcg0, &jcg1, sh0, sh1);
-                max_jcg = 0;
-            }
-            else
             {
                 /* Compute the number of charge groups that fall within the control
                  * of this one (icg)
@@ -2634,11 +2622,8 @@ void init_ns(FILE *fplog, const t_commrec *cr,
 
     ns->nra_alloc = 0;
     ns->bexcl     = NULL;
-    if (!DOMAINDECOMP(cr))
-    {
         /* This could be reduced with particle decomposition */
         ns_realloc_natoms(ns, mtop->natoms);
-    }
 
     ns->nblist_initialized = FALSE;
 
@@ -2714,10 +2699,6 @@ int search_neighbours(FILE *log, t_forcerec *fr,
         }
     }
 
-    if (DOMAINDECOMP(cr))
-    {
-        ns_realloc_natoms(ns, cgs->index[cgs->nr]);
-    }
     debug_gmx();
 
     /* Reset the neighbourlists */
@@ -2727,11 +2708,6 @@ int search_neighbours(FILE *log, t_forcerec *fr,
     {
 
         grid = ns->grid;
-        if (DOMAINDECOMP(cr))
-        {
-            dd_zones = domdec_zones(cr->dd);
-        }
-        else
         {
             dd_zones = NULL;
 
@@ -2752,14 +2728,6 @@ int search_neighbours(FILE *log, t_forcerec *fr,
         end   = (cgs->nr+1)/2;
 #endif
 
-        if (DOMAINDECOMP(cr))
-        {
-            end = cgs->nr;
-            fill_grid(log, dd_zones, grid, end, -1, end, fr->cg_cm);
-            grid->icg0 = 0;
-            grid->icg1 = dd_zones->izone[dd_zones->nizone-1].cg1;
-        }
-        else
         {
             fill_grid(log, NULL, grid, cgs->nr, fr->cg0, fr->hcg, fr->cg_cm);
             grid->icg0 = fr->cg0;

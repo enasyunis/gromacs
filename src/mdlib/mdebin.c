@@ -1006,15 +1006,6 @@ void upd_mdebin(t_mdebin       *md,
      */
     copy_energy(md, enerd->term, ecopy);
     add_ebin(md->ebin, md->ie, md->f_nre, ecopy, bSum);
-    if (md->nCrmsd)
-    {
-        crmsd[0] = constr_rmsd(constr, FALSE);
-        if (md->nCrmsd > 1)
-        {
-            crmsd[1] = constr_rmsd(constr, TRUE);
-        }
-        add_ebin(md->ebin, md->iconrmsd, md->nCrmsd, crmsd, FALSE);
-    }
     if (md->bDynBox)
     {
         int nboxs;

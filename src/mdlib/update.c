@@ -1320,19 +1320,6 @@ static void combine_forces(int nstcalclr,
      * which are stored separately in f_lr.
      */
 
-    if (constr != NULL && !(ir->eConstrAlg == econtSHAKE && ir->epc == epcNO))
-    {
-        /* We need to constrain the LR forces separately,
-         * because due to the different pre-factor for the SR and LR
-         * forces in the update algorithm, we can not determine
-         * the constraint force for the coordinate constraining.
-         * Constrain only the additional LR part of the force.
-         */
-        /* MRS -- need to make sure this works with trotter integration -- the constraint calls may not be right.*/
-        constrain(NULL, FALSE, FALSE, constr, idef, ir, NULL, cr, step, 0, md,
-                  state->x, f_lr, f_lr, bMolPBC, state->box, state->lambda[efptBONDED], NULL,
-                  NULL, NULL, nrnb, econqForce, ir->epc == epcMTTK, state->veta, state->veta);
-    }
 
     /* Add nstcalclr-1 times the LR force to the sum of both forces
      * and store the result in forces_lr.
@@ -1551,71 +1538,6 @@ void update_constraints(FILE             *fplog,
      * after this will be normal to the bond vector
      */
 
-    if (bDoConstr)
-    {
-        /* clear out constraints before applying */
-        clear_mat(vir_part);
-
-        xprime = get_xprime(state, upd);
-
-        bLastStep = (step == inputrec->init_step+inputrec->nsteps);
-        bLog      = (do_per_step(step, inputrec->nstlog) || bLastStep || (step < 0));
-        bEner     = (do_per_step(step, inputrec->nstenergy) || bLastStep);
-        /* Constrain the coordinates xprime */
-        wallcycle_start(wcycle, ewcCONSTR);
-        if (EI_VV(inputrec->eI) && bFirstHalf)
-        {
-            constrain(NULL, bLog, bEner, constr, idef,
-                      inputrec, ekind, cr, step, 1, md,
-                      state->x, state->v, state->v,
-                      bMolPBC, state->box,
-                      state->lambda[efptBONDED], dvdlambda,
-                      NULL, bCalcVir ? &vir_con : NULL, nrnb, econqVeloc,
-                      inputrec->epc == epcMTTK, state->veta, vetanew);
-        }
-        else
-        {
-            constrain(NULL, bLog, bEner, constr, idef,
-                      inputrec, ekind, cr, step, 1, md,
-                      state->x, xprime, NULL,
-                      bMolPBC, state->box,
-                      state->lambda[efptBONDED], dvdlambda,
-                      state->v, bCalcVir ? &vir_con : NULL, nrnb, econqCoord,
-                      inputrec->epc == epcMTTK, state->veta, state->veta);
-        }
-        wallcycle_stop(wcycle, ewcCONSTR);
-
-        where();
-
-        dump_it_all(fplog, "After Shake",
-                    state->natoms, state->x, xprime, state->v, force);
-
-        if (bCalcVir)
-        {
-            if (inputrec->eI == eiSD2)
-            {
-                /* A correction factor eph is needed for the SD constraint force */
-                /* Here we can, unfortunately, not have proper corrections
-                 * for different friction constants, so we use the first one.
-                 */
-                for (i = 0; i < DIM; i++)
-                {
-                    for (m = 0; m < DIM; m++)
-                    {
-                        vir_part[i][m] += upd->sd->sdc[0].eph*vir_con[i][m];
-                    }
-                }
-            }
-            else
-            {
-                m_add(vir_part, vir_con, vir_part);
-            }
-            if (debug)
-            {
-                pr_rvecs(debug, 0, "constraint virial", vir_part, DIM);
-            }
-        }
-    }
 
     where();
     if ((inputrec->eI == eiSD2) && !(bFirstHalf))
@@ -1644,18 +1566,6 @@ void update_constraints(FILE             *fplog,
         }
         inc_nrnb(nrnb, eNR_UPDATE, homenr);
 
-        if (bDoConstr)
-        {
-            /* Constrain the coordinates xprime */
-            wallcycle_start(wcycle, ewcCONSTR);
-            constrain(NULL, bLog, bEner, constr, idef,
-                      inputrec, NULL, cr, step, 1, md,
-                      state->x, xprime, NULL,
-                      bMolPBC, state->box,
-                      state->lambda[efptBONDED], dvdlambda,
-                      NULL, NULL, nrnb, econqCoord, FALSE, 0, 0);
-            wallcycle_stop(wcycle, ewcCONSTR);
-        }
     }
 
     /* We must always unshift after updating coordinates; if we did not shake
@@ -2071,8 +1981,8 @@ extern gmx_bool update_randomize_velocities(t_inputrec *ir, gmx_large_int_t step
         }
         andersen_tcoupl(ir, md, state, upd->sd->gaussrand[0], rate,
                         (ir->etc == etcANDERSEN) ? idef : NULL,
-                        constr ? get_nblocks(constr) : 0,
-                        constr ? get_sblock(constr) : NULL,
+                        0,
+                        NULL,
                         upd->randatom, upd->randatom_list,
                         upd->sd->randomize_group, upd->sd->boltzfac);
         return TRUE;

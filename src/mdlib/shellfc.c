@@ -542,13 +542,6 @@ void make_local_shells(t_commrec *cr, t_mdatoms *md,
 
     if (PAR(cr))
     {
-        if (DOMAINDECOMP(cr))
-        {
-            dd = cr->dd;
-            a0 = 0;
-            a1 = dd->nat_home;
-        }
-        else
         {
             pd_at_range(cr, &a0, &a1);
         }
@@ -833,89 +826,6 @@ static void dump_shells(FILE *fp, rvec x[], rvec f[], real ftol, int ns, t_shell
     }
 }
 
-static void init_adir(FILE *log, gmx_shellfc_t shfc,
-                      gmx_constr_t constr, t_idef *idef, t_inputrec *ir,
-                      t_commrec *cr, int dd_ac1,
-                      gmx_large_int_t step, t_mdatoms *md, int start, int end,
-                      rvec *x_old, rvec *x_init, rvec *x,
-                      rvec *f, rvec *acc_dir,
-                      gmx_bool bMolPBC, matrix box,
-                      real *lambda, real *dvdlambda, t_nrnb *nrnb)
-{
-    rvec           *xnold, *xnew;
-    double          w_dt;
-    int             gf, ga, gt;
-    real            dt, scale;
-    int             n, d;
-    unsigned short *ptype;
-    rvec            p, dx;
-
-    if (DOMAINDECOMP(cr))
-    {
-        n = dd_ac1;
-    }
-    else
-    {
-        n = end - start;
-    }
-    if (n > shfc->adir_nalloc)
-    {
-        shfc->adir_nalloc = over_alloc_dd(n);
-        srenew(shfc->adir_xnold, shfc->adir_nalloc);
-        srenew(shfc->adir_xnew, shfc->adir_nalloc);
-    }
-    xnold = shfc->adir_xnold;
-    xnew  = shfc->adir_xnew;
-
-    ptype = md->ptype;
-
-    dt = ir->delta_t;
-
-    /* Does NOT work with freeze or acceleration groups (yet) */
-    for (n = start; n < end; n++)
-    {
-        w_dt = md->invmass[n]*dt;
-
-        for (d = 0; d < DIM; d++)
-        {
-            if ((ptype[n] != eptVSite) && (ptype[n] != eptShell))
-            {
-                xnold[n-start][d] = x[n][d] - (x_init[n][d] - x_old[n][d]);
-                xnew[n-start][d]  = 2*x[n][d] - x_old[n][d] + f[n][d]*w_dt*dt;
-            }
-            else
-            {
-                xnold[n-start][d] = x[n][d];
-                xnew[n-start][d]  = x[n][d];
-            }
-        }
-    }
-    constrain(log, FALSE, FALSE, constr, idef, ir, NULL, cr, step, 0, md,
-              x, xnold-start, NULL, bMolPBC, box,
-              lambda[efptBONDED], &(dvdlambda[efptBONDED]),
-              NULL, NULL, nrnb, econqCoord, FALSE, 0, 0);
-    constrain(log, FALSE, FALSE, constr, idef, ir, NULL, cr, step, 0, md,
-              x, xnew-start, NULL, bMolPBC, box,
-              lambda[efptBONDED], &(dvdlambda[efptBONDED]),
-              NULL, NULL, nrnb, econqCoord, FALSE, 0, 0);
-
-    for (n = start; n < end; n++)
-    {
-        for (d = 0; d < DIM; d++)
-        {
-            xnew[n-start][d] =
-                -(2*x[n][d]-xnold[n-start][d]-xnew[n-start][d])/sqr(dt)
-                - f[n][d]*md->invmass[n];
-        }
-        clear_rvec(acc_dir[n]);
-    }
-
-    /* Project the acceleration on the old bond directions */
-    constrain(log, FALSE, FALSE, constr, idef, ir, NULL, cr, step, 0, md,
-              x_old, xnew-start, acc_dir, bMolPBC, box,
-              lambda[efptBONDED], &(dvdlambda[efptBONDED]),
-              NULL, NULL, nrnb, econqDeriv_FlexCon, FALSE, 0, 0);
-}
 
 int relax_shell_flexcon(FILE *fplog, t_commrec *cr, gmx_bool bVerbose,
                         gmx_large_int_t mdstep, t_inputrec *inputrec,
@@ -964,16 +874,6 @@ int relax_shell_flexcon(FILE *fplog, t_commrec *cr, gmx_bool bVerbose,
 
     idef = &top->idef;
 
-    if (DOMAINDECOMP(cr))
-    {
-        nat = dd_natoms_vsite(cr->dd);
-        if (nflexcon > 0)
-        {
-            dd_get_constraint_range(cr->dd, &dd_ac0, &dd_ac1);
-            nat = max(nat, dd_ac1);
-        }
-    }
-    else
     {
         nat = state->natoms;
     }
@@ -998,7 +898,7 @@ int relax_shell_flexcon(FILE *fplog, t_commrec *cr, gmx_bool bVerbose,
      * when all particles involved with each shell are in the same cg.
      */
 
-    if (bDoNS && inputrec->ePBC != epbcNONE && !DOMAINDECOMP(cr))
+    if (bDoNS && inputrec->ePBC != epbcNONE )
     {
         /* This is the only time where the coordinates are used
          * before do_force is called, which normally puts all
@@ -1073,19 +973,6 @@ int relax_shell_flexcon(FILE *fplog, t_commrec *cr, gmx_bool bVerbose,
              (bDoNS ? GMX_FORCE_NS : 0) | force_flags);
 
     sf_dir = 0;
-    if (nflexcon)
-    {
-        init_adir(fplog, shfc,
-                  constr, idef, inputrec, cr, dd_ac1, mdstep, md, start, end,
-                  shfc->x_old-start, state->x, state->x, force[Min],
-                  shfc->acc_dir-start,
-                  fr->bMolPBC, state->box, state->lambda, &dum, nrnb);
-
-        for (i = start; i < end; i++)
-        {
-            sf_dir += md->massT[i]*norm2(shfc->acc_dir[i-start]);
-        }
-    }
 
     Epot[Min] = enerd->term[F_EPOT];
 
@@ -1141,16 +1028,6 @@ int relax_shell_flexcon(FILE *fplog, t_commrec *cr, gmx_bool bVerbose,
                              fr->ePBC, fr->bMolPBC, graph, cr, state->box);
         }
 
-        if (nflexcon)
-        {
-            init_adir(fplog, shfc,
-                      constr, idef, inputrec, cr, dd_ac1, mdstep, md, start, end,
-                      x_old-start, state->x, pos[Min], force[Min], acc_dir-start,
-                      fr->bMolPBC, state->box, state->lambda, &dum, nrnb);
-
-            directional_sd(fplog, pos[Min], pos[Try], acc_dir-start, start, end,
-                           fr->fc_stepsize);
-        }
 
         /* New positions, Steepest descent */
         shell_pos_sd(fplog, pos[Min], pos[Try], force[Min], nshell, shell, count);
@@ -1180,18 +1057,6 @@ int relax_shell_flexcon(FILE *fplog, t_commrec *cr, gmx_bool bVerbose,
             pr_rvecs(debug, 0, "RELAX: force[Try]", force[Try] + start, homenr);
         }
         sf_dir = 0;
-        if (nflexcon)
-        {
-            init_adir(fplog, shfc,
-                      constr, idef, inputrec, cr, dd_ac1, mdstep, md, start, end,
-                      x_old-start, state->x, pos[Try], force[Try], acc_dir-start,
-                      fr->bMolPBC, state->box, state->lambda, &dum, nrnb);
-
-            for (i = start; i < end; i++)
-            {
-                sf_dir += md->massT[i]*norm2(acc_dir[i-start]);
-            }
-        }
 
         Epot[Try] = enerd->term[F_EPOT];
 

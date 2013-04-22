@@ -126,7 +126,7 @@ gmx_pme_pp_t gmx_pme_pp_init(t_commrec *cr)
 #ifdef GMX_MPI
     pme_pp->mpi_comm_mysim = cr->mpi_comm_mysim;
     MPI_Comm_rank(cr->mpi_comm_mygroup, &rank);
-    get_pme_ddnodes(cr, rank, &pme_pp->nnode, &pme_pp->node, &pme_pp->node_peer);
+    //get_pme_ddnodes(cr, rank, &pme_pp->nnode, &pme_pp->node, &pme_pp->node_peer);
     snew(pme_pp->nat, pme_pp->nnode);
     snew(pme_pp->req, 2*pme_pp->nnode);
     snew(pme_pp->stat, 2*pme_pp->nnode);

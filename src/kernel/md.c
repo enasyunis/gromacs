@@ -199,9 +199,9 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     gstat = global_stat_init(ir);
     debug_gmx();
 
-    /* Check for polarizable models and flexible constraints */
+    /* Check for polarizable models and NO flexible constraints */
     shellfc = init_shell_flexcon(fplog,
-                                 top_global, n_flexible_constraints(0),
+                                 top_global, 0,
                                  state_global->x);
 
 

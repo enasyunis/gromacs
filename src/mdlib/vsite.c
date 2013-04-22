@@ -618,11 +618,7 @@ void construct_vsites(FILE *log, gmx_vsite_t *vsite,
 
     if (cr)
     {
-        if (bDomDec)
-        {
-            dd_move_x_vsites(cr->dd, box, x);
-        }
-        else if (vsite->bPDvsitecomm)
+        if (vsite->bPDvsitecomm)
         {
             /* I'm not sure whether the periodicity and shift are guaranteed
              * to be consistent between different nodes when running e.g. polymers
@@ -1570,11 +1566,7 @@ void spread_vsite_f(FILE *log, gmx_vsite_t *vsite,
         pbc_null = NULL;
     }
 
-    if (DOMAINDECOMP(cr))
-    {
-        dd_clear_f_vsites(cr->dd, f);
-    }
-    else if (PARTDECOMP(cr) && vsite->vsitecomm != NULL)
+    if (PARTDECOMP(cr) && vsite->vsitecomm != NULL)
     {
         pd_clear_nonlocal_constructs(vsite->vsitecomm, f);
     }
@@ -1658,11 +1650,7 @@ void spread_vsite_f(FILE *log, gmx_vsite_t *vsite,
         }
     }
 
-    if (DOMAINDECOMP(cr))
-    {
-        dd_move_f_vsites(cr->dd, f, fshift);
-    }
-    else if (vsite->bPDvsitecomm)
+    if (vsite->bPDvsitecomm)
     {
         /* We only move forces here, and they are independent of shifts */
         move_construct_f(vsite->vsitecomm, f, cr);
