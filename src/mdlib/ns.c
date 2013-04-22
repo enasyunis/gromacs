@@ -2734,10 +2734,6 @@ int search_neighbours(FILE *log, t_forcerec *fr,
             grid->icg1 = fr->hcg;
             debug_gmx();
 
-            if (PARTDECOMP(cr))
-            {
-                mv_grid(cr, grid);
-            }
             debug_gmx();
         }
 

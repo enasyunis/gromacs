@@ -892,29 +892,3 @@ void print_grid(FILE *log, t_grid *grid)
     }
     fflush(log);
 }
-
-void mv_grid(t_commrec *cr, t_grid *grid)
-{
-    int  i, start, nr;
-    int  cur = cr->nodeid;
-    int *ci, *cgindex;
-#define next ((cur+1) % (cr->nnodes-cr->npmenodes))
-
-    ci      = grid->cell_index;
-    cgindex = pd_cgindex(cr);
-    for (i = 0; (i < cr->nnodes-1); i++)
-    {
-        start = cgindex[cur];
-        nr    = cgindex[cur+1] - start;
-        gmx_tx(cr, GMX_LEFT, &(ci[start]), nr*sizeof(*ci));
-
-        start = cgindex[next];
-        nr    = cgindex[next+1] - start;
-        gmx_rx(cr, GMX_RIGHT, &(ci[start]), nr*sizeof(*ci));
-
-        gmx_tx_wait(cr, GMX_LEFT);
-        gmx_rx_wait(cr, GMX_RIGHT);
-
-        cur = next;
-    }
-}
