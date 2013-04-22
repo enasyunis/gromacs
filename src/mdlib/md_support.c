@@ -330,11 +330,6 @@ void compute_globals(FILE *fplog, gmx_global_stat_t gstat, t_commrec *cr, t_inpu
             accumulate_u(cr, &(ir->opts), ekind);
         }
         debug_gmx();
-        if (bReadEkin)
-        {
-            restore_ekinstate_from_state(cr, ekind, &state_global->ekinstate);
-        }
-        else
         {
 
             calc_ke_part(state, &(ir->opts), mdatoms, ekind, nrnb, bEkinAveVel, bIterate);
@@ -404,13 +399,6 @@ void compute_globals(FILE *fplog, gmx_global_stat_t gstat, t_commrec *cr, t_inpu
         }
     }
 
-    if (!ekind->bNEMD && debug && bTemp && (vcm->nr > 0))
-    {
-        correct_ekin(debug,
-                     mdatoms->start, mdatoms->start+mdatoms->homenr,
-                     state->v, vcm->group_p[0],
-                     mdatoms->massT, mdatoms->tmass, ekind->ekin);
-    }
 
     /* Do center of mass motion removal */
     if (bStopCM)
