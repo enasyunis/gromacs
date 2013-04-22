@@ -39,7 +39,6 @@
 #include "topsort.h"
 #include "coulomb.h"
 #include "constr.h"
-#include "shellfc.h"
 #include "mvdata.h"
 #include "checkpoint.h"
 #include "mtop_util.h"
@@ -114,7 +113,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     gmx_rng_t         mcrng = NULL;
     gmx_groups_t     *groups;
     gmx_ekindata_t   *ekind, *ekind_save;
-    gmx_shellfc_t     shellfc;
     int               count, nconverged = 0;
     real              timestep = 0;
     double            tcount   = 0;
@@ -199,27 +197,22 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     gstat = global_stat_init(ir);
     debug_gmx();
 
-    /* Check for polarizable models and NO flexible constraints */
-    shellfc = init_shell_flexcon(fplog,
-                                 top_global, 0,
-                                 state_global->x);
 
 
+    top = gmx_mtop_generate_local_top(top_global, ir);
 
-            top = gmx_mtop_generate_local_top(top_global, ir);
+    a0 = 0;
+    a1 = top_global->natoms;
 
-            a0 = 0;
-            a1 = top_global->natoms;
+    forcerec_set_excl_load(fr, top, cr);
 
-        forcerec_set_excl_load(fr, top, cr);
+    state    = partdec_init_local_state(cr, state_global);
+    f_global = f;
 
-        state    = partdec_init_local_state(cr, state_global);
-        f_global = f;
-
-        atoms2md(top_global, ir, 0, NULL, a0, a1-a0, mdatoms);
+    atoms2md(top_global, ir, 0, NULL, a0, a1-a0, mdatoms);
 
 
-        init_bonded_thread_force_reduction(fr, &top->idef);
+    init_bonded_thread_force_reduction(fr, &top->idef);
 
 
 
