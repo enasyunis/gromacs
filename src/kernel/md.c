@@ -78,7 +78,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     gmx_large_int_t step, step_rel;
     double          run_time;
     double          t, t0, lam0[efptNR];
-    gmx_bool        bGStatEveryStep, bCalcVir;
+    gmx_bool        bCalcVir;
     gmx_bool        bSimAnn, bStopCM, bNotLastFrame = FALSE;
     gmx_bool        bFirstStep, bStateFromTPX, bInitStep, bLastStep;
     gmx_bool        bBornRadii, bStartingFromCpt;
@@ -158,8 +158,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                                           and pressure control.*/
 
 
-    nstglobalcomm   = check_nstglobalcomm(fplog, cr, nstglobalcomm, ir);
-    bGStatEveryStep = (nstglobalcomm == 1);
+    nstglobalcomm   = ir->nstlist;
 
 
     groups = &top_global->groups;
