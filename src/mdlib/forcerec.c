@@ -726,10 +726,6 @@ void init_forcerec(FILE              *fp,
     fcd->angletab = NULL; 
     fcd->dihtab   = NULL; 
 
-
-    fr->bQMMM      = ir->bQMMM;
-    fr->qr         = mk_QMMMrec();
-
     /* Set all the static charge group info */
     fr->cginfo_mb = init_cginfo_mb(fp, mtop, fr, bNoSolvOpt,
                                    &fr->bExcl_IntraCGAll_InterCGNone);
