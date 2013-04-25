@@ -1,40 +1,3 @@
-/*
- * This file is part of the GROMACS molecular simulation package.
- *
- * Copyright (c) 1991-2000, University of Groningen, The Netherlands.
- * Copyright (c) 2001-2012, The GROMACS development team,
- * check out http://www.gromacs.org for more information.
- * Copyright (c) 2012,2013, by the GROMACS development team, led by
- * David van der Spoel, Berk Hess, Erik Lindahl, and including many
- * others, as listed in the AUTHORS file in the top-level source
- * directory and at http://www.gromacs.org.
- *
- * GROMACS is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License
- * as published by the Free Software Foundation; either version 2.1
- * of the License, or (at your option) any later version.
- *
- * GROMACS is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with GROMACS; if not, see
- * http://www.gnu.org/licenses, or write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA.
- *
- * If you want to redistribute modifications to GROMACS, please
- * consider that scientific software is very special. Version
- * control is crucial - bugs must be traceable. We will be happy to
- * consider code for inclusion in the official distribution, but
- * derived work must not be called official GROMACS. Details are found
- * in the README & COPYING files - if they are missing, get the
- * official version at http://www.gromacs.org.
- *
- * To help us fund GROMACS development, we humbly ask that you cite
- * the research papers on the package. Check out http://www.gromacs.org.
- */
 
 #if GMX_NBNXN_SIMD_BITWIDTH == 128
 #define GMX_MM128_HERE
@@ -134,8 +97,8 @@ make_cluster_list_simd_4xn(const nbnxn_grid_t *gridj,
 
     InRange = FALSE;
     while (!InRange && cjf <= cjl)
-    {
-        d2       = subc_bb_dist2_sse(4, 0, bb_ci, cjf, gridj->bbj);
+    { printf("\n** CALLED **\n");
+        // d2       = subc_bb_dist2_sse(4, 0, bb_ci, cjf, gridj->bbj);
         *ndistc += 2;
 
         /* Check if the distance is within the distance where
@@ -202,7 +165,7 @@ make_cluster_list_simd_4xn(const nbnxn_grid_t *gridj,
     InRange = FALSE;
     while (!InRange && cjl > cjf)
     {
-        d2       = subc_bb_dist2_sse(4, 0, bb_ci, cjl, gridj->bbj);
+        // d2       = subc_bb_dist2_sse(4, 0, bb_ci, cjl, gridj->bbj);
         *ndistc += 2;
 
         /* Check if the distance is within the distance where
@@ -267,7 +230,7 @@ make_cluster_list_simd_4xn(const nbnxn_grid_t *gridj,
         {
             /* Store cj and the interaction mask */
             nbl->cj[nbl->ncj].cj   = CI_TO_CJ_SIMD_4XN(gridj->cell0) + cj;
-            nbl->cj[nbl->ncj].excl = get_imask_x86_simd_4xn(remove_sub_diag, ci, cj);
+            //nbl->cj[nbl->ncj].excl = get_imask_x86_simd_4xn(remove_sub_diag, ci, cj);
             nbl->ncj++;
         }
         /* Increase the closing index in i super-cell list */
