@@ -22,7 +22,8 @@
 #include "mtop_util.h"
 
 #include "domdec.h"
-#include "adress.h"
+#include "types/simple.h"
+#include "typedefs.h"
 
 typedef void
     put_in_list_t (gmx_bool              bHaveVdW[],

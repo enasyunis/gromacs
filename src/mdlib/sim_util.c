@@ -98,8 +98,8 @@
 #include "nbnxn_kernels/nbnxn_kernel_gpu_ref.h"
 
 #include "tmpi.h"
-
-#include "adress.h"
+#include "types/simple.h"
+#include "typedefs.h"
 #include "qmmm.h"
 
 /* Portable version of ctime_r implemented in src/gmxlib/string2.c, but we do not want it declared in public installed headers */
