@@ -152,10 +152,20 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
        md-vv-avek uses averaged half step velocities for T-control (but full step ekin for P control)
        md uses averaged half step kinetic energies to determine temperature unless defined otherwise by GMX_EKIN_AVE_VEL; */
     /* all the iteratative cases - only if there are constraints */
-    gmx_iterate_init(&iterate, FALSE); /* The default value of iterate->bIterationActive is set to
-                                          false in this step.  The correct value, true or false,
-                                          is set at each step, as it depends on the frequency of temperature
-                                          and pressure control.*/
+
+
+
+    /* The default value of iterate->bIterationActive is set to
+       false in this step.  The correct value, true or false,
+       is set at each step, as it depends on the frequency of temperature
+       and pressure control.*/
+    iterate.iter_i           = 0;
+    iterate.bIterationActive = FALSE;
+    iterate.num_close        = 0;
+    for (i = 0; i < MAXITERCONST+2; i++)
+    {
+        iterate.allrelerr[i] = 0;
+    }
 
 
     nstglobalcomm   = ir->nstlist;
