@@ -95,7 +95,7 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
     }
 
     /* Reset box */
-    for (i = 0; (i < DIM); i++) // 3 need xx, yy, xx 
+    for (i = 0; (i < DIM); i++) // 3 need xx, yy, zz 
     {
         box_size[i] = box[i][i];
     }
@@ -175,7 +175,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
 	    if (FALSE) // ENAS, RIO, TODO make this the place for FMM 
             {
                         /* ENAS ADDED START */
-                        printf("%s, line %d\n", __FILE__, __LINE__);
                         if (fmmsteptaken == 0) {
                         printf("\nBEFORE FMM\n");
 
