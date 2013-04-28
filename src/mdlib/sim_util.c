@@ -93,7 +93,7 @@
 #include "nbnxn_atomdata.h"
 #include "nbnxn_search.h"
 #include "nbnxn_kernels/nbnxn_kernel_ref.h"
-#include "nbnxn_kernels/nbnxn_kernel_gpu_ref.h"
+//#include "nbnxn_kernels/nbnxn_kernel_gpu_ref.h"
 
 #include "tmpi.h"
 #include "types/simple.h"
