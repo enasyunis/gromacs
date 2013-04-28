@@ -48,11 +48,11 @@ int get_ebin_space(t_ebin *eb, int nener, const char *enm[], const char *unit)
         if (unit != NULL) 
         {
             eb->enm[i].unit = strdup(unit);
-        }
-    }
-    if (eb->nener == 9) {
-          eb->enm[7].unit = strdup(unit_temp_K);
-          eb->enm[8].unit = strdup(unit_pres_bar);
+        } 
+	else
+	{
+	    eb->enm[i].unit = i==7?strdup(unit_temp_K):i==8?strdup(unit_pres_bar):strdup(unit_energy);
+	}
     }
     return index;
 }
