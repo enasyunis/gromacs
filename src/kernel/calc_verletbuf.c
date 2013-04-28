@@ -35,7 +35,7 @@ void verletbuf_get_list_setup(gmx_bool                bGPU,
 {//called
     list_setup->cluster_size_i     = NBNXN_CPU_CLUSTER_I_SIZE;
 
-    list_setup->cluster_size_j = GMX_NBNXN_SIMD_BITWIDTH/(sizeof(real)*8);
+    list_setup->cluster_size_j = NBNXN_CPU_CLUSTER_I_SIZE;
 }
 
 static void add_at(verletbuf_atomtype_t **att_p, int *natt_p,

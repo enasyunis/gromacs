@@ -50,66 +50,6 @@
 #define STRIDE_PBB        4
 #define STRIDE_PBB_2LOG   2
 
-
-#ifdef GMX_NBNXN_SIMD
-
-/* The functions below are macros as they are performance sensitive */
-
-/* 4x4 list, pack=4: no complex conversion required */
-/* i-cluster to j-cluster conversion */
-#define CI_TO_CJ_J4(ci)   (ci)
-/* cluster index to coordinate array index conversion */
-#define X_IND_CI_J4(ci)  ((ci)*STRIDE_P4)
-#define X_IND_CJ_J4(cj)  ((cj)*STRIDE_P4)
-
-/* 4x2 list, pack=4: j-cluster size is half the packing width */
-/* i-cluster to j-cluster conversion */
-#define CI_TO_CJ_J2(ci)  ((ci)<<1)
-/* cluster index to coordinate array index conversion */
-#define X_IND_CI_J2(ci)  ((ci)*STRIDE_P4)
-#define X_IND_CJ_J2(cj)  (((cj)>>1)*STRIDE_P4 + ((cj) & 1)*(PACK_X4>>1))
-
-/* 4x8 list, pack=8: i-cluster size is half the packing width */
-/* i-cluster to j-cluster conversion */
-#define CI_TO_CJ_J8(ci)  ((ci)>>1)
-/* cluster index to coordinate array index conversion */
-#define X_IND_CI_J8(ci)  (((ci)>>1)*STRIDE_P8 + ((ci) & 1)*(PACK_X8>>1))
-#define X_IND_CJ_J8(cj)  ((cj)*STRIDE_P8)
-
-/* The j-cluster size is matched to the SIMD width */
-#if GMX_NBNXN_SIMD_BITWIDTH == 128
-#ifdef GMX_DOUBLE
-#define CI_TO_CJ_SIMD_4XN(ci)  CI_TO_CJ_J2(ci)
-#define X_IND_CI_SIMD_4XN(ci)  X_IND_CI_J2(ci)
-#define X_IND_CJ_SIMD_4XN(cj)  X_IND_CJ_J2(cj)
-#else
-#define CI_TO_CJ_SIMD_4XN(ci)  CI_TO_CJ_J4(ci)
-#define X_IND_CI_SIMD_4XN(ci)  X_IND_CI_J4(ci)
-#define X_IND_CJ_SIMD_4XN(cj)  X_IND_CJ_J4(cj)
-#endif
-#else
-#if GMX_NBNXN_SIMD_BITWIDTH == 256
-#ifdef GMX_DOUBLE
-#define CI_TO_CJ_SIMD_4XN(ci)  CI_TO_CJ_J4(ci)
-#define X_IND_CI_SIMD_4XN(ci)  X_IND_CI_J4(ci)
-#define X_IND_CJ_SIMD_4XN(cj)  X_IND_CJ_J4(cj)
-#else
-#define CI_TO_CJ_SIMD_4XN(ci)  CI_TO_CJ_J8(ci)
-#define X_IND_CI_SIMD_4XN(ci)  X_IND_CI_J8(ci)
-#define X_IND_CJ_SIMD_4XN(cj)  X_IND_CJ_J8(cj)
-/* Half SIMD with j-cluster size */
-#define CI_TO_CJ_SIMD_2XNN(ci) CI_TO_CJ_J4(ci)
-#define X_IND_CI_SIMD_2XNN(ci) X_IND_CI_J4(ci)
-#define X_IND_CJ_SIMD_2XNN(cj) X_IND_CJ_J4(cj)
-#endif
-#else
-#error "unsupported GMX_NBNXN_SIMD_WIDTH"
-#endif
-#endif
-
-#endif /* GMX_NBNXN_SIMD */
-
-
 /* Interaction masks for 4xN atom interactions.
  * Bit i*CJ_SIZE + j tells if atom i and j interact.
  */

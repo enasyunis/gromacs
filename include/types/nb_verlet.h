@@ -57,15 +57,6 @@ extern "C" {
 #define GMX_NBNXN_SIMD_BITWIDTH  128
 #endif
 
-/* The nbnxn SIMD 4xN and 2x(N+N) kernels can be added independently.
- * Currently the 2xNN SIMD kernels only make sense with:
- *  8-way SIMD: 4x4 setup, works with AVX-256 in single precision
- * 16-way SIMD: 4x8 setup, not used, but most of the kernel code is there
- */
-//#define GMX_NBNXN_SIMD_4XN
-#if GMX_NBNXN_SIMD_BITWIDTH == 256 && !defined GMX_DOUBLE
-//#define GMX_NBNXN_SIMD_2XNN
-#endif
 
 #endif
 
