@@ -13,7 +13,7 @@
 #include "../nbnxn_consts.h"
 #include "nbnxn_kernel_common.h"
 
-
+// UNROLLI and UNROLLJ = 4
 #define UNROLLI    NBNXN_CPU_CLUSTER_I_SIZE
 #define UNROLLJ    NBNXN_CPU_CLUSTER_I_SIZE
 
@@ -32,23 +32,18 @@ void nbnxn_kernel_ref_tab_ener(const nbnxn_pairlist_t     *nbl,
                                 rvec                       *shift_vec,
                                 real                       *f,
                                 real                       *fshift,
-                                real                       *Vvdw,
+                                real                       *Vvdw, // zero in and out
                                 real                       *Vc)
 {
     const nbnxn_ci_t   *nbln;
     const nbnxn_cj_t   *l_cj;
-    const int          *type;
     const real         *q;
     const real         *shiftvec;
     const real         *x;
-    const real         *nbfp;
     real                rcut2;
-    int                 ntype2;
     real                facel;
-    real               *nbfp_i;
     int                 n, ci, ci_sh;
     int                 ish, ishf;
-    gmx_bool            do_LJ, half_LJ, do_coul;
     int                 cjind0, cjind1, cjind;
     int                 ip, jp;
 
@@ -56,10 +51,8 @@ void nbnxn_kernel_ref_tab_ener(const nbnxn_pairlist_t     *nbl,
     real                fi[UNROLLI*FI_STRIDE];
     real                qi[UNROLLI];
 
-    real       Vvdw_ci, Vc_ci;
-    real       sh_invrc6;
+    real       Vc_ci;
 
-    real       tabscale;
     real       halfsp;
     const real *tab_coul_F;
     const real *tab_coul_V;
@@ -67,20 +60,14 @@ void nbnxn_kernel_ref_tab_ener(const nbnxn_pairlist_t     *nbl,
     int ninner;
 
 
-    sh_invrc6 = ic->sh_invrc6;
 
-    tabscale = ic->tabq_scale;
-    halfsp = 0.5/ic->tabq_scale;
-
+    halfsp = 0.5/ic->tabq_scale; // 3.134706e-04
     tab_coul_F    = ic->tabq_coul_F;
     tab_coul_V    = ic->tabq_coul_V;
 
     rcut2               = ic->rcoulomb*ic->rcoulomb;
 
-    ntype2              = nbat->ntype*2;
-    nbfp                = nbat->nbfp;
     q                   = nbat->q;
-    type                = nbat->type;
     facel               = ic->epsfac;
     shiftvec            = shift_vec[0];
     x                   = nbat->x;
@@ -88,7 +75,7 @@ void nbnxn_kernel_ref_tab_ener(const nbnxn_pairlist_t     *nbl,
     l_cj = nbl->cj;
 
     ninner = 0;
-    for (n = 0; n < nbl->nci; n++)
+    for (n = 0; n < nbl->nci; n++) // different numbers ranging from 116 to 252
     {
         int i, d;
 
@@ -109,26 +96,20 @@ void nbnxn_kernel_ref_tab_ener(const nbnxn_pairlist_t     *nbl,
          * inner LJ + C      for full-LJ + C
          * inner LJ          for full-LJ + no-C / half-LJ + no-C
          */
-        do_LJ   = (nbln->shift & NBNXN_CI_DO_LJ(0)); // FALSE
-        do_coul = (nbln->shift & NBNXN_CI_DO_COUL(0)); // TRUE
-        half_LJ = ((nbln->shift & NBNXN_CI_HALF_LJ(0)) || !do_LJ) && do_coul; //TRUE
-        Vvdw_ci = 0;
         Vc_ci   = 0;
 
 
 
-        for (i = 0; i < UNROLLI; i++)
+        for (i = 0; i < UNROLLI; i++)//4
         {
-            for (d = 0; d < DIM; d++)
+            for (d = 0; d < DIM; d++)//3
             {
                 xi[i*XI_STRIDE+d] = x[(ci*UNROLLI+i)*X_STRIDE+d] + shiftvec[ishf+d];
                 fi[i*FI_STRIDE+d] = 0;
             }
         }
 
-        real Vc_sub_self;
-
-        Vc_sub_self = 0.5*tab_coul_V[0];
+        real Vc_sub_self = 0.5*tab_coul_V[0];
 
         for (i = 0; i < UNROLLI; i++)
         {
@@ -141,7 +122,7 @@ void nbnxn_kernel_ref_tab_ener(const nbnxn_pairlist_t     *nbl,
            }
         }
 
-        cjind = cjind0;int ey=0;
+        cjind = cjind0;
         while (cjind < cjind1 && nbl->cj[cjind].excl != 0xffff)
         {
 //#include "nbnxn_kernel_ref_inner.h"
@@ -156,24 +137,16 @@ void nbnxn_kernel_ref_tab_ener(const nbnxn_pairlist_t     *nbl,
 
     cj = l_cj[cjind].cj;
 
-    for (i = 0; i < UNROLLI; i++)
+    for (i = 0; i < UNROLLI; i++)//4
     {
-        int ai;
-        int type_i_off;
         int j;
 
-        ai = ci*UNROLLI + i;
-
-        type_i_off = type[ai]*ntype2;
-
-        for (j = 0; j < UNROLLJ; j++)
+        for (j = 0; j < UNROLLJ; j++)//4
         {
             int  aj;
             real dx, dy, dz;
             real rsq, rinv;
             real rinvsq, rinvsix;
-            real c6, c12;
-            real FrLJ6 = 0, FrLJ12 = 0, VLJ = 0;
             real qq;
             real fcoul;
             real rs, frac;
@@ -193,8 +166,10 @@ void nbnxn_kernel_ref_tab_ener(const nbnxn_pairlist_t     *nbl,
              * (e.g. because of bonding). */
             int interact;
 
+	    // WHEN atoms interact then interact=1 and skipamsk=1.0 otherwise both are zero.
             interact = ((l_cj[cjind].excl>>(i*UNROLLI + j)) & 1);
             skipmask = !(cj == ci_sh && j <= i);
+
 
             aj = cj*UNROLLJ + j;
 
@@ -226,25 +201,6 @@ void nbnxn_kernel_ref_tab_ener(const nbnxn_pairlist_t     *nbl,
 
             rinvsq  = rinv*rinv;
 
-            if (i < UNROLLI/2)
-            {
-                rinvsix = interact*rinvsq*rinvsq*rinvsq;
-
-
-                c6      = nbfp[type_i_off+type[aj]*2  ];
-                c12     = nbfp[type_i_off+type[aj]*2+1];
-                FrLJ6   = c6*rinvsix;
-                FrLJ12  = c12*rinvsix*rinvsix;
-                /* 6 flops for r^-2 + LJ force */
-                VLJ     = (FrLJ12 - c12*sh_invrc6*sh_invrc6)/12 -
-                    (FrLJ6 - c6*sh_invrc6)/6;
-                /* Need to zero the interaction if r >= rcut
-                 * or there should be exclusion. */
-                VLJ     = VLJ * skipmask * interact;
-                /* 9 flops for LJ energy */
-                Vvdw_ci += VLJ;
-                /* 1 flop for LJ energy addition */
-            }
 
             /* Enforce the cut-off and perhaps exclusions. In
              * those cases, rinv is zero because of skipmask,
@@ -274,18 +230,9 @@ void nbnxn_kernel_ref_tab_ener(const nbnxn_pairlist_t     *nbl,
             Vc_ci += vcoul;
             /* 1 flop for Coulomb energy addition */
 
-            if (i < UNROLLI/2)
-            {
-                fscal = (FrLJ12 - FrLJ6)*rinvsq + fcoul;
-                /* 3 flops for scalar LJ+Coulomb force */
-            }
-            else
-            {
-                fscal = fcoul;
-            }
-            fx = fscal*dx;
-            fy = fscal*dy;
-            fz = fscal*dz;
+            fx = fcoul*dx;
+            fy = fcoul*dy;
+            fz = fcoul*dz;
 
             /* Increment i-atom force */
             fi[i*FI_STRIDE+XX] += fx;
@@ -327,10 +274,8 @@ void nbnxn_kernel_ref_tab_ener(const nbnxn_pairlist_t     *nbl,
            }
         }
 
-        *Vvdw += Vvdw_ci;
         *Vc   += Vc_ci;
     }
-
 }
 
 

@@ -57,7 +57,6 @@ reduce_energies_over_lists(const nbnxn_atomdata_t     *nbat,
     {
        /* Reduce the diagonal terms */
        ind        = 0;
-       Vvdw[ind] += nbat->out[nb].Vvdw[ind];
        Vc[ind]   += nbat->out[nb].Vc[ind];
 
     }
