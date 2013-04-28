@@ -1182,14 +1182,7 @@ static void nbnxn_init_pairlist(nbnxn_pairlist_t *nbl,
     {
         nbl->alloc = alloc;
     }
-    if (free == NULL)
-    {
-        nbl->free = nbnxn_free_aligned;
-    }
-    else
-    {
-        nbl->free = free;
-    }
+    nbl->free = free;
 
     nbl->bSimple     = bSimple;
     nbl->na_sc       = 0;
