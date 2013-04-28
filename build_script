@@ -8,12 +8,11 @@ exit(0)
 # CPU mode for double
 . ./bash_profile
 cd ../build
-cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DGMX_GPU=OFF -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_DOUBLE=ON -DGMX_FORCE_CXX=ON
-CMAKE_PREFIX_PATH=../../exafmm/wrapper cmake .. -DCMAKE_INSTALL_PREFIX=../exec -DGMX_GPU=OFF -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_DOUBLE=ON -DGMX_FORCE_CXX=ON
-make install
+CMAKE_PREFIX_PATH=../../exafmm/wrapper cmake .. -DCMAKE_INSTALL_PREFIX=../exec -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_GPU=OFF -DGMX_DOUBLE=ON -DGMX_FORCE_CXX=ON
+make -j install
 cd ../data
-grompp_d -f grompp.mdp -c conf.gro -p topol.top -o ThsndW.tpr
-mdrun_d -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm ThsndW
+FILENAME=../data/ThsndWE ../exec/bin/mdrun_d; FILENAME=../data/ThsndWP ../exec/bin/mdrun_d
+grep 9.01453 ../data/ThsndWP.log ../data/ThsndWE.log
 
 -- trying now with 4.7 gcc and the added linker info
 cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DGMX_GPU=OFF -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS="-lstdc++ -ldl -lm"

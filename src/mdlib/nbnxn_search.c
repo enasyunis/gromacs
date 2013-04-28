@@ -1448,13 +1448,6 @@ static void make_cluster_list_simple(const nbnxn_grid_t *gridj,
     }
 }
 
-#ifdef GMX_NBNXN_SIMD_4XN
-#include "nbnxn_search_simd_4xn.h"
-#endif
-#ifdef GMX_NBNXN_SIMD_2XNN
-#include "nbnxn_search_simd_2xnn.h"
-#endif
-
 
 /* Set all atom-pair exclusions from the topology stored in excl
  * as masks in the pair-list for simple list i-entry nbl_ci
@@ -2368,23 +2361,7 @@ void nbnxn_make_pairlist(const nbnxn_search_t  nbs,
     {
         init_buffer_flags(&nbat->buffer_flags, nbat->natoms);
     }
-
-        switch (nb_kernel_type)
-        {
-#ifdef GMX_NBNXN_SIMD_4XN
-            case nbnxnk4xN_SIMD_4xN:
-                nbs->icell_set_x = icell_set_x_simd_4xn;
-                break;
-#endif
-#ifdef GMX_NBNXN_SIMD_2XNN
-            case nbnxnk4xN_SIMD_2xNN:
-                nbs->icell_set_x = icell_set_x_simd_2xnn;
-                break;
-#endif
-            default:
-                nbs->icell_set_x = icell_set_x_simple;
-                break;
-        }
+    nbs->icell_set_x = icell_set_x_simple;
 
     if (LOCAL_I(iloc))
     {
