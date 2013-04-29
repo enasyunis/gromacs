@@ -658,12 +658,6 @@ t_mdebin *init_mdebin(ener_file_t       fp_ene,
     if (ir->fepvals->separate_dhdl_file == esepdhdlfileNO)
     {
         /* Currently dh histograms are only written with dynamics */
-        if (EI_DYNAMICS(ir->eI))
-        {
-            snew(md->dhc, 1);
-
-            mde_delta_h_coll_init(md->dhc, ir);
-        }
         md->fp_dhdl = NULL;
         snew(md->dE, ir->fepvals->n_lambda);
     }
@@ -1240,28 +1234,6 @@ void upd_mdebin(t_mdebin       *md,
             fprintf(md->fp_dhdl, "\n");
             /* and the binary free energy output */
         }
-        if (md->dhc && bDoDHDL)
-        {
-            int idhdl = 0;
-            for (i = 0; i < efptNR; i++)
-            {
-                if (fep->separate_dvdl[i])
-                {
-                    /* assumes F_DVDL is first */
-                    store_dhdl[idhdl] = enerd->term[F_DVDL+i];
-                    idhdl            += 1;
-                }
-            }
-            store_energy = enerd->term[F_ETOT];
-            /* store_dh is dE */
-            mde_delta_h_coll_add_dh(md->dhc,
-                                    (double)state->fep_state,
-                                    store_energy,
-                                    pv,
-                                    store_dhdl,
-                                    md->dE + fep->lambda_start_n,
-                                    time);
-        }
     }
 }
 
@@ -1420,17 +1392,6 @@ void print_ebin(ener_file_t fp_ene, gmx_bool bEne, gmx_bool bDR, gmx_bool bOR,
                 }
                 /* here we can put new-style blocks */
 
-                /* Free energy perturbation blocks */
-                if (md->dhc)
-                {
-                    mde_delta_h_coll_handle_block(md->dhc, &fr, fr.nblock);
-                }
-
-                /* we can now free & reset the data in the blocks */
-                if (md->dhc)
-                {
-                    mde_delta_h_coll_reset(md->dhc);
-                }
 
                 /* do the actual I/O */
                 do_enx(fp_ene, &fr);
@@ -1611,10 +1572,6 @@ void update_energyhistory(energyhistory_t * enerhist, t_mdebin * mdebin)
             enerhist->ener_sum_sim[i] = mdebin->ebin->e_sim[i].esum;
         }
     }
-    if (mdebin->dhc)
-    {
-        mde_delta_h_coll_update_energyhistory(mdebin->dhc, enerhist);
-    }
 }
 
 void restore_energyhistory_from_state(t_mdebin        * mdebin,
@@ -1642,9 +1599,5 @@ void restore_energyhistory_from_state(t_mdebin        * mdebin,
             (enerhist->nsum > 0 ? enerhist->ener_sum[i] : 0);
         mdebin->ebin->e_sim[i].esum =
             (enerhist->nsum_sim > 0 ? enerhist->ener_sum_sim[i] : 0);
-    }
-    if (mdebin->dhc)
-    {
-        mde_delta_h_coll_restore_energyhistory(mdebin->dhc, enerhist);
     }
 }
