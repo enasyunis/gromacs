@@ -47,20 +47,8 @@
 extern "C" {
 #endif
 
-
-#ifdef GMX_X86_SSE2
-/* Use 4-way SIMD for, always, single precision bounding box calculations */
-#define NBNXN_SEARCH_BB_SSE
-#endif
-
-
-#ifdef GMX_NBNXN_SIMD
-/* Memory alignment in bytes as required by SIMD aligned loads/stores */
-#define NBNXN_MEM_ALIGN  (GMX_NBNXN_SIMD_BITWIDTH/8)
-#else
 /* No alignment required, but set it so we can call the same routines */
 #define NBNXN_MEM_ALIGN  32
-#endif
 
 
 /* A pair-search grid struct for one domain decomposition zone */
@@ -105,33 +93,6 @@ typedef struct {
     int      nsubc_tot;        /* Total number of subcell, used for printing  */
 } nbnxn_grid_t;
 
-#ifdef GMX_NBNXN_SIMD
-#if GMX_NBNXN_SIMD_BITWIDTH == 128
-#define GMX_MM128_HERE
-#else
-#if GMX_NBNXN_SIMD_BITWIDTH == 256
-#define GMX_MM256_HERE
-#else
-#error "unsupported GMX_NBNXN_SIMD_BITWIDTH"
-#endif
-#endif
-#include "gmx_simd_macros.h"
-
-typedef struct nbnxn_x_ci_simd_4xn {
-    /* The i-cluster coordinates for simple search */
-    gmx_mm_pr ix_SSE0, iy_SSE0, iz_SSE0;
-    gmx_mm_pr ix_SSE1, iy_SSE1, iz_SSE1;
-    gmx_mm_pr ix_SSE2, iy_SSE2, iz_SSE2;
-    gmx_mm_pr ix_SSE3, iy_SSE3, iz_SSE3;
-} nbnxn_x_ci_simd_4xn_t;
-
-typedef struct nbnxn_x_ci_simd_2xnn {
-    /* The i-cluster coordinates for simple search */
-    gmx_mm_pr ix_SSE0, iy_SSE0, iz_SSE0;
-    gmx_mm_pr ix_SSE2, iy_SSE2, iz_SSE2;
-} nbnxn_x_ci_simd_2xnn_t;
-
-#endif
 
 /* Working data for the actual i-supercell during pair search */
 typedef struct nbnxn_list_work {
@@ -139,10 +100,6 @@ typedef struct nbnxn_list_work {
 
     float                  *bb_ci; /* The bounding boxes, pbc shifted, for each cluster */
     real                   *x_ci;  /* The coordinates, pbc shifted, for each atom       */
-#ifdef GMX_NBNXN_SIMD
-    nbnxn_x_ci_simd_4xn_t  *x_ci_simd_4xn;
-    nbnxn_x_ci_simd_2xnn_t *x_ci_simd_2xnn;
-#endif
     int                     cj_ind;    /* The current cj_ind index for the current list     */
     int                     cj4_init;  /* The first unitialized cj4 block                   */
 
@@ -166,14 +123,7 @@ typedef void
                        nbnxn_list_work_t *work);
 
 static gmx_icell_set_x_t icell_set_x_simple;
-#ifdef GMX_NBNXN_SIMD
-static gmx_icell_set_x_t icell_set_x_simple_simd_4xn;
-static gmx_icell_set_x_t icell_set_x_simple_simd_2xnn;
-#endif
 static gmx_icell_set_x_t icell_set_x_supersub;
-#ifdef NBNXN_SEARCH_SSE
-static gmx_icell_set_x_t icell_set_x_supersub_sse8;
-#endif
 
 #undef GMX_MM128_HERE
 #undef GMX_MM256_HERE
