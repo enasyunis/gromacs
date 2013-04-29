@@ -734,7 +734,7 @@ void init_forcerec(FILE              *fp,
 
     /* Initialize neighbor search */
     init_ns(fp, cr, &fr->ns, fr, mtop, box);
-    gmx_nonbonded_setup(fp, fr, FALSE);
+    //gmx_nonbonded_setup(fp, fr, FALSE);
 
     /* Initialize the thread working data for bonded interactions */
     init_forcerec_f_threads(fr, mtop->groups.grps[egcENER].nr);

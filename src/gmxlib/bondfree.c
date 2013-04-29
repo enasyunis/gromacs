@@ -3725,24 +3725,6 @@ static real calc_one_bond(FILE *fplog, int thread,
                         nbonds/nat1, v, lambda[efptFTYPE]);
             }
         }
-        else
-        {
-            v = do_nonbonded_listed(ftype, nbn, iatoms+nb0, idef->iparams, (const rvec*)x, f, fshift,
-                                    pbc, g, lambda, dvdl, md, fr, grpp, global_atom_index);
-
-            enerd->dvdl_nonlin[efptCOUL] += dvdl[efptCOUL];
-            enerd->dvdl_nonlin[efptVDW]  += dvdl[efptVDW];
-
-            if (bPrintSepPot)
-            {
-                fprintf(fplog, "  %-5s + %-15s #%4d                  dVdl %12.5e\n",
-                        interaction_function[ftype].longname,
-                        interaction_function[F_LJ14].longname, nbonds/nat1, dvdl[efptVDW]);
-                fprintf(fplog, "  %-5s + %-15s #%4d                  dVdl %12.5e\n",
-                        interaction_function[ftype].longname,
-                        interaction_function[F_COUL14].longname, nbonds/nat1, dvdl[efptCOUL]);
-            }
-        }
         if (ind != -1 && thread == 0)
         {
             inc_nrnb(nrnb, ind, nbonds);
@@ -3811,14 +3793,6 @@ static real calc_one_bond_foreign(FILE *fplog, int ftype, const t_idef *idef,
                                                                   pbc, g, lambda[efptFTYPE], &dvdl[efptFTYPE],
                                                                   md, fcd, global_atom_index);
                     }
-                }
-                else
-                {
-                    v = do_nonbonded_listed(ftype, nbonds, iatoms,
-                                            idef->iparams,
-                                            (const rvec*)x, f, fr->fshift,
-                                            pbc, g, lambda, dvdl,
-                                            md, fr, grpp, global_atom_index);
                 }
                 if (ind != -1)
                 {

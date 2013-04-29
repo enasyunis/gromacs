@@ -34,7 +34,6 @@
 #
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-add_subdirectory(nonbonded)
 
 # add target that generates version.c every time a make is run
 # only do this if we generate the version
