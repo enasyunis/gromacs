@@ -401,7 +401,7 @@ void pr_def(FILE *fp, int ftp)
     }
     fprintf(fp, "\\tt %8s & \\tt %3s & %3s & \\tt %2s & %s%s \\\\[-0.1ex]\n",
             defnm, ext, s, df->defopt ? df->defopt : "",
-            check_tex(desc), check_tex(flst));
+            "", ""); //ENAS
     free(desc);
 }
 
@@ -421,8 +421,8 @@ void pr_fns(FILE *fp, int nf, const t_filenm tfn[])
         for (f = 0; (f < tfn[i].nfiles); f++)
         {
             sprintf(buf, "%4s %14s  %-12s ", (f == 0) ? tfn[i].opt : "",
-                    tfn[i].fns[f], (f == 0) ? fileopt(tfn[i].flag, opt_buf, 32)
-                    : "");
+                    tfn[i].fns[f],
+                     "");
             if (f < tfn[i].nfiles - 1)
             {
                 fprintf(fp, "%s\n", buf);
