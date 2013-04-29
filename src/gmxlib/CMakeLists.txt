@@ -100,8 +100,6 @@ endif()
 file(GLOB_RECURSE NOT_GMXLIB_SOURCES *_test.c *\#*)
 list(REMOVE_ITEM GMXLIB_SOURCES ${NOT_GMXLIB_SOURCES})  
 # Selection has test_ instead of _test.
-file(GLOB SELECTION_TEST selection/test*)
-list(REMOVE_ITEM GMXLIB_SOURCES ${SELECTION_TEST})
 
 # gpu utils + cuda tools module
 if(GMX_GPU)
