@@ -12,11 +12,6 @@
 
 #include "tmpi.h"
 
-/* DEBUG_WCYCLE adds consistency checking for the counters.
- * It checks if you stop a counter different from the last
- * one that was opened and if you do nest too deep.
- */
-/* #define DEBUG_WCYCLE */
 
 typedef struct
 {
@@ -63,21 +58,11 @@ static const char *wcsn[ewcsNR] =
     "NB X buffer ops.", "NB F buffer ops."
 };
 
-gmx_bool wallcycle_have_counter(void)
-{
-    return gmx_cycles_have_counter();
-}
 
 gmx_wallcycle_t wallcycle_init(FILE *fplog, int resetstep, t_commrec *cr,
                                int nthreads_pp, int nthreads_pme)
-{
+{ // called
     gmx_wallcycle_t wc;
-
-
-    if (!wallcycle_have_counter())
-    {
-        return NULL;
-    }
 
     snew(wc, 1);
 
@@ -90,185 +75,55 @@ gmx_wallcycle_t wallcycle_init(FILE *fplog, int resetstep, t_commrec *cr,
     wc->nthreads_pme        = nthreads_pme;
     wc->cycles_sum          = NULL;
 
-    if (PAR(cr) && getenv("GMX_CYCLE_BARRIER") != NULL)
-    {
-        if (fplog)
-        {
-            fprintf(fplog, "\nWill call MPI_Barrier before each cycle start/stop call\n\n");
-        }
-        wc->wc_barrier       = TRUE;
-        wc->mpi_comm_mygroup = cr->mpi_comm_mygroup;
-    }
 
     snew(wc->wcc, ewcNR);
-    if (getenv("GMX_CYCLE_ALL") != NULL)
-    {
-        if (fplog)
-        {
-            fprintf(fplog, "\nWill time all the code during the run\n\n");
-        }
-        snew(wc->wcc_all, ewcNR*ewcNR);
-    }
-
-
 
     return wc;
 }
 
-void wallcycle_destroy(gmx_wallcycle_t wc)
-{
-    if (wc == NULL)
-    {
-        return;
-    }
-
-    if (wc->wcc != NULL)
-    {
-        sfree(wc->wcc);
-    }
-    if (wc->wcc_all != NULL)
-    {
-        sfree(wc->wcc_all);
-    }
-    sfree(wc);
-}
-
-static void wallcycle_all_start(gmx_wallcycle_t wc, int ewc, gmx_cycles_t cycle)
-{
-    wc->ewc_prev   = ewc;
-    wc->cycle_prev = cycle;
-}
-
-static void wallcycle_all_stop(gmx_wallcycle_t wc, int ewc, gmx_cycles_t cycle)
-{
-    wc->wcc_all[wc->ewc_prev*ewcNR+ewc].n += 1;
-    wc->wcc_all[wc->ewc_prev*ewcNR+ewc].c += cycle - wc->cycle_prev;
-}
-
-
 
 void wallcycle_start(gmx_wallcycle_t wc, int ewc)
-{
+{// called
     gmx_cycles_t cycle;
-
-    if (wc == NULL)
-    {
-        return;
-    }
-
-    if (wc->wc_barrier)
-    {
-        MPI_Barrier(wc->mpi_comm_mygroup);
-    }
-
     cycle              = gmx_cycles_read();
     wc->wcc[ewc].start = cycle;
-    if (wc->wcc_all != NULL)
-    {
-        wc->wc_depth++;
-        if (ewc == ewcRUN)
-        {
-            wallcycle_all_start(wc, ewc, cycle);
-        }
-        else if (wc->wc_depth == 3)
-        {
-            wallcycle_all_stop(wc, ewc, cycle);
-        }
-    }
 }
 
 void wallcycle_start_nocount(gmx_wallcycle_t wc, int ewc)
-{
-    if (wc == NULL)
-    {
-        return;
-    }
-
+{ // called
     wallcycle_start(wc, ewc);
     wc->wcc[ewc].n--;
 }
 
 double wallcycle_stop(gmx_wallcycle_t wc, int ewc)
-{
+{ // called
     gmx_cycles_t cycle, last;
-
-    if (wc == NULL)
-    {
-        return 0;
-    }
-
-    if (wc->wc_barrier)
-    {
-        MPI_Barrier(wc->mpi_comm_mygroup);
-    }
-
-
     cycle           = gmx_cycles_read();
     last            = cycle - wc->wcc[ewc].start;
     wc->wcc[ewc].c += last;
     wc->wcc[ewc].n++;
-    if (wc->wcc_all)
-    {
-        wc->wc_depth--;
-        if (ewc == ewcRUN)
-        {
-            wallcycle_all_stop(wc, ewc, cycle);
-        }
-        else if (wc->wc_depth == 2)
-        {
-            wallcycle_all_start(wc, ewc, cycle);
-        }
-    }
 
     return last;
 }
 
-void wallcycle_reset_all(gmx_wallcycle_t wc)
-{
-    int i;
-
-    if (wc == NULL)
-    {
-        return;
-    }
-
-    for (i = 0; i < ewcNR; i++)
-    {
-        wc->wcc[i].n = 0;
-        wc->wcc[i].c = 0;
-    }
-    if (wc->wcc_all)
-    {
-        for (i = 0; i < ewcNR*ewcNR; i++)
-        {
-            wc->wcc_all[i].n = 0;
-            wc->wcc_all[i].c = 0;
-        }
-    }
-}
-
 static gmx_bool is_pme_counter(int ewc)
-{
+{ // called
     return (ewc >= ewcPMEMESH && ewc <= ewcPMEWAITCOMM);
 }
 
 static gmx_bool is_pme_subcounter(int ewc)
-{
+{// called
     return (ewc >= ewcPME_REDISTXF && ewc < ewcPMEWAITCOMM);
 }
 
 void wallcycle_sum(t_commrec *cr, gmx_wallcycle_t wc)
-{
+{ // called
     wallcc_t *wcc;
     double   *cycles;
     double    cycles_n[ewcNR+ewcsNR], buf[ewcNR+ewcsNR], *cyc_all, *buf_all;
     int       i, j;
     int       nsum;
 
-    if (wc == NULL)
-    {
-        return;
-    }
 
     snew(wc->cycles_sum, ewcNR+ewcsNR);
     cycles = wc->cycles_sum;
@@ -277,63 +132,24 @@ void wallcycle_sum(t_commrec *cr, gmx_wallcycle_t wc)
 
     for (i = 0; i < ewcNR; i++)
     {
-        if (is_pme_counter(i) || (i == ewcRUN && cr->duty == DUTY_PME))
+        if (is_pme_counter(i) || (i == ewcRUN && cr->duty == DUTY_PME)) // PME 1, EWALD 0
         {
             wcc[i].c *= wc->nthreads_pme;
 
-            if (wc->wcc_all)
-            {
-                for (j = 0; j < ewcNR; j++)
-                {
-                    wc->wcc_all[i*ewcNR+j].c *= wc->nthreads_pme;
-                }
-            }
         }
         else
         {
             wcc[i].c *= wc->nthreads_pp;
 
-            if (wc->wcc_all)
-            {
-                for (j = 0; j < ewcNR; j++)
-                {
-                    wc->wcc_all[i*ewcNR+j].c *= wc->nthreads_pp;
-                }
-            }
         }
     }
 
-    if (wcc[ewcDDCOMMLOAD].n > 0)
-    {
-        wcc[ewcDOMDEC].c -= wcc[ewcDDCOMMLOAD].c;
-    }
-    if (wcc[ewcDDCOMMBOUND].n > 0)
-    {
-        wcc[ewcDOMDEC].c -= wcc[ewcDDCOMMBOUND].c;
-    }
-    if (wcc[ewcPME_FFTCOMM].n > 0)
-    {
-        wcc[ewcPME_FFT].c -= wcc[ewcPME_FFTCOMM].c;
-    }
 
-    if (cr->npmenodes == 0)
+    /* All nodes do PME (or no PME at all) */
+    if (wcc[ewcPMEMESH].n > 0) // EWALD 0 PME > 0 
     {
-        /* All nodes do PME (or no PME at all) */
-        if (wcc[ewcPMEMESH].n > 0)
-        {
-            wcc[ewcFORCE].c -= wcc[ewcPMEMESH].c;
-        }
+       wcc[ewcFORCE].c -= wcc[ewcPMEMESH].c;
     }
-    else
-    {
-        /* The are PME-only nodes */
-        if (wcc[ewcPMEMESH].n > 0)
-        {
-            /* This must be a PME only node, calculate the Wait + Comm. time */
-            wcc[ewcPMEWAITCOMM].c = wcc[ewcRUN].c - wcc[ewcPMEMESH].c;
-        }
-    }
-
     /* Store the cycles in a double buffer for summing */
     for (i = 0; i < ewcNR; i++)
     {
@@ -342,63 +158,22 @@ void wallcycle_sum(t_commrec *cr, gmx_wallcycle_t wc)
     }
     nsum = ewcNR;
 
-    if (cr->nnodes > 1)
-    {
-        MPI_Allreduce(cycles_n, buf, nsum, MPI_DOUBLE, MPI_MAX,
-                      cr->mpi_comm_mysim);
-        for (i = 0; i < ewcNR; i++)
-        {
-            wcc[i].n = (int)(buf[i] + 0.5);
-        }
-
-        MPI_Allreduce(cycles, buf, nsum, MPI_DOUBLE, MPI_SUM,
-                      cr->mpi_comm_mysim);
-        for (i = 0; i < nsum; i++)
-        {
-            cycles[i] = buf[i];
-        }
-
-        if (wc->wcc_all != NULL)
-        {
-            snew(cyc_all, ewcNR*ewcNR);
-            snew(buf_all, ewcNR*ewcNR);
-            for (i = 0; i < ewcNR*ewcNR; i++)
-            {
-                cyc_all[i] = wc->wcc_all[i].c;
-            }
-            MPI_Allreduce(cyc_all, buf_all, ewcNR*ewcNR, MPI_DOUBLE, MPI_SUM,
-                          cr->mpi_comm_mysim);
-            for (i = 0; i < ewcNR*ewcNR; i++)
-            {
-                wc->wcc_all[i].c = buf_all[i];
-            }
-            sfree(buf_all);
-            sfree(cyc_all);
-        }
-    }
 }
 
 static void print_cycles(FILE *fplog, double c2t, const char *name,
                          int nnodes_tot, int nnodes, int nthreads,
                          int n, double c, double tot)
-{
+{ // called - done
     char   num[11];
     char   thstr[6];
     double wallt;
 
     if (c > 0)
-    {
+    { 
         if (n > 0)
         {
             snprintf(num, sizeof(num), "%10d", n);
-            if (nthreads < 0)
-            {
-                snprintf(thstr, sizeof(thstr), "N/A");
-            }
-            else
-            {
-                snprintf(thstr, sizeof(thstr), "%4d", nthreads);
-            }
+            snprintf(thstr, sizeof(thstr), "%4d", nthreads);
         }
         else
         {
@@ -411,73 +186,27 @@ static void print_cycles(FILE *fplog, double c2t, const char *name,
     }
 }
 
-static void print_gputimes(FILE *fplog, const char *name,
-                           int n, double t, double tot_t)
-{
-    char num[11];
-    char avg_perf[11];
-
-    if (n > 0)
-    {
-        snprintf(num, sizeof(num), "%10d", n);
-        snprintf(avg_perf, sizeof(avg_perf), "%10.3f", t/n);
-    }
-    else
-    {
-        sprintf(num, "          ");
-        sprintf(avg_perf, "          ");
-    }
-    if (t != tot_t)
-    {
-        fprintf(fplog, " %-29s %10s%12.3f   %s   %5.1f\n",
-                name, num, t/1000, avg_perf, 100 * t/tot_t);
-    }
-    else
-    {
-        fprintf(fplog, " %-29s %10s%12.3f   %s   %5.1f\n",
-                name, "", t/1000, avg_perf, 100.0);
-    }
-}
-
 void wallcycle_print(FILE *fplog, int nnodes, int npme, double realtime,
                      gmx_wallcycle_t wc, wallclock_gpu_t *gpu_t)
-{
+{ // called -- done
     double     *cycles;
     double      c2t, tot, tot_gpu, tot_cpu_overlap, gpu_cpu_ratio, sum, tot_k;
     int         i, j, npp, nth_pp, nth_pme;
     char        buf[STRLEN];
     const char *hline = "-----------------------------------------------------------------------------";
 
-    if (wc == NULL)
-    {
-        return;
-    }
 
     nth_pp  = wc->nthreads_pp;
     nth_pme = wc->nthreads_pme;
 
     cycles = wc->cycles_sum;
 
-    if (npme > 0)
-    {
-        npp = nnodes - npme;
-    }
-    else
-    {
-        npp  = nnodes;
-        npme = nnodes;
-    }
+    npp  = nnodes;
+    npme = nnodes;
     tot = cycles[ewcRUN];
 
     /* Conversion factor from cycles to seconds */
-    if (tot > 0)
-    {
-        c2t = realtime/tot;
-    }
-    else
-    {
-        c2t = 0;
-    }
+    c2t = realtime/tot;
 
     fprintf(fplog, "\n     R E A L   C Y C L E   A N D   T I M E   A C C O U N T I N G\n\n");
 
@@ -493,26 +222,7 @@ void wallcycle_print(FILE *fplog, int nnodes, int npme, double realtime,
                          is_pme_counter(i) ? nth_pme : nth_pp,
                          wc->wcc[i].n, cycles[i], tot);
             sum += cycles[i];
-        }
-    }
-    if (wc->wcc_all != NULL)
-    {
-        for (i = 0; i < ewcNR; i++)
-        {
-            for (j = 0; j < ewcNR; j++)
-            {
-                snprintf(buf, 9, "%-9s", wcn[i]);
-                buf[9] = ' ';
-                snprintf(buf+10, 9, "%-9s", wcn[j]);
-                buf[19] = '\0';
-                print_cycles(fplog, c2t, buf, nnodes,
-                             is_pme_counter(i) ? npme : npp,
-                             is_pme_counter(i) ? nth_pme : nth_pp,
-                             wc->wcc_all[i*ewcNR+j].n,
-                             wc->wcc_all[i*ewcNR+j].c,
-                             tot);
-            }
-        }
+        } 
     }
     print_cycles(fplog, c2t, "Rest", npp, npp, -1, 0, tot-sum, tot);
     fprintf(fplog, "%s\n", hline);
@@ -535,157 +245,16 @@ void wallcycle_print(FILE *fplog, int nnodes, int npme, double realtime,
         fprintf(fplog, "%s\n", hline);
     }
 
-
-    /* print GPU timing summary */
-    if (gpu_t)
-    {
-        const char *k_log_str[2][2] = {
-            {"Nonbonded F kernel", "Nonbonded F+ene k."},
-            {"Nonbonded F+prune k.", "Nonbonded F+ene+prune k."}
-        };
-
-        tot_gpu = gpu_t->pl_h2d_t + gpu_t->nb_h2d_t + gpu_t->nb_d2h_t;
-
-        /* add up the kernel timings */
-        tot_k = 0.0;
-        for (i = 0; i < 2; i++)
-        {
-            for (j = 0; j < 2; j++)
-            {
-                tot_k += gpu_t->ktime[i][j].t;
-            }
-        }
-        tot_gpu += tot_k;
-
-        tot_cpu_overlap = wc->wcc[ewcFORCE].c;
-        if (wc->wcc[ewcPMEMESH].n > 0)
-        {
-            tot_cpu_overlap += wc->wcc[ewcPMEMESH].c;
-        }
-        tot_cpu_overlap *= c2t * 1000; /* convert s to ms */
-
-        fprintf(fplog, "\n GPU timings\n%s\n", hline);
-        fprintf(fplog, " Computing:                         Count  Wall t (s)      ms/step       %c\n", '%');
-        fprintf(fplog, "%s\n", hline);
-        print_gputimes(fplog, "Pair list H2D",
-                       gpu_t->pl_h2d_c, gpu_t->pl_h2d_t, tot_gpu);
-        print_gputimes(fplog, "X / q H2D",
-                       gpu_t->nb_c, gpu_t->nb_h2d_t, tot_gpu);
-
-        for (i = 0; i < 2; i++)
-        {
-            for (j = 0; j < 2; j++)
-            {
-                if (gpu_t->ktime[i][j].c)
-                {
-                    print_gputimes(fplog, k_log_str[i][j],
-                                   gpu_t->ktime[i][j].c, gpu_t->ktime[i][j].t, tot_gpu);
-                }
-            }
-        }
-
-        print_gputimes(fplog, "F D2H",  gpu_t->nb_c, gpu_t->nb_d2h_t, tot_gpu);
-        fprintf(fplog, "%s\n", hline);
-        print_gputimes(fplog, "Total ", gpu_t->nb_c, tot_gpu, tot_gpu);
-        fprintf(fplog, "%s\n", hline);
-
-        gpu_cpu_ratio = tot_gpu/tot_cpu_overlap;
-        fprintf(fplog, "\nForce evaluation time GPU/CPU: %.3f ms/%.3f ms = %.3f\n",
-                tot_gpu/gpu_t->nb_c, tot_cpu_overlap/wc->wcc[ewcFORCE].n,
-                gpu_cpu_ratio);
-
-        /* only print notes related to CPU-GPU load balance with PME */
-        if (wc->wcc[ewcPMEMESH].n > 0)
-        {
-            fprintf(fplog, "For optimal performance this ratio should be close to 1!\n");
-
-            /* print note if the imbalance is high with PME case in which
-             * CPU-GPU load balancing is possible */
-            if (gpu_cpu_ratio < 0.75 || gpu_cpu_ratio > 1.2)
-            {
-                /* Only the sim master calls this function, so always print to stderr */
-                if (gpu_cpu_ratio < 0.75)
-                {
-                    if (npp > 1)
-                    {
-                        /* The user could have used -notunepme,
-                         * but we currently can't check that here.
-                         */
-                        md_print_warn(NULL, fplog,
-                                      "\nNOTE: The GPU has >25%% less load than the CPU. This imbalance causes\n"
-                                      "      performance loss. Maybe the domain decomposition limits the PME tuning.\n"
-                                      "      In that case, try setting the DD grid manually (-dd) or lowering -dds.");
-                    }
-                    else
-                    {
-                        /* We should not end up here, unless the box is
-                         * too small for increasing the cut-off for PME tuning.
-                         */
-                        md_print_warn(NULL, fplog,
-                                      "\nNOTE: The GPU has >25%% less load than the CPU. This imbalance causes\n"
-                                      "      performance loss.");
-                    }
-                }
-                if (gpu_cpu_ratio > 1.2)
-                {
-                    md_print_warn(NULL, fplog,
-                                  "\nNOTE: The GPU has >20%% more load than the CPU. This imbalance causes\n"
-                                  "      performance loss, consider using a shorter cut-off and a finer PME grid.");
-                }
-            }
-        }
-    }
-
     if (wc->wcc[ewcNB_XF_BUF_OPS].n > 0 &&
         (cycles[ewcDOMDEC] > tot*0.1 ||
          cycles[ewcNS] > tot*0.1))
     {
-        /* Only the sim master calls this function, so always print to stderr */
-        if (wc->wcc[ewcDOMDEC].n == 0)
-        {
             md_print_warn(NULL, fplog,
                           "NOTE: %d %% of the run time was spent in pair search,\n"
                           "      you might want to increase nstlist (this has no effect on accuracy)\n",
                           (int)(100*cycles[ewcNS]/tot+0.5));
-        }
-        else
-        {
-            md_print_warn(NULL, fplog,
-                          "NOTE: %d %% of the run time was spent in domain decomposition,\n"
-                          "      %d %% of the run time was spent in pair search,\n"
-                          "      you might want to increase nstlist (this has no effect on accuracy)\n",
-                          (int)(100*cycles[ewcDOMDEC]/tot+0.5),
-                          (int)(100*cycles[ewcNS]/tot+0.5));
-        }
     }
 
-    if (cycles[ewcMoveE] > tot*0.05)
-    {
-        /* Only the sim master calls this function, so always print to stderr */
-        md_print_warn(NULL, fplog,
-                      "NOTE: %d %% of the run time was spent communicating energies,\n"
-                      "      you might want to use the -gcom option of mdrun\n",
-                      (int)(100*cycles[ewcMoveE]/tot+0.5));
-    }
 }
 
-extern gmx_large_int_t wcycle_get_reset_counters(gmx_wallcycle_t wc)
-{
-    if (wc == NULL)
-    {
-        return -1;
-    }
-
-    return wc->reset_counters;
-}
-
-extern void wcycle_set_reset_counters(gmx_wallcycle_t wc, gmx_large_int_t reset_counters)
-{
-    if (wc == NULL)
-    {
-        return;
-    }
-
-    wc->reset_counters = reset_counters;
-}
 
