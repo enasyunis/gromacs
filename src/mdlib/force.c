@@ -72,7 +72,7 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
     int         pme_flags;
     matrix      boxs;
     rvec        box_size;
-    real        Vsr, Vlr, Vcorr = 0;
+    real        Vlr, Vcorr = 0;
     t_pbc       pbc;
     real        dvdgb;
     char        buf[22];
@@ -99,7 +99,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
     {
         box_size[i] = box[i][i];
     }
-
     bSepDVDL = (fr->bSepDVDL && do_per_step(step, ir->nstlog));
     debug_gmx();
 
@@ -117,13 +116,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
     enerd->dvdl_lin[efptVDW] += dvdl_nb[efptVDW];
     enerd->dvdl_lin[efptCOUL] += dvdl_nb[efptCOUL];
 
-     Vsr =
-                (fr->bBHAM ?
-                 enerd->grpp.ener[egBHAMSR][0] :
-                 enerd->grpp.ener[egLJSR][0])
-                + enerd->grpp.ener[egCOULSR][0] + enerd->grpp.ener[egGB][0];
-    dvdlsum = dvdl_nb[efptVDW] + dvdl_nb[efptCOUL];
-    PRINT_SEPDVDL("VdW and Coulomb SR particle-p.", Vsr, dvdlsum);
     debug_gmx();
 
     GMX_MPE_LOG(ev_do_fnbf_finish);
@@ -281,11 +273,8 @@ void sum_epot(t_grpopts *opts, gmx_grppairener_t *grpp, real *epot)
 
     /* Accumulate energies */
     epot[F_COUL_SR]  = grpp->ener[egCOULSR][0];
-    epot[F_LJ]       = grpp->ener[egLJSR][0];
-    epot[F_LJ14]     = grpp->ener[egLJ14][0];
     epot[F_COUL14]   = grpp->ener[egCOUL14][0];
     epot[F_COUL_LR]  = grpp->ener[egCOULLR][0];
-    epot[F_LJ_LR]    = grpp->ener[egLJLR][0];
     /* We have already added 1-2,1-3, and 1-4 terms to F_GBPOL */
     epot[F_GBPOL]   += grpp->ener[egGB][0];
 

@@ -521,8 +521,6 @@ void init_forcerec(FILE              *fp,
     double         dbl;
     rvec           box_size;
     const t_block *cgs;
-    gmx_bool       bGenericKernelOnly;
-    gmx_bool       bTab, bSep14tab;
     t_nblists     *nbl;
     int           *nm_ind, egp_flags;
 
@@ -563,9 +561,6 @@ void init_forcerec(FILE              *fp,
     env = getenv("GMX_SCSIGMA_MIN");
 
     fr->bNonbonded = TRUE;
-    bGenericKernelOnly = FALSE;
-
-// ENAS DISABLED ACCELRAtiON
     fr->use_cpu_acceleration = FALSE;
     fprintf(fp,
                     "\nFound environment variable GMX_DISABLE_CPU_ACCELERATION.\n"
@@ -696,16 +691,8 @@ void init_forcerec(FILE              *fp,
      * A little unnecessary to make both vdw and coul tables sometimes,
      * but what the heck... */
 
-    bTab = fr->bcoultab || fr->bvdwtab || fr->bEwald;
-
-    bSep14tab = ((!bTab || fr->eeltype != eelCUT || fr->vdwtype != evdwCUT ||
-                  fr->bBHAM || fr->bEwald) &&
-                 (gmx_mtop_ftype_count(mtop, F_LJ14) > 0 ||
-                  gmx_mtop_ftype_count(mtop, F_LJC14_Q) > 0 ||
-                  gmx_mtop_ftype_count(mtop, F_LJC_PAIRS_NB) > 0));
-
-     egp_flags = ir->opts.egp_flags[GID(0, 0, ir->opts.ngener)];
-     fr->nnblists = 1;
+    egp_flags = ir->opts.egp_flags[GID(0, 0, ir->opts.ngener)];
+    fr->nnblists = 1;
 
     snew(fr->nblists, fr->nnblists);
 
@@ -747,7 +734,7 @@ void init_forcerec(FILE              *fp,
 
     /* Initialize neighbor search */
     init_ns(fp, cr, &fr->ns, fr, mtop, box);
-    gmx_nonbonded_setup(fp, fr, bGenericKernelOnly);
+    gmx_nonbonded_setup(fp, fr, FALSE);
 
     /* Initialize the thread working data for bonded interactions */
     init_forcerec_f_threads(fr, mtop->groups.grps[egcENER].nr);
