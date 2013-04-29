@@ -113,90 +113,8 @@ static int get_2log(int n)
     {
         log2++;
     }
-    if ((1<<log2) != n)
-    {
-        gmx_fatal(FARGS, "nbnxn na_c (%d) is not a power of 2", n);
-    }
 
     return log2;
-}
-
-static int nbnxn_kernel_to_ci_size(int nb_kernel_type)
-{ // called
-    switch (nb_kernel_type)
-    {
-        case nbnxnk4x4_PlainC:
-        case nbnxnk4xN_SIMD_4xN:
-        case nbnxnk4xN_SIMD_2xNN:
-            return NBNXN_CPU_CLUSTER_I_SIZE;
-        case nbnxnk8x8x8_CUDA:
-        case nbnxnk8x8x8_PlainC:
-            /* The cluster size for super/sub lists is only set here.
-             * Any value should work for the pair-search and atomdata code.
-             * The kernels, of course, might require a particular value.
-             */
-            return NBNXN_GPU_CLUSTER_SIZE;
-        default:
-            gmx_incons("unknown kernel type");
-    }
-
-    return 0;
-}
-
-int nbnxn_kernel_to_cj_size(int nb_kernel_type)
-{ // called
-    int nbnxn_simd_width = 0;
-    int cj_size          = 0;
-
-#ifdef GMX_NBNXN_SIMD
-    nbnxn_simd_width = GMX_NBNXN_SIMD_BITWIDTH/(sizeof(real)*8);
-#endif
-
-    switch (nb_kernel_type)
-    {
-        case nbnxnk4x4_PlainC:
-            cj_size = NBNXN_CPU_CLUSTER_I_SIZE;
-            break;
-        case nbnxnk4xN_SIMD_4xN:
-            cj_size = nbnxn_simd_width;
-            break;
-        case nbnxnk4xN_SIMD_2xNN:
-            cj_size = nbnxn_simd_width/2;
-            break;
-        case nbnxnk8x8x8_CUDA:
-        case nbnxnk8x8x8_PlainC:
-            cj_size = nbnxn_kernel_to_ci_size(nb_kernel_type);
-            break;
-        default:
-            gmx_incons("unknown kernel type");
-    }
-
-    return cj_size;
-}
-
-
-gmx_bool nbnxn_kernel_pairlist_simple(int nb_kernel_type)
-{ // called
-    if (nb_kernel_type == nbnxnkNotSet)
-    {
-        gmx_fatal(FARGS, "Non-bonded kernel type not set for Verlet-style pair-list.");
-    }
-
-    switch (nb_kernel_type)
-    {
-        case nbnxnk8x8x8_CUDA:
-        case nbnxnk8x8x8_PlainC:
-            return FALSE;
-
-        case nbnxnk4x4_PlainC:
-        case nbnxnk4xN_SIMD_4xN:
-        case nbnxnk4xN_SIMD_2xNN:
-            return TRUE;
-
-        default:
-            gmx_incons("Invalid nonbonded kernel type passed!");
-            return FALSE;
-    }
 }
 
 void nbnxn_init_search(nbnxn_search_t    * nbs_ptr,
@@ -210,24 +128,9 @@ void nbnxn_init_search(nbnxn_search_t    * nbs_ptr,
     snew(nbs, 1);
     *nbs_ptr = nbs;
 
-    nbs->DomDec = (n_dd_cells != NULL);
-
+    nbs->DomDec = FALSE; //(n_dd_cells != NULL);
     clear_ivec(nbs->dd_dim);
     nbs->ngrid = 1;
-    if (nbs->DomDec)
-    {
-        nbs->zones = zones;
-
-        for (d = 0; d < DIM; d++)
-        {
-            if ((*n_dd_cells)[d] > 1)
-            {
-                nbs->dd_dim[d] = 1;
-                /* Each grid matches a DD zone */
-                nbs->ngrid *= 2;
-            }
-        }
-    }
 
     snew(nbs->grid, nbs->ngrid);
     for (g = 0; g < nbs->ngrid; g++)
@@ -284,113 +187,57 @@ static int set_grid_size_xy(const nbnxn_search_t nbs,
 
     rvec_sub(corner1, corner0, size);
 
-    if (n > grid->na_sc)
-    {
-        /* target cell length */
-        if (grid->bSimple)
-        {
-            /* To minimize the zero interactions, we should make
-             * the largest of the i/j cell cubic.
-             */
-            na_c = max(grid->na_c, grid->na_cj);
+    /* target cell length */
+    /* To minimize the zero interactions, we should make
+     * the largest of the i/j cell cubic.
+     */
+    na_c = max(grid->na_c, grid->na_cj);
 
-            /* Approximately cubic cells */
-            tlen   = pow(na_c/atom_density, 1.0/3.0);
-            tlen_x = tlen;
-            tlen_y = tlen;
-        }
-        else
-        {
-            /* Approximately cubic sub cells */
-            tlen   = pow(grid->na_c/atom_density, 1.0/3.0);
-            tlen_x = tlen*GPU_NSUBCELL_X;
-            tlen_y = tlen*GPU_NSUBCELL_Y;
-        }
-        /* We round ncx and ncy down, because we get less cell pairs
-         * in the nbsist when the fixed cell dimensions (x,y) are
-         * larger than the variable one (z) than the other way around.
-         */
-        grid->ncx = max(1, (int)(size[XX]/tlen_x));
-        grid->ncy = max(1, (int)(size[YY]/tlen_y));
-    }
-    else
-    {
-        grid->ncx = 1;
-        grid->ncy = 1;
-    }
+    /* Approximately cubic cells */
+    tlen   = pow(na_c/atom_density, 1.0/3.0);
+    tlen_x = tlen;
+    tlen_y = tlen;
+    /* We round ncx and ncy down, because we get less cell pairs
+     * in the nbsist when the fixed cell dimensions (x,y) are
+     * larger than the variable one (z) than the other way around.
+     */
+    grid->ncx = max(1, (int)(size[XX]/tlen_x));
+    grid->ncy = max(1, (int)(size[YY]/tlen_y));
 
     grid->sx     = size[XX]/grid->ncx;
     grid->sy     = size[YY]/grid->ncy;
     grid->inv_sx = 1/grid->sx;
     grid->inv_sy = 1/grid->sy;
 
-    if (dd_zone > 0)
-    {
-        /* This is a non-home zone, add an extra row of cells
-         * for particles communicated for bonded interactions.
-         * These can be beyond the cut-off. It doesn't matter where
-         * they end up on the grid, but for performance it's better
-         * if they don't end up in cells that can be within cut-off range.
-         */
-        grid->ncx++;
-        grid->ncy++;
-    }
 
     /* We need one additional cell entry for particles moved by DD */
-    if (grid->ncx*grid->ncy+1 > grid->cxy_nalloc)
-    {
-        grid->cxy_nalloc = over_alloc_large(grid->ncx*grid->ncy+1);
-        srenew(grid->cxy_na, grid->cxy_nalloc);
-        srenew(grid->cxy_ind, grid->cxy_nalloc+1);
-    }
+    grid->cxy_nalloc = over_alloc_large(grid->ncx*grid->ncy+1);
+    srenew(grid->cxy_na, grid->cxy_nalloc);
+    srenew(grid->cxy_ind, grid->cxy_nalloc+1);
     for (t = 0; t < nbs->nthread_max; t++)
     {
-        if (grid->ncx*grid->ncy+1 > nbs->work[t].cxy_na_nalloc)
-        {
-            nbs->work[t].cxy_na_nalloc = over_alloc_large(grid->ncx*grid->ncy+1);
-            srenew(nbs->work[t].cxy_na, nbs->work[t].cxy_na_nalloc);
-        }
+       nbs->work[t].cxy_na_nalloc = over_alloc_large(grid->ncx*grid->ncy+1);
+       srenew(nbs->work[t].cxy_na, nbs->work[t].cxy_na_nalloc);
     }
 
     /* Worst case scenario of 1 atom in each last cell */
-    if (grid->na_cj <= grid->na_c)
-    {
-        nc_max = n/grid->na_sc + grid->ncx*grid->ncy;
-    }
-    else
-    {
-        nc_max = n/grid->na_sc + grid->ncx*grid->ncy*grid->na_cj/grid->na_c;
-    }
+    nc_max = n/grid->na_sc + grid->ncx*grid->ncy;
 
-    if (nc_max > grid->nc_nalloc)
-    {
-        int bb_nalloc;
+    int bb_nalloc;
 
-        grid->nc_nalloc = over_alloc_large(nc_max);
-        srenew(grid->nsubc, grid->nc_nalloc);
-        srenew(grid->bbcz, grid->nc_nalloc*NNBSBB_D);
-        bb_nalloc = grid->nc_nalloc*GPU_NSUBCELL*NNBSBB_B;
-        sfree_aligned(grid->bb);
-        /* This snew also zeros the contents, this avoid possible
-         * floating exceptions in SSE with the unused bb elements.
-         */
-        snew_aligned(grid->bb, bb_nalloc, 16);
+    grid->nc_nalloc = over_alloc_large(nc_max);
+    srenew(grid->nsubc, grid->nc_nalloc);
+    srenew(grid->bbcz, grid->nc_nalloc*NNBSBB_D);
+    bb_nalloc = grid->nc_nalloc*GPU_NSUBCELL*NNBSBB_B;
+    sfree_aligned(grid->bb);
+    /* This snew also zeros the contents, this avoid possible
+     * floating exceptions in SSE with the unused bb elements.
+     */
+    snew_aligned(grid->bb, bb_nalloc, 16);
 
-        if (grid->bSimple)
-        {
-            if (grid->na_cj == grid->na_c)
-            {
-                grid->bbj = grid->bb;
-            }
-            else
-            {
-                sfree_aligned(grid->bbj);
-                snew_aligned(grid->bbj, bb_nalloc*grid->na_c/grid->na_cj, 16);
-            }
-        }
+    grid->bbj = grid->bb;
 
-        srenew(grid->flags, grid->nc_nalloc);
-    }
+    srenew(grid->flags, grid->nc_nalloc);
 
     copy_rvec(corner0, grid->c0);
     copy_rvec(corner1, grid->c1);
@@ -429,18 +276,12 @@ static void sort_atoms(int dim, gmx_bool Backwards,
     int zi, zim, zi_min, zi_max;
     int cp, tmp;
 
-    if (n <= 1)
-    {
-        /* Nothing to do */
-        return;
-    }
-
     /* Determine the index range used, so we can limit it for the second pass */
     zi_min = INT_MAX;
     zi_max = -1;
 
     /* Sort the particles using a simple index sort */
-    for (i = 0; i < n; i++)
+    for (i = 0; i < n; i++) // n ranges from 27 to 49
     {
         /* The cast takes care of float-point rounding effects below zero.
          * This code assumes particles are less than 1/SORT_GRID_OVERSIZE
@@ -448,20 +289,13 @@ static void sort_atoms(int dim, gmx_bool Backwards,
          */
         zi = (int)((x[a[i]][dim] - h0)*invh);
 
-#ifdef DEBUG_NBNXN_GRIDDING
-        if (zi < 0 || zi >= nsort)
-        {
-            gmx_fatal(FARGS, "(int)((x[%d][%c]=%f - %f)*%f) = %d, not in 0 - %d\n",
-                      a[i], 'x'+dim, x[a[i]][dim], h0, invh, zi, nsort);
-        }
-#endif
 
         /* Ideally this particle should go in sort cell zi,
          * but that might already be in use,
          * in that case find the first empty cell higher up
          */
         if (sort[zi] < 0)
-        {
+        { 
             sort[zi] = a[i];
             zi_min   = min(zi_min, zi);
             zi_max   = max(zi_max, zi);
@@ -502,41 +336,18 @@ static void sort_atoms(int dim, gmx_bool Backwards,
     }
 
     c = 0;
-    if (!Backwards)
+    for (zi = 0; zi < nsort; zi++)
     {
-        for (zi = 0; zi < nsort; zi++)
+        if (sort[zi] >= 0)
         {
-            if (sort[zi] >= 0)
-            {
-                a[c++]   = sort[zi];
-                sort[zi] = -1;
-            }
-        }
-    }
-    else
-    {
-        for (zi = zi_max; zi >= zi_min; zi--)
-        {
-            if (sort[zi] >= 0)
-            {
-                a[c++]   = sort[zi];
-                sort[zi] = -1;
-            }
-        }
-    }
-    if (c < n)
-    {
-        gmx_incons("Lost particles while sorting");
+           a[c++]   = sort[zi];
+           sort[zi] = -1;
+        } 
     }
 }
 
-#ifdef GMX_DOUBLE
 #define R2F_D(x) ((float)((x) >= 0 ? ((1-GMX_FLOAT_EPS)*(x)) : ((1+GMX_FLOAT_EPS)*(x))))
 #define R2F_U(x) ((float)((x) >= 0 ? ((1+GMX_FLOAT_EPS)*(x)) : ((1-GMX_FLOAT_EPS)*(x))))
-#else
-#define R2F_D(x) (x)
-#define R2F_U(x) (x)
-#endif
 
 /* Coordinate order x,y,z, bb order xyz0 */
 static void calc_bounding_box(int na, int stride, const real *x, float *bb)
@@ -585,7 +396,6 @@ void sort_on_lj(nbnxn_atomdata_t *nbat, int na_c,
     gmx_bool haveQ;
 
     *flags = 0;
-
     subc = 0;
     for (s = a0; s < a1; s += na_c)
     {
@@ -598,47 +408,10 @@ void sort_on_lj(nbnxn_atomdata_t *nbat, int na_c,
         {
             haveQ = haveQ || GET_CGINFO_HAS_Q(atinfo[order[a]]);
 
-            if (GET_CGINFO_HAS_VDW(atinfo[order[a]]))
-            {
-                sort1[n1++] = order[a];
-                a_lj_max    = a;
-            }
-            else
-            {
-                sort2[n2++] = order[a];
-            }
+            sort2[n2++] = order[a];
         }
 
-        /* If we don't have atom with LJ, there's nothing to sort */
-        if (n1 > 0)
-        {
-            *flags |= NBNXN_CI_DO_LJ(subc);
-
-            if (2*n1 <= na_c)
-            {
-                /* Only sort when strictly necessary. Ordering particles
-                 * Ordering particles can lead to less accurate summation
-                 * due to rounding, both for LJ and Coulomb interactions.
-                 */
-                if (2*(a_lj_max - s) >= na_c)
-                {
-                    for (i = 0; i < n1; i++)
-                    {
-                        order[a0+i] = sort1[i];
-                    }
-                    for (j = 0; j < n2; j++)
-                    {
-                        order[a0+n1+j] = sort2[j];
-                    }
-                }
-
-                *flags |= NBNXN_CI_HALF_LJ(subc);
-            }
-        }
-        if (haveQ)
-        {
-            *flags |= NBNXN_CI_DO_COUL(subc);
-        }
+        *flags |= NBNXN_CI_DO_COUL(subc);
         subc++;
     }
 }
@@ -661,11 +434,8 @@ void fill_cell(const nbnxn_search_t nbs,
 
     na = a1 - a0;
 
-    if (grid->bSimple)
-    {
-        sort_on_lj(nbat, grid->na_c, a0, a1, atinfo, nbs->a,
+    sort_on_lj(nbat, grid->na_c, a0, a1, atinfo, nbs->a,
                    grid->flags+(a0>>grid->na_c_2log)-grid->cell0);
-    }
 
     /* Now we have sorted the atoms, set the cell indices */
     for (a = a0; a < a1; a++)
@@ -677,10 +447,10 @@ void fill_cell(const nbnxn_search_t nbs,
                            nbat->XFormat, nbat->x, a0,
                            sx, sy, sz);
 
-        /* Store the bounding boxes as xyz.xyz. */
-        bb_ptr = grid->bb+((a0-grid->cell0*grid->na_sc)>>grid->na_c_2log)*NNBSBB_B;
+    /* Store the bounding boxes as xyz.xyz. */
+    bb_ptr = grid->bb+((a0-grid->cell0*grid->na_sc)>>grid->na_c_2log)*NNBSBB_B;
 
-        calc_bounding_box(na, nbat->xstride, nbat->x+a0*nbat->xstride,
+    calc_bounding_box(na, nbat->xstride, nbat->x+a0*nbat->xstride,
                           bb_ptr);
 
 }
@@ -739,10 +509,7 @@ static void sort_columns_simple(const nbnxn_search_t nbs,
              * But it allows to use the same grid search code
              * for the simple and supersub cell setups.
              */
-            if (na_c > 0)
-            {
-                cfilled = c;
-            }
+            cfilled = c;
             grid->bbcz[c*NNBSBB_D  ] = grid->bb[cfilled*NNBSBB_B+2];
             grid->bbcz[c*NNBSBB_D+1] = grid->bb[cfilled*NNBSBB_B+6];
         }
@@ -776,78 +543,27 @@ static void calc_column_indices(nbnxn_grid_t *grid,
 
     n0 = a0 + (int)((thread+0)*(a1 - a0))/nthread;
     n1 = a0 + (int)((thread+1)*(a1 - a0))/nthread;
-    if (dd_zone == 0)
+    /* Home zone */
+    for (i = n0; i < n1; i++)
     {
-        /* Home zone */
-        for (i = n0; i < n1; i++)
-        {
-            if (move == NULL || move[i] >= 0)
-            {
-                /* We need to be careful with rounding,
-                 * particles might be a few bits outside the local zone.
-                 * The int cast takes care of the lower bound,
-                 * we will explicitly take care of the upper bound.
-                 */
-                cx = (int)((x[i][XX] - grid->c0[XX])*grid->inv_sx);
-                cy = (int)((x[i][YY] - grid->c0[YY])*grid->inv_sy);
+        /* We need to be careful with rounding,
+         * particles might be a few bits outside the local zone.
+         * The int cast takes care of the lower bound,
+         * we will explicitly take care of the upper bound.
+         */
+        cx = (int)((x[i][XX] - grid->c0[XX])*grid->inv_sx);
+        cy = (int)((x[i][YY] - grid->c0[YY])*grid->inv_sy);
 
-#ifdef DEBUG_NBNXN_GRIDDING
-                if (cx < 0 || cx >= grid->ncx ||
-                    cy < 0 || cy >= grid->ncy)
-                {
-                    gmx_fatal(FARGS,
-                              "grid cell cx %d cy %d out of range (max %d %d)\n"
-                              "atom %f %f %f, grid->c0 %f %f",
-                              cx, cy, grid->ncx, grid->ncy,
-                              x[i][XX], x[i][YY], x[i][ZZ], grid->c0[XX], grid->c0[YY]);
-                }
-#endif
-                /* Take care of potential rouding issues */
-                cx = min(cx, grid->ncx - 1);
-                cy = min(cy, grid->ncy - 1);
+        /* Take care of potential rouding issues */
+        cx = min(cx, grid->ncx - 1);
+        cy = min(cy, grid->ncy - 1);
 
-                /* For the moment cell will contain only the, grid local,
-                 * x and y indices, not z.
-                 */
-                cell[i] = cx*grid->ncy + cy;
-            }
-            else
-            {
-                /* Put this moved particle after the end of the grid,
-                 * so we can process it later without using conditionals.
-                 */
-                cell[i] = grid->ncx*grid->ncy;
-            }
+        /* For the moment cell will contain only the, grid local,
+         * x and y indices, not z.
+         */
+        cell[i] = cx*grid->ncy + cy;
 
-            cxy_na[cell[i]]++;
-        }
-    }
-    else
-    {
-        /* Non-home zone */
-        for (i = n0; i < n1; i++)
-        {
-            cx = (int)((x[i][XX] - grid->c0[XX])*grid->inv_sx);
-            cy = (int)((x[i][YY] - grid->c0[YY])*grid->inv_sy);
-
-            /* For non-home zones there could be particles outside
-             * the non-bonded cut-off range, which have been communicated
-             * for bonded interactions only. For the result it doesn't
-             * matter where these end up on the grid. For performance
-             * we put them in an extra row at the border.
-             */
-            cx = max(cx, 0);
-            cx = min(cx, grid->ncx - 1);
-            cy = max(cy, 0);
-            cy = min(cy, grid->ncy - 1);
-
-            /* For the moment cell will contain only the, grid local,
-             * x and y indices, not z.
-             */
-            cell[i] = cx*grid->ncy + cy;
-
-            cxy_na[cell[i]]++;
-        }
+        cxy_na[cell[i]]++;
     }
 }
 
@@ -888,18 +604,13 @@ static void calc_cell_indices(const nbnxn_search_t nbs,
         if (ncz > ncz_max)
         {
             ncz_max = ncz;
-        }
+        } 
         cxy_na_i = nbs->work[0].cxy_na[i];
         for (thread = 1; thread < nthread; thread++)
         {
             cxy_na_i += nbs->work[thread].cxy_na[i];
         }
         ncz = (cxy_na_i + grid->na_sc - 1)/grid->na_sc;
-        if (nbat->XFormat == nbatX8)
-        {
-            /* Make the number of cell a multiple of 2 */
-            ncz = (ncz + 1) & ~1;
-        }
         grid->cxy_ind[i+1] = grid->cxy_ind[i] + ncz;
         /* Clear cxy_na, so we can reuse the array below */
         grid->cxy_na[i] = 0;
@@ -909,8 +620,7 @@ static void calc_cell_indices(const nbnxn_search_t nbs,
     nbat->natoms = (grid->cell0 + grid->nc)*grid->na_sc;
 
     /* Make sure the work array for sorting is large enough */
-    if (ncz_max*grid->na_sc*SGSF > nbs->work[0].sort_work_nalloc)
-    {
+ 
         for (thread = 0; thread < nbs->nthread_max; thread++)
         {
             nbs->work[thread].sort_work_nalloc =
@@ -923,7 +633,7 @@ static void calc_cell_indices(const nbnxn_search_t nbs,
                 nbs->work[thread].sort_work[i] = -1;
             }
         }
-    }
+    
 
     /* Now we know the dimensions we can fill the grid.
      * This is the first, unsorted fill. We sort the columns after this.
@@ -935,19 +645,17 @@ static void calc_cell_indices(const nbnxn_search_t nbs,
         nbs->a[(grid->cell0 + grid->cxy_ind[cxy])*grid->na_sc + grid->cxy_na[cxy]++] = i;
     }
 
-    if (dd_zone == 0)
+    /* Set the cell indices for the moved particles */
+    n0 = grid->nc*grid->na_sc;
+    n1 = grid->nc*grid->na_sc+grid->cxy_na[grid->ncx*grid->ncy];
+      
+     
+    for (i = n0; i < n1; i++)
     {
-        /* Set the cell indices for the moved particles */
-        n0 = grid->nc*grid->na_sc;
-        n1 = grid->nc*grid->na_sc+grid->cxy_na[grid->ncx*grid->ncy];
-        if (dd_zone == 0)
-        {
-            for (i = n0; i < n1; i++)
-            {
-                nbs->cell[nbs->a[i]] = i;
-            }
-        }
+        nbs->cell[nbs->a[i]] = i;
     }
+        
+    
 
     /* Sort the super-cell columns along z into the sub-cells. */
 #pragma omp parallel for num_threads(nbs->nthread_max) schedule(static)
@@ -969,11 +677,8 @@ static void init_buffer_flags(nbnxn_buffer_flags_t *flags,
     int b;
 
     flags->nflag = (natoms + NBNXN_BUFFERFLAG_SIZE - 1)/NBNXN_BUFFERFLAG_SIZE;
-    if (flags->nflag > flags->flag_nalloc)
-    {
-        flags->flag_nalloc = over_alloc_large(flags->nflag);
-        srenew(flags->flag, flags->flag_nalloc);
-    }
+    flags->flag_nalloc = over_alloc_large(flags->nflag);
+    srenew(flags->flag, flags->flag_nalloc);
     for (b = 0; b < flags->nflag; b++)
     {
         flags->flag[b] = 0;
@@ -1004,54 +709,31 @@ void nbnxn_put_on_grid(nbnxn_search_t nbs,
 
     nbs_cycle_start(&nbs->cc[enbsCCgrid]);
 
-    grid->bSimple = nbnxn_kernel_pairlist_simple(nb_kernel_type);
+    grid->bSimple = TRUE;
 
-    grid->na_c      = nbnxn_kernel_to_ci_size(nb_kernel_type);
-    grid->na_cj     = nbnxn_kernel_to_cj_size(nb_kernel_type);
+    grid->na_c      = NBNXN_CPU_CLUSTER_I_SIZE; 
+    grid->na_cj     = NBNXN_CPU_CLUSTER_I_SIZE; 
     grid->na_sc     = (grid->bSimple ? 1 : GPU_NSUBCELL)*grid->na_c;
     grid->na_c_2log = get_2log(grid->na_c);
 
     nbat->na_c = grid->na_c;
 
-    if (dd_zone == 0)
-    {
-        grid->cell0 = 0;
-    }
-    else
-    {
-        grid->cell0 =
-            (nbs->grid[dd_zone-1].cell0 + nbs->grid[dd_zone-1].nc)*
-            nbs->grid[dd_zone-1].na_sc/grid->na_sc;
-    }
+    grid->cell0 = 0;
 
     n = a1 - a0;
 
-    if (dd_zone == 0)
-    {
-        nbs->ePBC = ePBC;
-        copy_mat(box, nbs->box);
+    nbs->ePBC = ePBC;
+    copy_mat(box, nbs->box);
 
-        if (atom_density >= 0)
-        {
-            grid->atom_density = atom_density;
-        }
-        else
-        {
-            grid->atom_density = grid_atom_density(n-nmoved, corner0, corner1);
-        }
+    grid->atom_density = grid_atom_density(n-nmoved, corner0, corner1);
 
-        grid->cell0 = 0;
+    grid->cell0 = 0;
 
-        nbs->natoms_local    = a1 - nmoved;
-        /* We assume that nbnxn_put_on_grid is called first
-         * for the local atoms (dd_zone=0).
-         */
-        nbs->natoms_nonlocal = a1 - nmoved;
-    }
-    else
-    {
-        nbs->natoms_nonlocal = max(nbs->natoms_nonlocal, a1);
-    }
+    nbs->natoms_local    = a1 - nmoved;
+    /* We assume that nbnxn_put_on_grid is called first
+     * for the local atoms (dd_zone=0).
+     */
+    nbs->natoms_nonlocal = a1 - nmoved;
 
     nc_max_grid = set_grid_size_xy(nbs, grid,
                                    dd_zone, n-nmoved, corner0, corner1,
@@ -1060,30 +742,21 @@ void nbnxn_put_on_grid(nbnxn_search_t nbs,
 
     nc_max = grid->cell0 + nc_max_grid;
 
-    if (a1 > nbs->cell_nalloc)
-    {
-        nbs->cell_nalloc = over_alloc_large(a1);
-        srenew(nbs->cell, nbs->cell_nalloc);
-    }
+    nbs->cell_nalloc = over_alloc_large(a1);
+    srenew(nbs->cell, nbs->cell_nalloc);
 
     /* To avoid conditionals we store the moved particles at the end of a,
      * make sure we have enough space.
      */
-    if (nc_max*grid->na_sc + nmoved > nbs->a_nalloc)
-    {
-        nbs->a_nalloc = over_alloc_large(nc_max*grid->na_sc + nmoved);
-        srenew(nbs->a, nbs->a_nalloc);
-    }
+    nbs->a_nalloc = over_alloc_large(nc_max*grid->na_sc + nmoved);
+    srenew(nbs->a, nbs->a_nalloc);
 
     /* We need padding up to a multiple of the buffer flag size: simply add */
-    if (nc_max*grid->na_sc + NBNXN_BUFFERFLAG_SIZE > nbat->nalloc)
-    {
-        nbnxn_atomdata_realloc(nbat, nc_max*grid->na_sc+NBNXN_BUFFERFLAG_SIZE);
-    }
+    nbnxn_atomdata_realloc(nbat, nc_max*grid->na_sc+NBNXN_BUFFERFLAG_SIZE);
 
     calc_cell_indices(nbs, dd_zone, grid, a0, a1, atinfo, x, move, nbat);
 
-    if (dd_zone == 0)
+    if (dd_zone == 0) // can be true and false
     {
         nbat->natoms_local = nbat->natoms;
     }
@@ -1152,13 +825,13 @@ static float subc_bb_dist2(int si, const float *bb_i_ci,
 /* Ensures there is enough space for ncell extra j-cells in the list */
 static void check_subcell_list_space_simple(nbnxn_pairlist_t *nbl,
                                             int               ncell)
-{// called
+{// called - done
     int cj_max;
 
     cj_max = nbl->ncj + ncell;
 
     if (cj_max > nbl->cj_nalloc)
-    {
+    { 
         nbl->cj_nalloc = over_alloc_small(cj_max);
         nbnxn_realloc_void((void **)&nbl->cj,
                            nbl->ncj*sizeof(*nbl->cj),
@@ -1174,14 +847,7 @@ static void nbnxn_init_pairlist(nbnxn_pairlist_t *nbl,
                                 nbnxn_alloc_t    *alloc,
                                 nbnxn_free_t     *free)
 { // called
-    if (alloc == NULL)
-    {
-        nbl->alloc = nbnxn_alloc_aligned;
-    }
-    else
-    {
-        nbl->alloc = alloc;
-    }
+    nbl->alloc = nbnxn_alloc_aligned;
     nbl->free = free;
 
     nbl->bSimple     = bSimple;
@@ -1202,16 +868,8 @@ static void nbnxn_init_pairlist(nbnxn_pairlist_t *nbl,
 
 
     snew(nbl->work, 1);
-#ifdef NBNXN_BBXXXX
     snew_aligned(nbl->work->bb_ci, GPU_NSUBCELL/STRIDE_PBB*NNBSBB_XXXX, NBNXN_MEM_ALIGN);
-#else
-    snew_aligned(nbl->work->bb_ci, GPU_NSUBCELL*NNBSBB_B, NBNXN_MEM_ALIGN);
-#endif
     snew_aligned(nbl->work->x_ci, NBNXN_NA_SC_MAX*DIM, NBNXN_MEM_ALIGN);
-#ifdef GMX_NBNXN_SIMD
-    snew_aligned(nbl->work->x_ci_simd_4xn, 1, NBNXN_MEM_ALIGN);
-    snew_aligned(nbl->work->x_ci_simd_2xnn, 1, NBNXN_MEM_ALIGN);
-#endif
     snew_aligned(nbl->work->d2, GPU_NSUBCELL, NBNXN_MEM_ALIGN);
 }
 
@@ -1227,12 +885,6 @@ void nbnxn_init_pairlist_set(nbnxn_pairlist_set_t *nbl_list,
 
     nbl_list->nnbl = gmx_omp_nthreads_get(emntNonbonded);
 
-    if (!nbl_list->bCombined &&
-        nbl_list->nnbl > NBNXN_BUFFERFLAG_MAX_THREADS)
-    {
-        gmx_fatal(FARGS, "%d OpenMP threads were requested. Since the non-bonded force buffer reduction is prohibitively slow with more than %d threads, we do not allow this. Use %d or less OpenMP threads.",
-                  nbl_list->nnbl, NBNXN_BUFFERFLAG_MAX_THREADS, NBNXN_BUFFERFLAG_MAX_THREADS);
-    }
 
     snew(nbl_list->nbl, nbl_list->nnbl);
     /* Execute in order to avoid memory interleaving between threads */
@@ -1272,7 +924,7 @@ static void make_cluster_list_simple(const nbnxn_grid_t *gridj,
                                      const real *x_j,
                                      real rl2, float rbb2,
                                      int *ndistc)
-{ // called
+{ // called - done
     const nbnxn_list_work_t *work;
 
     const float             *bb_ci;
@@ -1367,153 +1019,17 @@ static void make_cluster_list_simple(const nbnxn_grid_t *gridj,
         }
     }
 
-    if (cjf <= cjl)
+    for (cj = cjf; cj <= cjl; cj++)
     {
-        for (cj = cjf; cj <= cjl; cj++)
-        {
-            /* Store cj and the interaction mask */
-            nbl->cj[nbl->ncj].cj   = gridj->cell0 + cj;
-            nbl->cj[nbl->ncj].excl = get_imask(remove_sub_diag, ci, cj);
-            nbl->ncj++;
-        }
-        /* Increase the closing index in i super-cell list */
-        nbl->ci[nbl->nci].cj_ind_end = nbl->ncj;
+        /* Store cj and the interaction mask */
+        nbl->cj[nbl->ncj].cj   = gridj->cell0 + cj;
+        nbl->cj[nbl->ncj].excl = get_imask(remove_sub_diag, ci, cj);
+        nbl->ncj++;
     }
+    /* Increase the closing index in i super-cell list */
+    nbl->ci[nbl->nci].cj_ind_end = nbl->ncj;
 }
 
-
-/* Set all atom-pair exclusions from the topology stored in excl
- * as masks in the pair-list for simple list i-entry nbl_ci
- */
-static void set_ci_top_excls(const nbnxn_search_t nbs,
-                             nbnxn_pairlist_t    *nbl,
-                             gmx_bool             diagRemoved,
-                             int                  na_ci_2log,
-                             int                  na_cj_2log,
-                             const nbnxn_ci_t    *nbl_ci,
-                             const t_blocka      *excl)
-{ //called
-    const int    *cell;
-    int           ci;
-    int           cj_ind_first, cj_ind_last;
-    int           cj_first, cj_last;
-    int           ndirect;
-    int           i, ai, aj, si, eind, ge, se;
-    int           found, cj_ind_0, cj_ind_1, cj_ind_m;
-    int           cj_m;
-    gmx_bool      Found_si;
-    int           si_ind;
-    nbnxn_excl_t *nbl_excl;
-    int           inner_i, inner_e;
-
-    cell = nbs->cell;
-
-    if (nbl_ci->cj_ind_end == nbl_ci->cj_ind_start)
-    {
-        /* Empty list */
-        return;
-    }
-
-    ci = nbl_ci->ci;
-
-    cj_ind_first = nbl_ci->cj_ind_start;
-    cj_ind_last  = nbl->ncj - 1;
-
-    cj_first = nbl->cj[cj_ind_first].cj;
-    cj_last  = nbl->cj[cj_ind_last].cj;
-
-    /* Determine how many contiguous j-cells we have starting
-     * from the first i-cell. This number can be used to directly
-     * calculate j-cell indices for excluded atoms.
-     */
-    ndirect = 0;
-    if (na_ci_2log == na_cj_2log)
-    {
-        while (cj_ind_first + ndirect <= cj_ind_last &&
-               nbl->cj[cj_ind_first+ndirect].cj == ci + ndirect)
-        {
-            ndirect++;
-        }
-    }
-
-    /* Loop over the atoms in the i super-cell */
-    for (i = 0; i < nbl->na_sc; i++)
-    {
-        ai = nbs->a[ci*nbl->na_sc+i];
-        if (ai >= 0)
-        {
-            si  = (i>>na_ci_2log);
-
-            /* Loop over the topology-based exclusions for this i-atom */
-            for (eind = excl->index[ai]; eind < excl->index[ai+1]; eind++)
-            {
-                aj = excl->a[eind];
-
-                if (aj == ai)
-                {
-                    /* The self exclusion are already set, save some time */
-                    continue;
-                }
-
-                ge = cell[aj];
-
-                /* Without shifts we only calculate interactions j>i
-                 * for one-way pair-lists.
-                 */
-                if (diagRemoved && ge <= ci*nbl->na_sc + i)
-                {
-                    continue;
-                }
-
-                se = (ge >> na_cj_2log);
-
-                /* Could the cluster se be in our list? */
-                if (se >= cj_first && se <= cj_last)
-                {
-                    if (se < cj_first + ndirect)
-                    {
-                        /* We can calculate cj_ind directly from se */
-                        found = cj_ind_first + se - cj_first;
-                    }
-                    else
-                    {
-                        /* Search for se using bisection */
-                        found    = -1;
-                        cj_ind_0 = cj_ind_first + ndirect;
-                        cj_ind_1 = cj_ind_last + 1;
-                        while (found == -1 && cj_ind_0 < cj_ind_1)
-                        {
-                            cj_ind_m = (cj_ind_0 + cj_ind_1)>>1;
-
-                            cj_m = nbl->cj[cj_ind_m].cj;
-
-                            if (se == cj_m)
-                            {
-                                found = cj_ind_m;
-                            }
-                            else if (se < cj_m)
-                            {
-                                cj_ind_1 = cj_ind_m;
-                            }
-                            else
-                            {
-                                cj_ind_0 = cj_ind_m + 1;
-                            }
-                        }
-                    }
-
-                    if (found >= 0)
-                    {
-                        inner_i = i  - (si << na_ci_2log);
-                        inner_e = ge - (se << na_cj_2log);
-
-                        nbl->cj[found].excl &= ~(1U<<((inner_i<<na_cj_2log) + inner_e));
-                    }
-                }
-            }
-        }
-    }
-}
 
 
 /* Reallocate the simple ci list for at least n entries */
@@ -1530,7 +1046,7 @@ static void nb_realloc_ci(nbnxn_pairlist_t *nbl, int n)
 /* Make a new ci entry at index nbl->nci */
 static void new_ci_entry(nbnxn_pairlist_t *nbl, int ci, int shift, int flags,
                          nbnxn_list_work_t *work)
-{ // called
+{ // called - done
     if (nbl->nci + 1 > nbl->ci_nalloc)
     {
         nb_realloc_ci(nbl, nbl->nci+1);
@@ -1549,39 +1065,22 @@ static void new_ci_entry(nbnxn_pairlist_t *nbl, int ci, int shift, int flags,
  */
 static void sort_cj_excl(nbnxn_cj_t *cj, int ncj,
                          nbnxn_list_work_t *work)
-{ // called
+{ // called - done
     int jnew, j;
 
-    if (ncj > work->cj_nalloc)
-    {
+    if (ncj > work->cj_nalloc) // boht
+    { 
         work->cj_nalloc = over_alloc_large(ncj);
         srenew(work->cj, work->cj_nalloc);
-    }
-
+    } 
     /* Make a list of the j-cells involving exclusions */
     jnew = 0;
     for (j = 0; j < ncj; j++)
     {
-        if (cj[j].excl != NBNXN_INT_MASK_ALL)
+        if (cj[j].excl != NBNXN_INT_MASK_ALL) // both
         {
             work->cj[jnew++] = cj[j];
-        }
-    }
-    /* Check if there are exclusions at all or not just the first entry */
-    if (!((jnew == 0) ||
-          (jnew == 1 && cj[0].excl != NBNXN_INT_MASK_ALL)))
-    {
-        for (j = 0; j < ncj; j++)
-        {
-            if (cj[j].excl == NBNXN_INT_MASK_ALL)
-            {
-                work->cj[jnew++] = cj[j];
-            }
-        }
-        for (j = 0; j < ncj; j++)
-        {
-            cj[j] = work->cj[j];
-        }
+        } 
     }
 }
 
@@ -1589,27 +1088,19 @@ static void sort_cj_excl(nbnxn_cj_t *cj, int ncj,
 static void close_ci_entry_simple(nbnxn_pairlist_t *nbl)
 { // called
     int jlen;
-
+ 
     /* All content of the new ci entry have already been filled correctly,
      * we only need to increase the count here (for non empty lists).
      */
     jlen = nbl->ci[nbl->nci].cj_ind_end - nbl->ci[nbl->nci].cj_ind_start;
-    if (jlen > 0)
-    {
+    if (jlen > 0) // boht
+    { 
         sort_cj_excl(nbl->cj+nbl->ci[nbl->nci].cj_ind_start, jlen, nbl->work);
 
         /* The counts below are used for non-bonded pair/flop counts
          * and should therefore match the available kernel setups.
          */
-        if (!(nbl->ci[nbl->nci].shift & NBNXN_CI_DO_COUL(0)))
-        {
-            nbl->work->ncj_noq += jlen;
-        }
-        else if ((nbl->ci[nbl->nci].shift & NBNXN_CI_HALF_LJ(0)) ||
-                 !(nbl->ci[nbl->nci].shift & NBNXN_CI_DO_LJ(0)))
-        {
-            nbl->work->ncj_hlj += jlen;
-        }
+        nbl->work->ncj_hlj += jlen;
 
         nbl->nci++;
     }
@@ -1672,7 +1163,7 @@ static gmx_bool next_ci(const nbnxn_grid_t *grid,
                         int nth, int ci_block,
                         int *ci_x, int *ci_y,
                         int *ci_b, int *ci)
-{ // called1
+{ // called - done
     (*ci_b)++;
     (*ci)++;
 
@@ -1727,55 +1218,23 @@ static float boundingbox_only_distance2(const nbnxn_grid_t *gridi,
 
     bbx = 0.5*(gridi->sx + gridj->sx);
     bby = 0.5*(gridi->sy + gridj->sy);
-    if (!simple)
-    {
-        bbx /= GPU_NSUBCELL_X;
-        bby /= GPU_NSUBCELL_Y;
-    }
 
     rbb2 = sqr(max(0, rlist - 0.5*sqrt(bbx*bbx + bby*bby)));
 
-#ifndef GMX_DOUBLE
     return rbb2;
-#else
-    return (float)((1+GMX_FLOAT_EPS)*rbb2);
-#endif
 }
 
 static int get_ci_block_size(const nbnxn_grid_t *gridi,
                              gmx_bool bDomDec, int nth)
 {// called
-    const int ci_block_enum      = 5;
-    const int ci_block_denom     = 11;
-    const int ci_block_min_atoms = 16;
     int ci_block;
 
-    /* Here we decide how to distribute the blocks over the threads.
-     * We use prime numbers to try to avoid that the grid size becomes
-     * a multiple of the number of threads, which would lead to some
-     * threads getting "inner" pairs and others getting boundary pairs,
-     * which in turns will lead to load imbalance between threads.
-     * Set the block size as 5/11/ntask times the average number of cells
-     * in a y,z slab. This should ensure a quite uniform distribution
-     * of the grid parts of the different thread along all three grid
-     * zone boundaries with 3D domain decomposition. At the same time
-     * the blocks will not become too small.
-     */
-    ci_block = (gridi->nc*ci_block_enum)/(ci_block_denom*gridi->ncx*nth);
-
-    /* Ensure the blocks are not too small: avoids cache invalidation */
-    if (ci_block*gridi->na_sc < ci_block_min_atoms)
-    {
-        ci_block = (ci_block_min_atoms + gridi->na_sc - 1)/gridi->na_sc;
-    }
 
     /* Without domain decomposition
      * or with less than 3 blocks per task, divide in nth blocks.
      */
-    if (!bDomDec || ci_block*3*nth > gridi->nc)
-    {
-        ci_block = (gridi->nc + nth - 1)/nth;
-    }
+    ci_block = (gridi->nc + nth - 1)/nth;
+
 
     return ci_block;
 }
@@ -1796,7 +1255,7 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
                                      int min_ci_balanced,
                                      int th, int nth,
                                      nbnxn_pairlist_t *nbl)
-{// called
+{// called - done
     int  na_cj_2log;
     matrix box;
     real rl2;
@@ -1825,34 +1284,18 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
 
     nbs_cycle_start(&work->cc[enbsCCsearch]);
 
-    if (! gridj->bSimple)
-    {
-        gmx_incons("Grid incompatible with pair-list");
-    }
 
     nbl->na_sc = gridj->na_sc;
     nbl->na_ci = gridj->na_c;
-    nbl->na_cj = nbnxn_kernel_to_cj_size(nb_kernel_type);
+    nbl->na_cj = NBNXN_CPU_CLUSTER_I_SIZE; 
     na_cj_2log = get_2log(nbl->na_cj);
 
     nbl->rlist  = rlist;
+    gridi_flag_shift = 1;
+    gridj_flag_shift = 1;
 
-    if (bFBufferFlag)
-    {
-        /* Determine conversion of clusters to flag blocks */
-        gridi_flag_shift = 0;
-        while ((nbl->na_ci<<gridi_flag_shift) < NBNXN_BUFFERFLAG_SIZE)
-        {
-            gridi_flag_shift++;
-        }
-        gridj_flag_shift = 0;
-        while ((nbl->na_cj<<gridj_flag_shift) < NBNXN_BUFFERFLAG_SIZE)
-        {
-            gridj_flag_shift++;
-        }
 
-        gridj_flag = work->buffer_flags.flag;
-    }
+    gridj_flag = work->buffer_flags.flag;
 
     copy_mat(nbs->box, box);
 
@@ -1867,50 +1310,17 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
         /* Check if we need periodicity shifts.
          * Without PBC or with domain decomposition we don't need them.
          */
-        if (d >= ePBC2npbcdim(nbs->ePBC) || nbs->dd_dim[d])
-        {
-            shp[d] = 0;
-        }
-        else
-        {
-            if (d == XX &&
-                box[XX][XX] - fabs(box[YY][XX]) - fabs(box[ZZ][XX]) < sqrt(rl2))
-            {
-                shp[d] = 2;
-            }
-            else
-            {
-                shp[d] = 1;
-            }
-        }
+         shp[d] = 1;
     }
 
-    if (!gridi->bSimple)
-    {
-        conv_i  = gridi->na_sc/gridj->na_sc;
-        bb_i    = gridi->bb_simple;
-        bbcz_i  = gridi->bbcz_simple;
-        flags_i = gridi->flags_simple;
-    }
-    else
-    {
-        conv_i  = 1;
-        bb_i    = gridi->bb;
-        bbcz_i  = gridi->bbcz;
-        flags_i = gridi->flags;
-    }
+    conv_i  = 1;
+    bb_i    = gridi->bb;
+    bbcz_i  = gridi->bbcz;
+    flags_i = gridi->flags;
     cell0_i = gridi->cell0*conv_i;
 
     bbcz_j = gridj->bbcz;
 
-    if (conv_i != 1)
-    {
-        /* Blocks of the conversion factor - 1 give a large repeat count
-         * combined with a small block size. This should result in good
-         * load balancing for both small and large domains.
-         */
-        ci_block = conv_i - 1;
-    }
 
     ndistc   = 0;
     ncpcheck = 0;
@@ -1924,27 +1334,9 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
     ci_y = 0;
     while (next_ci(gridi, conv_i, nth, ci_block, &ci_x, &ci_y, &ci_b, &ci))
     {
-        if (flags_i[ci] == 0)
-        {
-            continue;
-        }
-
         ncj_old_i = nbl->ncj;
 
         d2cx = 0;
-        if (gridj != gridi && shp[XX] == 0)
-        {
-                bx1 = bb_i[ci*NNBSBB_B+NNBSBB_C+XX];
-            if (bx1 < gridj->c0[XX])
-            {
-                d2cx = sqr(gridj->c0[XX] - bx1);
-
-                if (d2cx >= rl2)
-                {
-                    continue;
-                }
-            }
-        }
 
         ci_xy = ci_x*gridi->ncy + ci_y;
 
@@ -1956,7 +1348,7 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
             bz0 = bbcz_i[ci*NNBSBB_D  ] + shz;
             bz1 = bbcz_i[ci*NNBSBB_D+1] + shz;
 
-            if (tz == 0)
+            if (tz == 0) // all callables
             {
                 d2z = 0;
             }
@@ -1971,17 +1363,17 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
 
             d2z_cx = d2z + d2cx;
 
-            if (d2z_cx >= rl2)
+            if (d2z_cx >= rl2) // bothways
             {
                 continue;
             }
 
             bz1_frac =
                 bz1/((real)(gridi->cxy_ind[ci_xy+1] - gridi->cxy_ind[ci_xy]));
-            if (bz1_frac < 0)
+            if (bz1_frac < 0) // bothways
             {
                 bz1_frac = 0;
-            }
+            } 
             /* The check with bz1_frac close to or larger than 1 comes later */
 
             for (ty = -shp[YY]; ty <= shp[YY]; ty++)
@@ -1996,13 +1388,13 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
                                d2z_cx, rl2,
                                &cyf, &cyl);
 
-                if (cyf > cyl)
+                if (cyf > cyl) // bothways
                 {
                     continue;
                 }
 
                 d2z_cy = d2z;
-                if (by1 < gridj->c0[YY])
+                if (by1 < gridj->c0[YY]) // all options possible
                 {
                     d2z_cy += sqr(gridj->c0[YY] - by1);
                 }
@@ -2015,12 +1407,10 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
                 {
                     shift = XYZ2IS(tx, ty, tz);
 
-#ifdef NBNXN_SHIFT_BACKWARD
-                    if (gridi == gridj && shift > CENTRAL)
+                    if (gridi == gridj && shift > CENTRAL) // both options
                     {
                         continue;
                     }
-#endif
 
                     shx = tx*box[XX][XX] + ty*box[YY][XX] + tz*box[ZZ][XX];
 
@@ -2032,19 +1422,14 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
                                    d2z_cy, rl2,
                                    &cxf, &cxl);
 
-                    if (cxf > cxl)
+                    if (cxf > cxl) // both options
                     {
                         continue;
                     }
                     new_ci_entry(nbl, cell0_i+ci, shift, flags_i[ci],
                                      nbl->work);
 
-#ifndef NBNXN_SHIFT_BACKWARD
-                    if (cxf < ci_x)
-#else
-                    if (shift == CENTRAL && gridi == gridj &&
-                        cxf < ci_x)
-#endif
+                    if (shift == CENTRAL && gridi == gridj && cxf < ci_x) // both options
                     {
                         /* Leave the pairs with i > j.
                          * x is the major index, so skip half of it.
@@ -2062,7 +1447,7 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
                     for (cx = cxf; cx <= cxl; cx++)
                     {
                         d2zx = d2z;
-                        if (gridj->c0[XX] + cx*gridj->sx > bx1)
+                        if (gridj->c0[XX] + cx*gridj->sx > bx1) // all options possible
                         {
                             d2zx += sqr(gridj->c0[XX] + cx*gridj->sx - bx1);
                         }
@@ -2071,13 +1456,8 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
                             d2zx += sqr(gridj->c0[XX] + (cx+1)*gridj->sx - bx0);
                         }
 
-#ifndef NBNXN_SHIFT_BACKWARD
                         if (gridi == gridj &&
-                            cx == 0 && cyf < ci_y)
-#else
-                        if (gridi == gridj &&
-                            cx == 0 && shift == CENTRAL && cyf < ci_y)
-#endif
+                            cx == 0 && shift == CENTRAL && cyf < ci_y) // both possible
                         {
                             /* Leave the pairs with i > j.
                              * Skip half of y when i and j have the same x.
@@ -2093,16 +1473,14 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
                         {
                             c0 = gridj->cxy_ind[cx*gridj->ncy+cy];
                             c1 = gridj->cxy_ind[cx*gridj->ncy+cy+1];
-#ifdef NBNXN_SHIFT_BACKWARD
                             if (gridi == gridj &&
-                                shift == CENTRAL && c0 < ci)
+                                shift == CENTRAL && c0 < ci) // both
                             {
                                 c0 = ci;
                             }
-#endif
 
                             d2zxy = d2zx;
-                            if (gridj->c0[YY] + cy*gridj->sy > by1)
+                            if (gridj->c0[YY] + cy*gridj->sy > by1) // all possible
                             {
                                 d2zxy += sqr(gridj->c0[YY] + cy*gridj->sy - by1);
                             }
@@ -2110,13 +1488,9 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
                             {
                                 d2zxy += sqr(gridj->c0[YY] + (cy+1)*gridj->sy - by0);
                             }
-                            if (c1 > c0 && d2zxy < rl2)
+                            if (c1 > c0 && d2zxy < rl2) // both possible
                             {
                                 cs = c0 + (int)(bz1_frac*(c1 - c0));
-                                if (cs >= c1)
-                                {
-                                    cs = c1 - 1;
-                                }
 
                                 d2xy = d2zxy - d2z;
 
@@ -2141,50 +1515,17 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
                                 {
                                     cl++;
                                 }
-
-#ifdef NBNXN_REFCODE
-                                {
-                                    /* Simple reference code, for debugging,
-                                     * overrides the more complex code above.
-                                     */
-                                    int k;
-                                    cf = c1;
-                                    cl = -1;
-                                    for (k = c0; k < c1; k++)
-                                    {
-                                        if (box_dist2(bx0, bx1, by0, by1, bz0, bz1,
-                                                      bb+k*NNBSBB_B) < rl2 &&
-                                            k < cf)
-                                        {
-                                            cf = k;
-                                        }
-                                        if (box_dist2(bx0, bx1, by0, by1, bz0, bz1,
-                                                      bb+k*NNBSBB_B) < rl2 &&
-                                            k > cl)
-                                        {
-                                            cl = k;
-                                        }
-                                    }
-                                }
-#endif
-
-                                if (gridi == gridj)
-                                {
+                               
+                              
                                     /* We want each atom/cell pair only once,
                                      * only use cj >= ci.
                                      */
-#ifndef NBNXN_SHIFT_BACKWARD
-                                    cf = max(cf, ci);
-#else
-                                    if (shift == CENTRAL)
+                                    if (shift == CENTRAL) // boh possible
                                     {
                                         cf = max(cf, ci);
                                     }
-#endif
-                                }
+                                
 
-                                if (cf <= cl)
-                                {
                                     /* For f buffer flags with simple lists */
                                     ncj_old_j = nbl->ncj;
 
@@ -2198,7 +1539,7 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
                                                                      &ndistc);
                                     ncpcheck += cl - cf + 1;
 
-                                    if (bFBufferFlag && nbl->ncj > ncj_old_j)
+                                    if (bFBufferFlag && nbl->ncj > ncj_old_j) // both possilbe
                                     {
                                         int cbf, cbl, cb;
 
@@ -2209,19 +1550,9 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
                                             gridj_flag[cb] = 1U<<th;
                                         }
                                     }
-                                }
                             }
                         }
                     }
-
-                    /* Set the exclusions for this ci list */
-                    set_ci_top_excls(nbs,
-                                         nbl,
-                                         shift == CENTRAL && gridi == gridj,
-                                         gridj->na_c_2log,
-                                         na_cj_2log,
-                                         &(nbl->ci[nbl->nci]),
-                                         excl);
 
                     /* Close this ci list */
                     close_ci_entry_simple(nbl);
@@ -2229,10 +1560,7 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
             }
         }
 
-        if (bFBufferFlag && nbl->ncj > ncj_old_i)
-        {
-            work->buffer_flags.flag[(gridi->cell0+ci)>>gridi_flag_shift] = 1U<<th;
-        }
+        work->buffer_flags.flag[(gridi->cell0+ci)>>gridi_flag_shift] = 1U<<th;
     }
 
     work->ndistc = ndistc;
@@ -2268,10 +1596,9 @@ void nbnxn_make_pairlist(const nbnxn_search_t  nbs,
                          int                   iloc,
                          int                   nb_kernel_type,
                          t_nrnb               *nrnb)
-{ //called
+{ //called - done
     nbnxn_grid_t *gridi, *gridj;
     gmx_bool bGPUCPU;
-    int nzi, zi, zj0, zj1, zj;
     int nsubpair_max;
     int th;
     int nnbl;
@@ -2290,78 +1617,35 @@ void nbnxn_make_pairlist(const nbnxn_search_t  nbs,
 
     nbat->bUseBufferFlags = (nbat->nout > 1);
     /* We should re-init the flags before making the first list */
-    if (nbat->bUseBufferFlags && (LOCAL_I(iloc) || bGPUCPU))
-    {
-        init_buffer_flags(&nbat->buffer_flags, nbat->natoms);
-    }
+    init_buffer_flags(&nbat->buffer_flags, nbat->natoms);
     nbs->icell_set_x = icell_set_x_simple;
 
-    if (LOCAL_I(iloc))
-    {
-        /* Only zone (grid) 0 vs 0 */
-        nzi = 1;
-        zj0 = 0;
-        zj1 = 1;
-    }
-    else
-    {
-        nzi = nbs->zones->nizone;
-    }
-
-        nsubpair_max = 0;
+    nsubpair_max = 0;
 
     /* Clear all pair-lists */
+
     for (th = 0; th < nnbl; th++)
     {
         clear_pairlist(nbl[th]);
     }
 
-    for (zi = 0; zi < nzi; zi++)
-    {
-        gridi = &nbs->grid[zi];
+    gridi = &nbs->grid[0];
 
-        if (NONLOCAL_I(iloc))
-        {
-            zj0 = nbs->zones->izone[zi].j0;
-            zj1 = nbs->zones->izone[zi].j1;
-            if (zi == 0)
-            {
-                zj0++;
-            }
-        }
-        for (zj = zj0; zj < zj1; zj++)
-        {
-            gridj = &nbs->grid[zj];
+    gridj = &nbs->grid[0];
 
 
-            nbs_cycle_start(&nbs->cc[enbsCCsearch]);
+    nbs_cycle_start(&nbs->cc[enbsCCsearch]);
 
-            if (nbl[0]->bSimple && !gridi->bSimple)
-            {
-                /* Hybrid list, determine blocking later */
-                ci_block = 0;
-            }
-            else
-            {
-                ci_block = get_ci_block_size(gridi, nbs->DomDec, nnbl);
-            }
+    ci_block = get_ci_block_size(gridi, nbs->DomDec, nnbl);
 
 #pragma omp parallel for num_threads(nnbl) schedule(static)
-            for (th = 0; th < nnbl; th++)
+            for (th = 0; th < nnbl; th++) // 12 
             {
                 /* Re-init the thread-local work flag data before making
                  * the first list (not an elegant conditional).
                  */
-                if (nbat->bUseBufferFlags && ((zi == 0 && zj == 0) ||
-                                              (bGPUCPU && zi == 0 && zj == 1)))
-                {
-                    init_buffer_flags(&nbs->work[th].buffer_flags, nbat->natoms);
-                }
+                init_buffer_flags(&nbs->work[th].buffer_flags, nbat->natoms);
 
-                if (CombineNBLists && th > 0)
-                {
-                    clear_pairlist(nbl[th]);
-                }
 
                 /* Divide the i super cell equally over the nblists */
                 nbnxn_make_pairlist_part(nbs, gridi, gridj,
@@ -2385,39 +1669,19 @@ void nbnxn_make_pairlist(const nbnxn_search_t  nbs,
             {
                 inc_nrnb(nrnb, eNR_NBNXN_DIST2, nbs->work[th].ndistc);
 
-                if (nbl_list->bSimple)
-                {
-                    np_tot += nbl[th]->ncj;
-                    np_noq += nbl[th]->work->ncj_noq;
-                    np_hlj += nbl[th]->work->ncj_hlj;
-                }
-                else
-                {
-                    /* This count ignores potential subsequent pair pruning */
-                    np_tot += nbl[th]->nci_tot;
-                }
+                np_tot += nbl[th]->ncj;
+                np_noq += nbl[th]->work->ncj_noq;
+                np_hlj += nbl[th]->work->ncj_hlj;
             }
             nap                   = nbl[0]->na_ci*nbl[0]->na_cj;
             nbl_list->natpair_ljq = (np_tot - np_noq)*nap - np_hlj*nap/2;
             nbl_list->natpair_lj  = np_noq*nap;
             nbl_list->natpair_q   = np_hlj*nap/2;
 
-        }
-    }
+    reduce_buffer_flags(nbs, nnbl, &nbat->buffer_flags);
 
-    if (nbat->bUseBufferFlags)
-    {
-        reduce_buffer_flags(nbs, nnbl, &nbat->buffer_flags);
-    }
-
-    /*
-       print_supersub_nsp("nsubpair",nbl[0],iloc);
-     */
 
     /* Special performance logging stuff (env.var. GMX_NBNXN_CYCLE) */
-    if (LOCAL_I(iloc))
-    {
-        nbs->search_count++;
-    }
+    nbs->search_count++;
 
 }

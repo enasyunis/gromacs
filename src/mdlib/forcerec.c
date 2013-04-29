@@ -354,7 +354,7 @@ gmx_bool uses_simple_tables(int                 cutoff_scheme,
 
     assert(NULL != nbv && NULL != nbv->grp);
     int grp_index         = (group < 0) ? 0 : (nbv->ngrp - 1);
-    bUsesSimpleTables = nbnxn_kernel_pairlist_simple(nbv->grp[grp_index].kernel_type);
+    bUsesSimpleTables = TRUE; 
     return bUsesSimpleTables;
 }
 
@@ -484,8 +484,8 @@ static void init_nb_verlet(FILE                *fp,
 
 
     nbnxn_init_pairlist_set(&nbv->grp[0].nbl_lists,
-                                nbnxn_kernel_pairlist_simple(nbv->grp[0].kernel_type),
-                                !nbnxn_kernel_pairlist_simple(nbv->grp[0].kernel_type),
+                                TRUE,
+                                FALSE,
                                 NULL, NULL);
 
     snew(nbv->grp[0].nbat, 1);
