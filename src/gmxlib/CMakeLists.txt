@@ -49,13 +49,6 @@ if(NOT GMX_EXTERNAL_LAPACK)
 endif(NOT GMX_EXTERNAL_LAPACK)
 
 
-# Files called xxx_test.c are test drivers with a main() function for module xxx.c,
-# so they should not be included in the library
-file(GLOB_RECURSE NOT_GMXLIB_SOURCES *_test.c *\#*)
-list(REMOVE_ITEM GMXLIB_SOURCES ${NOT_GMXLIB_SOURCES})  
-# Selection has test_ instead of _test.
-
-
 # NONBONDED_SOURCES is imported from the nonbonded subdirectory.
 add_library(gmx ${GMXLIB_SOURCES} ${BLAS_SOURCES} ${LAPACK_SOURCES} ${THREAD_MPI_SRC} ${NONBONDED_SOURCES})
 target_link_libraries(gmx ${GMX_GPU_LIBRARIES} ${GMX_EXTRA_LIBRARIES} ${FFT_LIBRARIES} ${THREAD_LIB} ${OpenMP_SHARED_LINKER_FLAGS})
