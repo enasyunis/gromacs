@@ -48,8 +48,7 @@
 #define int64_t long long
 #endif
 
-#include "gmx_header_config.h"
-#if (defined GMX_NATIVE_WINDOWS || defined GMX_CYGWIN || defined GMX_INTERNAL_XDR)
+#if (defined GMX_INTERNAL_XDR)
 #include "gmx_system_xdr.h"
 #else
 #include <rpc/rpc.h>

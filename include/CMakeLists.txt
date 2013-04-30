@@ -33,11 +33,11 @@
 # the research papers on the package. Check out http://www.gromacs.org.
 #
 # includes: Nothing to build, just configuration and installation
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/gmx_header_config.h.cmakein ${CMAKE_CURRENT_BINARY_DIR}/gmx_header_config.h)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/gmx_header_config.h
-  DESTINATION ${INCL_INSTALL_DIR}/gromacs
-  COMPONENT development
-)
+#configure_file(${CMAKE_CURRENT_SOURCE_DIR}/gmx_header_config.h.cmakein ${CMAKE_CURRENT_BINARY_DIR}/gmx_header_config.h)
+#install(FILES ${CMAKE_CURRENT_BINARY_DIR}/gmx_header_config.h
+#  DESTINATION ${INCL_INSTALL_DIR}/gromacs
+#  COMPONENT development
+#)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.h.cmakein ${CMAKE_CURRENT_BINARY_DIR}/version.h)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/version.h

@@ -1,40 +1,3 @@
-/*
- * This file is part of the GROMACS molecular simulation package.
- *
- * This file is part of Gromacs        Copyright (c) 1991-2008
- * David van der Spoel, Erik Lindahl, Berk Hess, University of Groningen.
- * Copyright (c) 2012,2013, by the GROMACS development team, led by
- * David van der Spoel, Berk Hess, Erik Lindahl, and including many
- * others, as listed in the AUTHORS file in the top-level source
- * directory and at http://www.gromacs.org.
- *
- * GROMACS is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License
- * as published by the Free Software Foundation; either version 2.1
- * of the License, or (at your option) any later version.
- *
- * GROMACS is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with GROMACS; if not, see
- * http://www.gnu.org/licenses, or write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA.
- *
- * If you want to redistribute modifications to GROMACS, please
- * consider that scientific software is very special. Version
- * control is crucial - bugs must be traceable. We will be happy to
- * consider code for inclusion in the official distribution, but
- * derived work must not be called official GROMACS. Details are found
- * in the README & COPYING files - if they are missing, get the
- * official version at http://www.gromacs.org.
- *
- * To help us fund GROMACS development, we humbly ask that you cite
- * the research papers on the package. Check out http://www.gromacs.org.
- */
-
 /* The source code in this file should be thread-safe.
    Please keep it that way. */
 
@@ -48,13 +11,6 @@
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
-#endif
-
-
-#ifdef GMX_NATIVE_WINDOWS
-/* _chsize_s */
-#include <io.h>
-#include <sys/locking.h>
 #endif
 
 
@@ -157,23 +113,6 @@ const char *edfh_names[edfhNR] =
     "accumulated_plus", "accumulated_minus", "accumulated_plus_2",  "accumulated_minus_2", "Tij", "Tij_empirical"
 };
 
-#ifdef GMX_NATIVE_WINDOWS
-static int
-gmx_wintruncate(const char *filename, __int64 size)
-{
-    FILE *fp;
-    int   rc;
-
-    fp = fopen(filename, "rb+");
-
-    if (fp == NULL)
-    {
-        return -1;
-    }
-
-    return _chsize_s( fileno(fp), size);
-}
-#endif
 
 
 enum {
@@ -1743,10 +1682,8 @@ static void read_checkpoint(const char *fn, FILE **pfplog,
     t_fileio            *chksum_file;
     FILE               * fplog = *pfplog;
     unsigned char        digest[16];
-#ifndef GMX_NATIVE_WINDOWS
     struct flock         fl; /* don't initialize here: the struct order is OS
                                 dependent! */
-#endif
 
     const char *int_warn =
         "WARNING: The checkpoint file was generated with integrator %s,\n"
@@ -1756,13 +1693,11 @@ static void read_checkpoint(const char *fn, FILE **pfplog,
         "      while the simulation uses %d SD or BD nodes,\n"
         "      continuation will be exact, except for the random state\n\n";
 
-#ifndef GMX_NATIVE_WINDOWS
     fl.l_type   = F_WRLCK;
     fl.l_whence = SEEK_SET;
     fl.l_start  = 0;
     fl.l_len    = 0;
     fl.l_pid    = 0;
-#endif
 
     if (PARTDECOMP(cr))
     {
@@ -2049,12 +1984,8 @@ static void read_checkpoint(const char *fn, FILE **pfplog,
                  * will succeed, but a second process can also lock the file.
                  * We should probably try to detect this.
                  */
-#ifndef GMX_NATIVE_WINDOWS
                 if (fcntl(fileno(gmx_fio_getfp(chksum_file)), F_SETLK, &fl)
                     == -1)
-#else
-                if (_locking(fileno(gmx_fio_getfp(chksum_file)), _LK_NBLCK, LONG_MAX) == -1)
-#endif
                 {
                     if (errno == ENOSYS)
                     {
@@ -2132,11 +2063,7 @@ static void read_checkpoint(const char *fn, FILE **pfplog,
 
             if (i != 0) /*log file is already seeked to correct position */
             {
-#ifdef GMX_NATIVE_WINDOWS
-                rc = gmx_wintruncate(outputfiles[i].filename, outputfiles[i].offset);
-#else
                 rc = truncate(outputfiles[i].filename, outputfiles[i].offset);
-#endif
                 if (rc != 0)
                 {
                     gmx_fatal(FARGS, "Truncation of file %s failed. Cannot do appending because of this failure.", outputfiles[i].filename);

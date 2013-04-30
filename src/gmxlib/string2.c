@@ -207,10 +207,7 @@ gmx_ctime_r(const time_t *clock, char *buf, int n)
 {
     char tmpbuf[STRLEN];
 
-#ifdef GMX_NATIVE_WINDOWS
-    /* Windows */
-    ctime_s( tmpbuf, STRLEN, clock );
-#elif (defined(__sun))
+#if (defined(__sun))
     /*Solaris*/
     ctime_r(clock, tmpbuf, n);
 #else

@@ -548,25 +548,6 @@ cpuid_check_amd_x86(gmx_cpuid_t                cpuid)
         /* Reset affinity to the value it had when calling this routine */
         sched_setaffinity(0, sizeof(cpu_set_t), &save_cpuset);
 #define CPUID_HAVE_APIC
-#elif defined GMX_NATIVE_WINDOWS
-        /* Windows */
-        DWORD_PTR     i;
-        SYSTEM_INFO   sysinfo;
-        unsigned int  save_affinity, affinity;
-        GetSystemInfo( &sysinfo );
-        cpuid->nproc  = sysinfo.dwNumberOfProcessors;
-        apic_id       = malloc(sizeof(int)*cpuid->nproc);
-        /* Get previous affinity mask */
-        save_affinity = SetThreadAffinityMask(GetCurrentThread(), 1);
-        for (i = 0; i < cpuid->nproc; i++)
-        {
-            SetThreadAffinityMask(GetCurrentThread(), (((DWORD_PTR)1)<<i));
-            Sleep(0);
-            execute_x86cpuid(0x1, 0, &eax, &ebx, &ecx, &edx);
-            apic_id[i] = ebx >> 24;
-        }
-        SetThreadAffinityMask(GetCurrentThread(), save_affinity);
-#define CPUID_HAVE_APIC
 #endif
 #ifdef CPUID_HAVE_APIC
         /* AMD does not support SMT yet - there are no hwthread bits in apic ID */
@@ -660,25 +641,6 @@ cpuid_check_intel_x86(gmx_cpuid_t                cpuid)
         }
         /* Reset affinity to the value it had when calling this routine */
         sched_setaffinity(0, sizeof(cpu_set_t), &save_cpuset);
-#define CPUID_HAVE_APIC
-#elif defined GMX_NATIVE_WINDOWS
-        /* Windows */
-        DWORD_PTR     i;
-        SYSTEM_INFO   sysinfo;
-        unsigned int  save_affinity, affinity;
-        GetSystemInfo( &sysinfo );
-        cpuid->nproc  = sysinfo.dwNumberOfProcessors;
-        apic_id       = malloc(sizeof(int)*cpuid->nproc);
-        /* Get previous affinity mask */
-        save_affinity = SetThreadAffinityMask(GetCurrentThread(), 1);
-        for (i = 0; i < cpuid->nproc; i++)
-        {
-            SetThreadAffinityMask(GetCurrentThread(), (((DWORD_PTR)1)<<i));
-            Sleep(0);
-            execute_x86cpuid(0xB, 0, &eax, &ebx, &ecx, &edx);
-            apic_id[i] = edx;
-        }
-        SetThreadAffinityMask(GetCurrentThread(), save_affinity);
 #define CPUID_HAVE_APIC
 #endif
 #ifdef CPUID_HAVE_APIC

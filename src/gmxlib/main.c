@@ -78,9 +78,6 @@
 #include <unistd.h>
 #endif
 
-#ifdef GMX_NATIVE_WINDOWS
-#include <process.h>
-#endif
 
 
 /* Portable version of ctime_r implemented in src/gmxlib/string2.c, but we do not want it declared in public installed headers */
@@ -321,11 +318,7 @@ void gmx_log_open(const char *lognm, const t_commrec *cr, gmx_bool bMasterOnly,
     time(&t);
 
 #ifndef NO_GETPID
-#   ifdef GMX_NATIVE_WINDOWS
-    pid = _getpid();
-#   else
     pid = getpid();
-#   endif
 #else
     pid = 0;
 #endif

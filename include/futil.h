@@ -55,14 +55,8 @@ extern "C" {
  * When reading the PATH environment variable, Unix separates entries
  * with colon, while windows uses semicolon.
  */
-#include "gmx_header_config.h"
-#ifdef GMX_NATIVE_WINDOWS
-#define DIR_SEPARATOR '\\'
-#define PATH_SEPARATOR ";"
-#else
 #define DIR_SEPARATOR '/'
 #define PATH_SEPARATOR ":"
-#endif
 
 
 /* Now get the maximum path size. */
@@ -211,10 +205,6 @@ int gmx_file_copy(const char *oldname, const char *newname, gmx_bool copy_if_emp
    Only use this during checkpointing! */
 int gmx_fsync(FILE *fp);
 
-#ifdef GMX_NATIVE_WINDOWS
-#define chdir _chdir
-#define getcwd _getcwd
-#endif
 
 #ifdef __cplusplus
 }

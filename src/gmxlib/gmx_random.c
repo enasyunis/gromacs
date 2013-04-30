@@ -48,9 +48,6 @@
 #endif
 #include <time.h>
 #include <math.h>
-#ifdef GMX_NATIVE_WINDOWS
-#include <process.h>
-#endif
 
 #include "maths.h"
 #include "gmx_random_gausstable.h"
@@ -222,11 +219,7 @@ gmx_rng_make_seed(void)
     else
     {
         /* No random device available, use time-of-day and process id */
-#ifdef GMX_NATIVE_WINDOWS
-        my_pid = (long)_getpid();
-#else
         my_pid = (long)getpid();
-#endif
         data = (unsigned int)(((long)time(NULL)+my_pid) % (long)1000000);
     }
     return data;

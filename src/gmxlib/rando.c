@@ -40,20 +40,13 @@
 #endif
 
 #include <time.h>
-#ifdef GMX_NATIVE_WINDOWS
-#include <process.h>
-#endif
 #include "sysstuff.h"
 #include "typedefs.h"
 #include "random.h"
 
 int make_seed(void)
 {
-#ifdef GMX_NATIVE_WINDOWS
-    return (int)_getpid();
-#else
     return (int)getpid();
-#endif
 }
 
 real rando(int *ig)

@@ -55,26 +55,10 @@
 #include <time.h>
 #include <errno.h>
 #include "visibility.h"
-#include "gmx_header_config.h"
 
 /*#include "typedefs.h"*/
 #include "types/simple.h"
 
-/* Suppress Cygwin compiler warnings from using newlib version of
- * ctype.h */
-#ifdef GMX_CYGWIN
-#undef isdigit
-#undef isstring
-#undef isspace
-#undef isalnum
-#undef isalpha
-#undef ispunct
-#undef isxdigit
-#undef isupper
-#undef islower
-#undef toupper
-#undef tolower
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -176,9 +160,6 @@ char **split(char sep, char *str);
 
 gmx_large_int_t str_to_large_int_t(const char *str, char **endptr);
 
-#ifdef GMX_NATIVE_WINDOWS
-#define snprintf _snprintf
-#endif
 
 #ifdef __cplusplus
 }

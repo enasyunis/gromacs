@@ -720,8 +720,6 @@ void gmx_print_version_info(FILE *fp)
      * since that is currently in mdlib, can wait for master. */
 #ifdef GMX_FFT_FFTPACK
     fprintf(fp, "FFT library:        fftpack (built-in)\n");
-#elif defined(GMX_FFT_FFTW3) && defined(GMX_NATIVE_WINDOWS)
-    fprintf(fp, "FFT library:        %s\n", "fftw3");
 #elif defined(GMX_FFT_FFTW3) && defined(GMX_DOUBLE)
     fprintf(fp, "FFT library:        %s\n", fftw_version);
 #elif defined(GMX_FFT_FFTW3)
