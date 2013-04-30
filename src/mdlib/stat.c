@@ -20,7 +20,6 @@
 #include "smalloc.h"
 #include "futil.h"
 #include "network.h"
-#include "rbin.h"
 #include "tgroup.h"
 #include "xtcio.h"
 #include "gmxfio.h"
@@ -37,7 +36,6 @@
 
 typedef struct gmx_global_stat
 {
-    t_bin *rb;
     int   *itc0;
     int   *itc1;
 } t_gmx_global_stat;
@@ -48,7 +46,6 @@ gmx_global_stat_t global_stat_init(t_inputrec *ir)
 
     snew(gs, 1);
 
-    gs->rb = mk_bin();
     snew(gs->itc0, ir->opts.ngtc);
     snew(gs->itc1, ir->opts.ngtc);
 

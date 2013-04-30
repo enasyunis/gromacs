@@ -14,7 +14,6 @@
 #include "network.h"
 #include "smalloc.h"
 #include "update.h"
-#include "rbin.h"
 #include "mtop_util.h"
 #include "gmx_omp_nthreads.h"
 
