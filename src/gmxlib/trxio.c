@@ -943,7 +943,7 @@ int read_first_frame(const output_env_t oenv, t_trxstatus **status,
         case efTRR:
             break;
         case efCPT:
-            read_checkpoint_trxframe(fio, fr);
+            //read_checkpoint_trxframe(fio, fr);
             bFirst = FALSE;
             break;
         case efG96:
