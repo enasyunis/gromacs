@@ -1312,34 +1312,3 @@ void get_index(t_atoms *atoms, const char *fnm, int ngrps,
     rd_groups(grps, *gnames, grpnames, ngrps, isize, index, grpnr);
 }
 
-t_cluster_ndx *cluster_index(FILE *fplog, const char *ndx)
-{
-    t_cluster_ndx *c;
-    int            i;
-
-    snew(c, 1);
-    c->clust     = init_index(ndx, &c->grpname);
-    c->maxframe  = -1;
-    for (i = 0; (i < c->clust->nra); i++)
-    {
-        c->maxframe = max(c->maxframe, c->clust->a[i]);
-    }
-    fprintf(fplog ? fplog : stdout,
-            "There are %d clusters containing %d structures, highest framenr is %d\n",
-            c->clust->nr, c->clust->nra, c->maxframe);
-    if (debug)
-    {
-        pr_blocka(debug, 0, "clust", c->clust, TRUE);
-        for (i = 0; (i < c->clust->nra); i++)
-        {
-            if ((c->clust->a[i] < 0) || (c->clust->a[i] > c->maxframe))
-            {
-                gmx_fatal(FARGS, "Range check error for c->clust->a[%d] = %d\n"
-                          "should be within 0 and %d", i, c->clust->a[i], c->maxframe+1);
-            }
-        }
-    }
-    c->inv_clust = make_invblocka(c->clust, c->maxframe);
-
-    return c;
-}
