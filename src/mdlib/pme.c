@@ -2246,7 +2246,6 @@ int gmx_pme_do(gmx_pme_t pme,
 
         if (flags & GMX_PME_SPREAD_Q)
         {
-            wallcycle_start(wcycle, ewcPME_SPREADGATHER);
 
             /* Spread the charges on a grid */
             GMX_MPE_LOG(ev_spread_on_grid_start);
@@ -2262,7 +2261,6 @@ int gmx_pme_do(gmx_pme_t pme,
             inc_nrnb(nrnb, eNR_SPREADQBSP,
                      pme->pme_order*pme->pme_order*pme->pme_order*atc->n);
 
-            wallcycle_stop(wcycle, ewcPME_SPREADGATHER);
 
             /*
                dump_local_fftgrid(pme,fftgrid);
@@ -2283,13 +2281,11 @@ int gmx_pme_do(gmx_pme_t pme,
                 {
                     GMX_BARRIER(cr->mpi_comm_mygroup);
                     GMX_MPE_LOG(ev_gmxfft3d_start);
-                    wallcycle_start(wcycle, ewcPME_FFT);
                 }
                 gmx_parallel_3dfft_execute(pfft_setup, GMX_FFT_REAL_TO_COMPLEX,
                                            fftgrid, cfftgrid, thread, wcycle);
                 if (thread == 0)
                 {
-                    wallcycle_stop(wcycle, ewcPME_FFT);
                     GMX_MPE_LOG(ev_gmxfft3d_finish);
                 }
                 where();
@@ -2299,7 +2295,6 @@ int gmx_pme_do(gmx_pme_t pme,
                 {
                     GMX_BARRIER(cr->mpi_comm_mygroup);
                     GMX_MPE_LOG(ev_solve_pme_start);
-                    wallcycle_start(wcycle, ewcPME_SOLVE);
                 }
                 loop_count =
                     solve_pme_yzx(pme, cfftgrid, ewaldcoeff,
@@ -2308,7 +2303,6 @@ int gmx_pme_do(gmx_pme_t pme,
                                   pme->nthread, thread);
                 if (thread == 0)
                 {
-                    wallcycle_stop(wcycle, ewcPME_SOLVE);
                     where();
                     GMX_MPE_LOG(ev_solve_pme_finish);
                     inc_nrnb(nrnb, eNR_SOLVEPME, loop_count);
@@ -2323,13 +2317,11 @@ int gmx_pme_do(gmx_pme_t pme,
                     GMX_BARRIER(cr->mpi_comm_mygroup);
                     GMX_MPE_LOG(ev_gmxfft3d_start);
                     where();
-                    wallcycle_start(wcycle, ewcPME_FFT);
                 }
                 gmx_parallel_3dfft_execute(pfft_setup, GMX_FFT_COMPLEX_TO_REAL,
                                            cfftgrid, fftgrid, thread, wcycle);
                 if (thread == 0)
                 {
-                    wallcycle_stop(wcycle, ewcPME_FFT);
 
                     where();
                     GMX_MPE_LOG(ev_gmxfft3d_finish);
@@ -2341,7 +2333,6 @@ int gmx_pme_do(gmx_pme_t pme,
                         inc_nrnb(nrnb, eNR_FFT, 2*npme);
                     }
 
-                    wallcycle_start(wcycle, ewcPME_SPREADGATHER);
                 }
 
                 copy_fftgrid_to_pmegrid(pme, fftgrid, grid, pme->nthread, thread);
@@ -2383,7 +2374,6 @@ int gmx_pme_do(gmx_pme_t pme,
 
             inc_nrnb(nrnb, eNR_GATHERFBSP,
                      pme->pme_order*pme->pme_order*pme->pme_order*pme->atc[0].n);
-            wallcycle_stop(wcycle, ewcPME_SPREADGATHER);
         }
 
         if (bCalcEnerVir)

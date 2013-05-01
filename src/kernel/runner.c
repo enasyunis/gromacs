@@ -454,7 +454,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
 
     runtime.proc = runtime.real;
 
-    wallcycle_stop(wcycle, ewcRUN);
 
     /* Does what it says */
     print_date_and_time(fplog, cr->nodeid, "Finished mdrun", &runtime);

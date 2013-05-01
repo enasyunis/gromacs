@@ -200,23 +200,6 @@ static void sum_forces(int start, int end, rvec f[], rvec flr[])
 }
 
 
-static void post_process_forces(FILE *fplog,
-                                t_commrec *cr,
-                                gmx_large_int_t step,
-                                t_nrnb *nrnb, gmx_wallcycle_t wcycle,
-                                gmx_localtop_t *top,
-                                matrix box, rvec x[],
-                                rvec f[],
-                                t_mdatoms *mdatoms,
-                                t_graph *graph,
-                                t_forcerec *fr, gmx_vsite_t *vsite,
-                                int flags)
-{ // being called
-   /* Now add the forces, this is local */
-   sum_forces(mdatoms->start, mdatoms->start+mdatoms->homenr,
-                         f, fr->f_novirsum);
-
-}
 
 static void do_nb_verlet(t_forcerec *fr,
                          interaction_const_t *ic,
@@ -251,146 +234,6 @@ static void do_nb_verlet(t_forcerec *fr,
              nbvg->nbl_lists.natpair_q);
 }
 
-void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
-                         t_inputrec *inputrec,
-                         gmx_large_int_t step, t_nrnb *nrnb, gmx_wallcycle_t wcycle,
-                         gmx_localtop_t *top,
-                         gmx_mtop_t *mtop,
-                         gmx_groups_t *groups,
-                         matrix box, rvec x[], history_t *hist,
-                         rvec f[],
-                         tensor vir_force,
-                         t_mdatoms *mdatoms,
-                         gmx_enerdata_t *enerd, t_fcdata *fcd,
-                         real *lambda, t_graph *graph,
-                         t_forcerec *fr, interaction_const_t *ic,
-                         gmx_vsite_t *vsite, rvec mu_tot,
-                         double t, FILE *field, gmx_edsam_t ed,
-                         gmx_bool bBornRadii,
-                         int flags)
-{
-    int                 start, homenr;
-    int                 nb_kernel_type;
-    double              mu[2*DIM];
-    gmx_bool            bSepDVDL, bBS;
-    gmx_bool            bDiffKernels = FALSE;
-    matrix              boxs;
-    rvec                vzero, box_diag;
-    real                e, v, dvdl;
-    float               cycles_pme, cycles_force;
-    nonbonded_verlet_t *nbv;
-
-    cycles_force   = 0;
-    nbv            = fr->nbv;
-    nb_kernel_type = fr->nbv->grp[0].kernel_type;
-
-    start  = mdatoms->start;
-    homenr = mdatoms->homenr;
-
-    bSepDVDL = (fr->bSepDVDL && do_per_step(step, inputrec->nstlog));
-
-
-
-    put_atoms_in_box_omp(fr->ePBC, box, homenr, x);
-    inc_nrnb(nrnb, eNR_SHIFTX, homenr);
-
-    nbnxn_atomdata_copy_shiftvec(flags & GMX_FORCE_DYNAMICBOX,
-                                 fr->shift_vec, nbv->grp[0].nbat);
-
-
-        clear_rvec(vzero);
-        box_diag[XX] = box[XX][XX];
-        box_diag[YY] = box[YY][YY];
-        box_diag[ZZ] = box[ZZ][ZZ];
-
-            nbnxn_put_on_grid(nbv->nbs, fr->ePBC, box,
-                              0, vzero, box_diag,
-                              0, mdatoms->homenr, -1, fr->cginfo, x,
-                              0, NULL,
-                              nbv->grp[eintLocal].kernel_type,
-                              nbv->grp[eintLocal].nbat);
-
-       nbnxn_atomdata_set(nbv->grp[eintLocal].nbat, eatAll,
-                               nbv->nbs, mdatoms, fr->cginfo);
-
-
-    /* do local pair search */
-        nbnxn_make_pairlist(nbv->nbs, nbv->grp[eintLocal].nbat,
-                            &top->excls,
-                            ic->rlist,
-                            nbv->min_ci_balanced,
-                            &nbv->grp[eintLocal].nbl_lists,
-                            eintLocal,
-                            nbv->grp[eintLocal].kernel_type,
-                            nrnb);
-
-
-        copy_rvec(fr->mu_tot[0], mu_tot);
-
-    /* Reset energies */
-    reset_enerdata(&(inputrec->opts), fr, 1, enerd, MASTER(cr));
-    clear_rvecs(SHIFTS, fr->fshift);
-
-
-    /* Start the force cycle counter.
-     * This counter is stopped in do_forcelow_level.
-     * No parallel communication should occur while this counter is running,
-     * since that will interfere with the dynamic load balancing.
-     */
-        /* Reset forces for which the virial is calculated separately:
-         * PME/Ewald forces if necessary */
-         fr->f_novirsum = fr->f_novirsum_alloc;
-         GMX_BARRIER(cr->mpi_comm_mygroup);
-         clear_rvecs(homenr, fr->f_novirsum+start);
-         GMX_BARRIER(cr->mpi_comm_mygroup);
-
-        /* Clear the short- and long-range forces */
-        clear_rvecs(fr->natoms_force_constr, f);
-
-        clear_rvec(fr->vir_diag_posres);
-
-        GMX_BARRIER(cr->mpi_comm_mygroup);
-
-
-
-    /* Compute the bonded and non-bonded energies and optionally forces */
-    do_force_lowlevel(fplog, step, fr, inputrec, &(top->idef),
-                      cr, nrnb, wcycle, mdatoms, &(inputrec->opts),
-                      x, hist, f, f, enerd, fcd, mtop, top, 
-                      &(top->atomtypes), bBornRadii, box,
-                      inputrec->fepvals, lambda, graph, &(top->excls), fr->mu_tot,
-                      flags, &cycles_pme);
-
-
-    /* Maybe we should move this into do_force_lowlevel */
-    do_nb_verlet(fr, ic, enerd, flags, eintLocal, enbvClearFYes,
-                     nrnb, wcycle);
-
-
-
-        /* Add all the non-bonded force to the normal force array.
-         * This can be split into a local a non-local part when overlapping
-         * communication with calculation with domain decomposition.
-         */
-        nbnxn_atomdata_add_nbat_f_to_f(nbv->nbs, eatAll, nbv->grp[eintLocal].nbat, f);
-
-        /* if there are multiple fshift output buffers reduce them */
-        nbnxn_atomdata_add_nbat_fshift_to_fshift(nbv->grp[eintLocal].nbat,
-                                                     fr->fshift);
-
-    GMX_BARRIER(cr->mpi_comm_mygroup);
-
-
-
-    post_process_forces(fplog, cr, step, nrnb, wcycle,
-                            top, box, x, f, mdatoms, graph, fr, vsite,
-                            flags);
-
-    /* Sum the potential energy terms from group contributions */
-    sum_epot(&(inputrec->opts), &(enerd->grpp), enerd->term);
-}
-
-
 void do_force(FILE *fplog, t_commrec *cr,
               t_inputrec *inputrec,
               gmx_large_int_t step, t_nrnb *nrnb, gmx_wallcycle_t wcycle,
@@ -409,20 +252,118 @@ void do_force(FILE *fplog, t_commrec *cr,
               gmx_bool bBornRadii,
               int flags)
 {
-    do_force_cutsVERLET(fplog, cr, inputrec,
-                                step, nrnb, wcycle,
-                                top, mtop,
-                                groups,
-                                box, x, hist,
-                                f, vir_force,
-                                mdatoms,
-                                enerd, fcd,
-                                lambda, graph,
-                                fr, fr->ic,
-                                vsite, mu_tot,
-                                t, field, ed,
-                                bBornRadii,
-                                flags);
+    int                 start, homenr;
+    int                 nb_kernel_type;
+    double              mu[2*DIM];
+    rvec                vzero, box_diag;
+    real                e, v;
+    float               cycles_pme;
+    nonbonded_verlet_t *nbv;
+
+    nbv            = fr->nbv;
+    nb_kernel_type = fr->nbv->grp[0].kernel_type;
+
+    start  = mdatoms->start;
+    homenr = mdatoms->homenr;
+
+
+    put_atoms_in_box_omp(fr->ePBC, box, homenr, x);
+
+
+    inc_nrnb(nrnb, eNR_SHIFTX, homenr);
+
+    nbnxn_atomdata_copy_shiftvec(flags & GMX_FORCE_DYNAMICBOX,
+                                 fr->shift_vec, nbv->grp[0].nbat);
+
+
+    clear_rvec(vzero);
+    box_diag[XX] = box[XX][XX];
+    box_diag[YY] = box[YY][YY];
+    box_diag[ZZ] = box[ZZ][ZZ];
+
+    nbnxn_put_on_grid(nbv->nbs, fr->ePBC, box,
+                     0, vzero, box_diag,
+                     0, mdatoms->homenr, -1, fr->cginfo, x,
+                     0, NULL,
+                     nbv->grp[eintLocal].kernel_type,
+                     nbv->grp[eintLocal].nbat);
+
+    nbnxn_atomdata_set(nbv->grp[eintLocal].nbat, eatAll,
+                               nbv->nbs, mdatoms, fr->cginfo);
+
+
+    /* do local pair search */
+    nbnxn_make_pairlist(nbv->nbs, nbv->grp[eintLocal].nbat,
+                       &top->excls,
+                       fr->ic->rlist,
+                       nbv->min_ci_balanced,
+                       &nbv->grp[eintLocal].nbl_lists,
+                       eintLocal,
+                       nbv->grp[eintLocal].kernel_type,
+                       nrnb);
+
+
+     copy_rvec(fr->mu_tot[0], mu_tot);
+
+    /* Reset energies */
+    reset_enerdata(&(inputrec->opts), fr, 1, enerd, MASTER(cr));
+    clear_rvecs(SHIFTS, fr->fshift);
+
+
+    /* Start the force cycle counter.
+     * This counter is stopped in do_forcelow_level.
+     * No parallel communication should occur while this counter is running,
+     * since that will interfere with the dynamic load balancing.
+     */
+    /* Reset forces for which the virial is calculated separately:
+     * PME/Ewald forces if necessary */
+    fr->f_novirsum = fr->f_novirsum_alloc;
+    GMX_BARRIER(cr->mpi_comm_mygroup);
+    clear_rvecs(homenr, fr->f_novirsum+start);
+    GMX_BARRIER(cr->mpi_comm_mygroup);
+
+    /* Clear the short- and long-range forces */
+    clear_rvecs(fr->natoms_force_constr, f);
+
+   // clear_rvec(fr->vir_diag_posres);
+
+    GMX_BARRIER(cr->mpi_comm_mygroup);
+
+
+
+    /* Compute the bonded and non-bonded energies and optionally forces */
+    do_force_lowlevel(fplog, step, fr, inputrec, &(top->idef),
+                      cr, nrnb, wcycle, mdatoms, &(inputrec->opts),
+                      x, hist, f, f, enerd, fcd, mtop, top,
+                      &(top->atomtypes), bBornRadii, box,
+                      inputrec->fepvals, lambda, graph, &(top->excls), fr->mu_tot,
+                      flags, &cycles_pme);
+
+
+    /* Maybe we should move this into do_force_lowlevel */
+    do_nb_verlet(fr, fr->ic, enerd, flags, eintLocal, enbvClearFYes,
+                     nrnb, wcycle);
+
+
+
+   /* Add all the non-bonded force to the normal force array.
+    * This can be split into a local a non-local part when overlapping
+    * communication with calculation with domain decomposition.
+    */
+    nbnxn_atomdata_add_nbat_f_to_f(nbv->nbs, eatAll, nbv->grp[eintLocal].nbat, f);
+
+    /* if there are multiple fshift output buffers reduce them */
+    nbnxn_atomdata_add_nbat_fshift_to_fshift(nbv->grp[eintLocal].nbat,
+                                                     fr->fshift);
+
+    GMX_BARRIER(cr->mpi_comm_mygroup);
+
+
+    sum_forces(mdatoms->start, mdatoms->start+mdatoms->homenr,
+                         f, fr->f_novirsum);
+
+    /* Sum the potential energy terms from group contributions */
+    sum_epot(&(inputrec->opts), &(enerd->grpp), enerd->term);
 }
 
 

@@ -128,7 +128,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
     debug_gmx();
         GMX_MPE_LOG(ev_calc_bonds_start);
 
-        wallcycle_sub_start(wcycle, ewcsBONDED);
         calc_bonds(fplog, cr->ms,
                    idef, x, hist, f, fr, &pbc, graph, enerd, nrnb, lambda, md, fcd,
                    DOMAINDECOMP(cr) ? cr->dd->gatindex : NULL, atype, NULL,
@@ -137,7 +136,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
 
         debug_gmx();
         GMX_MPE_LOG(ev_calc_bonds_finish);
-        wallcycle_sub_stop(wcycle, ewcsBONDED);
 
     where();
 
@@ -208,7 +206,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                     pme_flags = GMX_PME_SPREAD_Q | GMX_PME_SOLVE;
                     pme_flags |= GMX_PME_CALC_F;
                     pme_flags |= GMX_PME_CALC_ENER_VIR;
-                    wallcycle_start(wcycle, ewcPMEMESH);
                     status = gmx_pme_do(fr->pmedata,
                                             md->start, md->homenr - fr->n_tpi,
                                             x, fr->f_novirsum,
@@ -220,7 +217,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                                             fr->vir_el_recip, fr->ewaldcoeff,
                                             &Vlr, lambda[efptCOUL], &dvdl,
                                             pme_flags);
-                    *cycles_pme = wallcycle_stop(wcycle, ewcPMEMESH);
                     PRINT_SEPDVDL("PME mesh", Vlr, dvdl);
                         /* ENAS ADDED START */
                         if (fmmsteptaken == 0) {
