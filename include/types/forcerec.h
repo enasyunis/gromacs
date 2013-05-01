@@ -177,7 +177,6 @@ typedef struct ewald_tab *ewald_tab_t;
 typedef struct {
     rvec             *f;
     int               f_nalloc;
-    unsigned          red_mask; /* Mask for marking which parts of f are filled */
     rvec             *fshift;
     real              ener[F_NRE];
     gmx_grppairener_t grpp;

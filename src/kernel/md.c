@@ -220,9 +220,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     atoms2md(top_global, ir, 0, NULL, a0, a1-a0, mdatoms);
 
 
-    init_bonded_thread_force_reduction(fr, &top->idef);
-
-
 
     update_mdatoms(mdatoms, state->lambda[efptMASS]);
 

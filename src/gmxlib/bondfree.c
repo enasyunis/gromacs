@@ -47,143 +47,14 @@ const int cmap_coeff_matrix[] = {
 };
 
 
-
-static unsigned
-calc_bonded_reduction_mask(const t_idef *idef,
-                           int shift,
-                           int t, int nt)
-{// called 
-    unsigned mask;
-    int      ftype, nb, nat1, nb0, nb1, i, a;
-
-    mask = 0;
-
-    for (ftype = 0; ftype < F_NRE; ftype++)
-    {
-        if (interaction_function[ftype].flags & IF_BOND &&
-            !(ftype == F_CONNBONDS || ftype == F_POSRES) &&
-            (ftype<F_GB12 || ftype>F_GB14))
-        {
-            nb = idef->il[ftype].nr;
-            if (nb > 0)
-            {
-                nat1 = interaction_function[ftype].nratoms + 1;
-
-                /* Divide this interaction equally over the threads.
-                 * This is not stored: should match division in calc_bonds.
-                 */
-                nb0 = (((nb/nat1)* t   )/nt)*nat1;
-                nb1 = (((nb/nat1)*(t+1))/nt)*nat1;
-
-                for (i = nb0; i < nb1; i += nat1)
-                {
-                    for (a = 1; a < nat1; a++)
-                    {
-                        mask |= (1U << (idef->il[ftype].iatoms[i+a]>>shift));
-                    }
-                }
-            }
-        }
-    }
-
-    return mask;
-}
-
-void init_bonded_thread_force_reduction(t_forcerec   *fr,
-                                        const t_idef *idef)
-{ //called
-#define MAX_BLOCK_BITS 32
-    int t;
-    int ctot, c, b;
-
-    if (fr->nthreads <= 1)
-    {
-        fr->red_nblock = 0;
-
-        return;
-    }
-
-    /* We divide the force array in a maximum of 32 blocks.
-     * Minimum force block reduction size is 2^6=64.
-     */
-    fr->red_ashift = 6;
-    while (fr->natoms_force > (int)(MAX_BLOCK_BITS*(1U<<fr->red_ashift)))
-    {
-        fr->red_ashift++;
-    }
-    if (debug)
-    {
-        fprintf(debug, "bonded force buffer block atom shift %d bits\n",
-                fr->red_ashift);
-    }
-
-    /* Determine to which blocks each thread's bonded force calculation
-     * contributes. Store this is a mask for each thread.
-     */
-#pragma omp parallel for num_threads(fr->nthreads) schedule(static)
-    for (t = 1; t < fr->nthreads; t++)
-    {
-        fr->f_t[t].red_mask =
-            calc_bonded_reduction_mask(idef, fr->red_ashift, t, fr->nthreads);
-    }
-
-    /* Determine the maximum number of blocks we need to reduce over */
-    fr->red_nblock = 0;
-    ctot           = 0;
-    for (t = 0; t < fr->nthreads; t++)
-    {
-        c = 0;
-        for (b = 0; b < MAX_BLOCK_BITS; b++)
-        {
-            if (fr->f_t[t].red_mask & (1U<<b))
-            {
-                fr->red_nblock = max(fr->red_nblock, b+1);
-                c++;
-            }
-        }
-        if (debug)
-        {
-            fprintf(debug, "thread %d flags %x count %d\n",
-                    t, fr->f_t[t].red_mask, c);
-        }
-        ctot += c;
-    }
-    if (debug)
-    {
-        fprintf(debug, "Number of blocks to reduce: %d of size %d\n",
-                fr->red_nblock, 1<<fr->red_ashift);
-        fprintf(debug, "Reduction density %.2f density/#thread %.2f\n",
-                ctot*(1<<fr->red_ashift)/(double)fr->natoms_force,
-                ctot*(1<<fr->red_ashift)/(double)(fr->natoms_force*fr->nthreads));
-    }
-}
-
 static void zero_thread_forces(f_thread_t *f_t, int n,
                                int nblock, int blocksize)
 { // called 
     int b, a0, a1, a, i, j;
 
-    if (n > f_t->f_nalloc)
-    {
-        f_t->f_nalloc = over_alloc_large(n);
-        srenew(f_t->f, f_t->f_nalloc);
-    }
+    f_t->f_nalloc = over_alloc_large(n);
+    srenew(f_t->f, f_t->f_nalloc);
 
-    if (f_t->red_mask != 0)
-    {
-        for (b = 0; b < nblock; b++)
-        {
-            if (f_t->red_mask && (1U<<b))
-            {
-                a0 = b*blocksize;
-                a1 = min((b+1)*blocksize, n);
-                for (a = a0; a < a1; a++)
-                {
-                    clear_rvec(f_t->f[a]);
-                }
-            }
-        }
-    }
     for (i = 0; i < SHIFTS; i++)
     {
         clear_rvec(f_t->fshift[i]);
@@ -215,8 +86,6 @@ static void reduce_thread_forces(int n, rvec *f, rvec *fshift,
 { //called 
 
     /* When necessary, reduce energy and virial using one thread only */
-    if (bCalcEnerVir)
-    {
         int t, i, j;
 
         for (i = 0; i < SHIFTS; i++)
@@ -239,23 +108,10 @@ static void reduce_thread_forces(int n, rvec *f, rvec *fshift,
             {
                 for (t = 1; t < nthreads; t++)
                 {
-
                     grpp->ener[i][j] += f_t[t].grpp.ener[i][j];
                 }
             }
         }
-        if (bDHDL)
-        {
-            for (i = 0; i < efptNR; i++)
-            {
-
-                for (t = 1; t < nthreads; t++)
-                {
-                    dvdl[i] += f_t[t].dvdl[i];
-                }
-            }
-        }
-    }
 }
 
 
@@ -286,43 +142,11 @@ void calc_bonds(FILE *fplog, const gmx_multisim_t *ms,
     {
         dvdl[i] = 0.0;
     }
-    if (fr->bMolPBC)
-    {
-        pbc_null = pbc;
-    }
-    else
-    {
-        pbc_null = NULL;
-    }
-    if (bPrintSepPot)
-    {
-        fprintf(fplog, "Step %s: bonded V and dVdl for this node\n",
+    pbc_null = NULL;
+    fprintf(fplog, "Step %s: bonded V and dVdl for this node\n",
                 gmx_step_str(step, buf));
-    }
 
-#ifdef DEBUG
-    if (g && debug)
-    {
-        p_graph(debug, "Bondage is fun", g);
-    }
-#endif
 
-    /* Do pre force calculation stuff which might require communication */
-    if (idef->il[F_ORIRES].nr)
-    {
-        enerd->term[F_ORIRESDEV] =
-            calc_orires_dev(ms, idef->il[F_ORIRES].nr,
-                            idef->il[F_ORIRES].iatoms,
-                            idef->iparams, md, (const rvec*)x,
-                            pbc_null, fcd, hist);
-    }
-    if (idef->il[F_DISRES].nr)
-    {
-        calc_disres_R_6(ms, idef->il[F_DISRES].nr,
-                        idef->il[F_DISRES].iatoms,
-                        idef->iparams, (const rvec*)x, pbc_null,
-                        fcd, hist);
-    }
 
 #pragma omp parallel for num_threads(fr->nthreads) schedule(static)
     for (thread = 0; thread < fr->nthreads; thread++)
@@ -346,7 +170,7 @@ void calc_bonds(FILE *fplog, const gmx_multisim_t *ms,
         else
         {
             zero_thread_forces(&fr->f_t[thread], fr->natoms_force,
-                               fr->red_nblock, 1<<fr->red_ashift);
+                               fr->red_nblock, 1<<7);
 
             ft     = fr->f_t[thread].f;
             fshift = fr->f_t[thread].fshift;
@@ -355,29 +179,15 @@ void calc_bonds(FILE *fplog, const gmx_multisim_t *ms,
             dvdlt  = fr->f_t[thread].dvdl;
         }
     }
-    if (fr->nthreads > 1)
-    {
-        reduce_thread_forces(fr->natoms_force, f, fr->fshift,
+    reduce_thread_forces(fr->natoms_force, f, fr->fshift,
                              enerd->term, &enerd->grpp, dvdl,
                              fr->nthreads, fr->f_t,
-                             fr->red_nblock, 1<<fr->red_ashift,
+                             fr->red_nblock, 1<<7,
                              bCalcEnerVir,
                              force_flags & GMX_FORCE_DHDL);
-    }
-    if (force_flags & GMX_FORCE_DHDL)
-    {
-        for (i = 0; i < efptNR; i++)
-        {
-            enerd->dvdl_nonlin[i] += dvdl[i];
-        }
-    }
 
     /* Copy the sum of violations for the distance restraints from fcd */
-    if (fcd)
-    {
-        enerd->term[F_DISRESVIOL] = fcd->disres.sumviol;
-
-    }
+    enerd->term[F_DISRESVIOL] = fcd->disres.sumviol;
 }
 
 real unimplemented(int nbonds,
