@@ -131,65 +131,6 @@ void print_time(FILE *out, gmx_runtime_t *runtime, gmx_large_int_t step,
 #ifdef NO_CLOCK
 #define clock() -1
 #endif
-
-static double set_proctime(gmx_runtime_t *runtime)
-{ // called
-    double diff;
-    clock_t prev;
-
-    prev          = runtime->proc;
-    runtime->proc = clock();
-
-    diff = (double)(runtime->proc - prev)/(double)CLOCKS_PER_SEC;
-
-    return diff;
-}
-
-void runtime_start(gmx_runtime_t *runtime)
-{
-    runtime->real          = gmx_gettime();
-    runtime->proc          = 0;
-    set_proctime(runtime);
-    runtime->realtime      = 0;
-    runtime->proctime      = 0;
-    runtime->last          = 0;
-    runtime->time_per_step = 0;
-}
-
-void runtime_end(gmx_runtime_t *runtime)
-{
-    double now;
-
-    now = gmx_gettime();
-
-    runtime->proctime += set_proctime(runtime);
-    runtime->realtime  = now - runtime->real;
-    runtime->real      = now;
-}
-
-void runtime_upd_proc(gmx_runtime_t *runtime)
-{
-    runtime->proctime += set_proctime(runtime);
-}
-
-void print_date_and_time(FILE *fplog, int nodeid, const char *title,
-                         const gmx_runtime_t *runtime)
-{ // called
-    int    i;
-    char   timebuf[STRLEN];
-    char   time_string[STRLEN];
-    time_t tmptime;
-        tmptime = (time_t) runtime->real;
-        gmx_ctime_r(&tmptime, timebuf, STRLEN);
-        for (i = 0; timebuf[i] >= ' '; i++)
-        {
-            time_string[i] = timebuf[i];
-        }
-        time_string[i] = '\0';
-
-        fprintf(fplog, "%s on node %d %s\n", title, nodeid, time_string);
-}
-
 static void sum_forces(int start, int end, rvec f[], rvec flr[])
 { // called
     int i;
@@ -367,26 +308,6 @@ void do_force(FILE *fplog, t_commrec *cr,
 }
 
 
-
-extern void initialize_lambdas(FILE *fplog, t_inputrec *ir, int *fep_state, real *lambda, double *lam0)
-{
-    /* this function works, but could probably use a logic rewrite to keep all the different
-       types of efep straight. */
-
-    int       i;
-    t_lambda *fep = ir->fepvals;
-
-    for (i = 0; i < efptNR; i++)
-    {
-        lambda[i] = 0.0;
-        if (lam0)
-        {
-            lam0[i] = 0.0;
-        }
-    }
-}
-
-
 void init_md(FILE *fplog,
              t_commrec *cr, t_inputrec *ir, const output_env_t oenv,
              double *t, double *t0,
@@ -406,14 +327,9 @@ void init_md(FILE *fplog,
 
     *bSimAnn = FALSE; // KEEP
 
-    /* Initialize lambda variables */
-    initialize_lambdas(fplog, ir, fep_state, lambda, lam0);
-
     *upd = init_update(fplog, ir);
 
-
     *vcm = init_vcm(fplog, &mtop->groups, ir);
-
 
     init_nrnb(nrnb);
 

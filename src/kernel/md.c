@@ -273,9 +273,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         fprintf(fplog, "\n");
     }
     /* Set and write start time */
-    runtime_start(runtime);
-    print_date_and_time(fplog, cr->nodeid, "Started mdrun", runtime);
-    wallcycle_start(wcycle, ewcRUN);
 
 
     fprintf(fplog, "\n");
@@ -305,7 +302,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                  ((multisim_nsteps >= 0) && (step_rel >= multisim_nsteps )));
 
 
-        wallcycle_start(wcycle, ewcSTEP);
 
         GMX_MPE_LOG(ev_timestep1);
 
@@ -397,14 +393,12 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     debug_gmx();
 
     /* Stop the time */
-    runtime_end(runtime);
 
     done_mdoutf(outf);
 
     debug_gmx();
 
 
-    runtime->nsteps_done = step_rel;
 
     return 0;
 }
