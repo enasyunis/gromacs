@@ -434,27 +434,20 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
          }
     }
 
-    /* Turn on signal handling on all nodes */
-    /*
-     * (A user signal from the PME nodes (if any)
-     * is communicated to the PP nodes.
-     */
-    signal_handler_install();
-
 
     do_md(fplog, cr, nfile, fnm,
-                                      oenv, bVerbose, bCompact,
-                                      nstglobalcomm,
-                                      NULL, NULL,
-                                      nstepout, inputrec, mtop,
-                                      fcd, state,
-                                      mdatoms, nrnb, wcycle, ed, fr,
-                                      repl_ex_nst, repl_ex_nex, repl_ex_seed,
-                                      NULL,
-                                      cpt_period, max_hours,
-                                      deviceOptions,
-                                      Flags,
-                                      &runtime);
+          oenv, bVerbose, bCompact,
+          nstglobalcomm,
+          NULL, NULL,
+          nstepout, inputrec, mtop,
+          fcd, state,
+          mdatoms, nrnb, wcycle, ed, fr,
+          repl_ex_nst, repl_ex_nex, repl_ex_seed,
+          NULL,
+          cpt_period, max_hours,
+          deviceOptions,
+          Flags,
+          &runtime);
 
 
 
@@ -462,21 +455,8 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
 
     wallcycle_stop(wcycle, ewcRUN);
 
-    /* Finish up, write some stuff
-     * if rerunMD, don't write last frame again
-     */
-    finish_run(fplog, cr, ftp2fn(efSTO, nfile, fnm),
-               inputrec, nrnb, wcycle, &runtime,
-               NULL,
-               nthreads_pp,
-               EI_DYNAMICS(inputrec->eI) && !MULTISIM(cr));
-
     /* Does what it says */
     print_date_and_time(fplog, cr->nodeid, "Finished mdrun", &runtime);
 
-
-    rc = (int)gmx_get_stop_condition();
-
-
-    return rc;
+    return 0;
 }

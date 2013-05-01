@@ -1,40 +1,3 @@
-/*
- * This file is part of the GROMACS molecular simulation package.
- *
- * Copyright (c) 1991-2000, University of Groningen, The Netherlands.
- * Copyright (c) 2001-2004, The GROMACS development team,
- * check out http://www.gromacs.org for more information.
- * Copyright (c) 2012,2013, by the GROMACS development team, led by
- * David van der Spoel, Berk Hess, Erik Lindahl, and including many
- * others, as listed in the AUTHORS file in the top-level source
- * directory and at http://www.gromacs.org.
- *
- * GROMACS is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License
- * as published by the Free Software Foundation; either version 2.1
- * of the License, or (at your option) any later version.
- *
- * GROMACS is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with GROMACS; if not, see
- * http://www.gnu.org/licenses, or write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA.
- *
- * If you want to redistribute modifications to GROMACS, please
- * consider that scientific software is very special. Version
- * control is crucial - bugs must be traceable. We will be happy to
- * consider code for inclusion in the official distribution, but
- * derived work must not be called official GROMACS. Details are found
- * in the README & COPYING files - if they are missing, get the
- * official version at http://www.gromacs.org.
- *
- * To help us fund GROMACS development, we humbly ask that you cite
- * the research papers on the package. Check out http://www.gromacs.org.
- */
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -594,54 +557,6 @@ void do_pbc_mtop(FILE *fplog, int ePBC, matrix box,
     low_do_pbc_mtop(fplog, ePBC, box, mtop, x, FALSE);
 }
 
-void finish_run(FILE *fplog, t_commrec *cr, const char *confout,
-                t_inputrec *inputrec,
-                t_nrnb nrnb[], gmx_wallcycle_t wcycle,
-                gmx_runtime_t *runtime,
-                wallclock_gpu_t *gputimes,
-                int omp_nth_pp,
-                gmx_bool bWriteStat)
-{
-    int     i, j;
-    t_nrnb *nrnb_tot = NULL;
-    real    delta_t;
-    double  nbfs, mflop;
-
-    wallcycle_sum(cr, wcycle);
-
-    nrnb_tot = nrnb;
-
-
-    print_flop(fplog, nrnb_tot, &nbfs, &mflop);
-    {
-        wallcycle_print(fplog, cr->nnodes, cr->npmenodes, runtime->realtime,
-                        wcycle, gputimes);
-
-        if (EI_DYNAMICS(inputrec->eI))
-        {
-            delta_t = inputrec->delta_t;
-        }
-        else
-        {
-            delta_t = 0;
-        }
-
-        if (fplog)
-        {
-            print_perf(fplog, runtime->proctime, runtime->realtime,
-                       cr->nnodes-cr->npmenodes,
-                       runtime->nsteps_done, delta_t, nbfs, mflop,
-                       omp_nth_pp);
-        }
-        if (bWriteStat)
-        {
-            print_perf(stderr, runtime->proctime, runtime->realtime,
-                       cr->nnodes-cr->npmenodes,
-                       runtime->nsteps_done, delta_t, nbfs, mflop,
-                       omp_nth_pp);
-        }
-    }
-}
 
 extern void initialize_lambdas(FILE *fplog, t_inputrec *ir, int *fep_state, real *lambda, double *lam0)
 {
