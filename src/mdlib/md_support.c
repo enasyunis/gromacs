@@ -135,24 +135,11 @@ void compute_globals(FILE *fplog, gmx_global_stat_t gstat, t_commrec *cr, t_inpu
 
         enerd->term[F_EKIN] = trace(ekind->ekin);
 
-    /* ##########  Long range energy information ###### */
-    if (bEner || bPres || bConstrain) // 1st time=0, 2nd=1
-    {
-        calc_dispcorr(fplog, ir, fr, 0, top_global->natoms, box, state->lambda[efptVDW],
-                      corr_pres, corr_vir, &prescorr, &enercorr, &dvdlcorr);
-    }
-
-    if (bEner && bFirstIterate) // 1st time=0, 2nd=1
-    {
-        enerd->term[F_DISPCORR]  = enercorr;
-        enerd->term[F_EPOT]     += enercorr;
-        enerd->term[F_DVDL_VDW] += dvdlcorr;
-    }
 
     /* ########## Now pressure ############## */
     if (bPres || bConstrain) // 1st time=0, 2nd=1
     {
-
+	// shake_vir all zeros.. but total_vir has values in it
         m_add(force_vir, shake_vir, total_vir);
 
         /* Calculate pressure and apply LR correction if PPPM is used.
@@ -165,9 +152,9 @@ void compute_globals(FILE *fplog, gmx_global_stat_t gstat, t_commrec *cr, t_inpu
         /* this adds to enerd->term[F_PRES] and enerd->term[F_ETOT],
            and computes enerd->term[F_DISPCORR].  Also modifies the
            total_vir and pres tesors */
-
         m_add(total_vir, corr_vir, total_vir);
         m_add(pres, corr_pres, pres);
+
         enerd->term[F_PDISPCORR] = prescorr;
         enerd->term[F_PRES]     += prescorr;
         *pcurr                   = enerd->term[F_PRES];
