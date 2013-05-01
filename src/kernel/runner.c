@@ -399,7 +399,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
          * and the virtual sites should not be far from their proper positions.
          */
         /* Make molecules whole at start of run */
-        do_pbc_first_mtop(fplog, inputrec->ePBC, box, mtop, state->x);
         if (EEL_PME(fr->eeltype)) // PME HERE
         { 
             pmedata    = &fr->pmedata;
