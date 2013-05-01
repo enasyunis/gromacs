@@ -115,13 +115,8 @@ int cmain(int argc, char *argv[])
     unsigned long Flags, PCA_Flags;
     ivec          ddxyz;
     int           dd_node_order;
-    gmx_bool      bAddPart;
-    FILE         *fplog, *fpmulti;
-    int           sim_part, sim_part_fn;
-    const char   *part_suffix = ".part";
-    char          suffix[STRLEN];
+    FILE         *fplog;
     int           rc;
-    char        **multidir = NULL;
 
 
     cr = init_par(&argc, &argv);

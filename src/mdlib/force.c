@@ -38,7 +38,7 @@ extern void FMMcalcvdw_ij(int ni, double* xi, int* atypei, double* fi,
   int nj, double* xj, int* atypej, int nat, double* gscale, double* rscale,
   int tblno, double size, int periodicflag);
 
-int fmmsteptaken=0;
+int fmmsteptaken=2;
 /* ENAS ADDED END */
 
 

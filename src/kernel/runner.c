@@ -45,52 +45,14 @@
 #include "tmpi.h"
 
 
-#include "gpu_utils.h"
-#include "nbnxn_cuda_data_mgmt.h"
+//#include "gpu_utils.h"
+//#include "nbnxn_cuda_data_mgmt.h"
 
 
 /* The array should match the eI array in include/types/enums.h */
 gmx_large_int_t     deform_init_init_step_tpx;
 matrix              deform_init_box_tpx;
 tMPI_Thread_mutex_t deform_init_box_mutex = TMPI_THREAD_MUTEX_INITIALIZER;
-
-
-struct mdrunner_arglist
-{
-    gmx_hw_opt_t   *hw_opt;
-    FILE           *fplog;
-    t_commrec      *cr;
-    int             nfile;
-    const t_filenm *fnm;
-    output_env_t    oenv;
-    gmx_bool        bVerbose;
-    gmx_bool        bCompact;
-    int             nstglobalcomm;
-    ivec            ddxyz;
-    int             dd_node_order;
-    real            rdd;
-    real            rconstr;
-    const char     *dddlb_opt;
-    real            dlb_scale;
-    const char     *ddcsx;
-    const char     *ddcsy;
-    const char     *ddcsz;
-    const char     *nbpu_opt;
-    int             nsteps_cmdline;
-    int             nstepout;
-    int             resetstep;
-    int             nmultisim;
-    int             repl_ex_nst;
-    int             repl_ex_nex;
-    int             repl_ex_seed;
-    real            pforce;
-    real            cpt_period;
-    real            max_hours;
-    const char     *deviceOptions;
-    unsigned long   Flags;
-    int             ret; /* return value */
-};
-
 
 
 
@@ -505,8 +467,7 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
      */
     finish_run(fplog, cr, ftp2fn(efSTO, nfile, fnm),
                inputrec, nrnb, wcycle, &runtime,
-               fr != NULL && fr->nbv != NULL && fr->nbv->bUseGPU ?
-               nbnxn_cuda_get_timings(fr->nbv->cu_nbv) : NULL,
+               NULL,
                nthreads_pp,
                EI_DYNAMICS(inputrec->eI) && !MULTISIM(cr));
 
