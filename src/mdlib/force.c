@@ -222,6 +222,42 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                                             pme_flags);
                     *cycles_pme = wallcycle_stop(wcycle, ewcPMEMESH);
                     PRINT_SEPDVDL("PME mesh", Vlr, dvdl);
+                        /* ENAS ADDED START */
+                        if (fmmsteptaken == 0) {
+                        printf("\nBEFORE FMM\n");
+
+                        int N = md->homenr;
+                        double *xi; snew(xi, 3*N); // double *xi     = new double [3*N];
+                        double *qi; snew(qi, N);   // double *qi     = new double [N];
+                        double *fi; snew(fi, 3*N); // double *fi     = new double [3*N];
+                        double *pi; snew(pi, 3*N); // double *pi     = new double [3*N];
+                        int eyi=0;
+                        for (;eyi<N;++eyi){
+                                xi[eyi*3+0]=x[eyi][0];
+                                xi[eyi*3+1]=x[eyi][1];
+                                xi[eyi*3+2]=x[eyi][2];
+
+                                qi[eyi]=md->chargeA[eyi];
+                                fi[eyi*3+0]=fi[eyi*3+1]=fi[eyi*3+2]=0.0;
+                                pi[eyi*3+0]=pi[eyi*3+1]=pi[eyi*3+2]=0.0;
+                        }
+                        printf("About to call FMM\n");
+                        FMMcalccoulomb_ij(N, xi, qi, fi, N, xi, qi, 0.0, 0, (bSB?boxs[0][0]:box[0][0]), 1);
+                        printf("Done calling FMM 1 \n");
+                        FMMcalccoulomb_ij(N, xi, qi, pi, N, xi, qi, 0.0, 1, (bSB?boxs[0][0]:box[0][0]), 1);
+                        printf("Done calling FMM 2 \n");
+                        double eyP=0.0;
+                        for(eyi=0;eyi<N;++eyi){
+                                eyP+=pi[eyi*3+0];
+                        }
+                        printf("FMM Total Coulomb Potential: %e\n", eyP*138.935485);
+                        sfree(xi);
+                        sfree(qi);
+                        sfree(fi);
+                        sfree(pi);
+                        printf("\nAFTER FMM\n");
+                        } fmmsteptaken=1;
+                        /* ENAS ADDED END */
             }
             else if (fr->eeltype == eelEWALD) 
             {
@@ -231,6 +267,42 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                                fr->vir_el_recip, fr->ewaldcoeff,
                                lambda[efptCOUL], &dvdl, fr->ewald_table);
                 PRINT_SEPDVDL("Ewald long-range", Vlr, dvdl);
+                        /* ENAS ADDED START */
+                        if (fmmsteptaken == 0) {
+                        printf("\nBEFORE FMM\n");
+
+                        int N = md->homenr;
+                        double *xi; snew(xi, 3*N); // double *xi     = new double [3*N];
+                        double *qi; snew(qi, N);   // double *qi     = new double [N];
+                        double *fi; snew(fi, 3*N); // double *fi     = new double [3*N];
+                        double *pi; snew(pi, 3*N); // double *pi     = new double [3*N];
+                        int eyi=0;
+                        for (;eyi<N;++eyi){
+                                xi[eyi*3+0]=x[eyi][0];
+                                xi[eyi*3+1]=x[eyi][1];
+                                xi[eyi*3+2]=x[eyi][2];
+
+                                qi[eyi]=md->chargeA[eyi];
+                                fi[eyi*3+0]=fi[eyi*3+1]=fi[eyi*3+2]=0.0;
+                                pi[eyi*3+0]=pi[eyi*3+1]=pi[eyi*3+2]=0.0;
+                        }
+                        printf("About to call FMM\n");
+                        FMMcalccoulomb_ij(N, xi, qi, fi, N, xi, qi, 0.0, 0, (bSB?boxs[0][0]:box[0][0]), 1);
+                        printf("Done calling FMM 1 \n");
+                        FMMcalccoulomb_ij(N, xi, qi, pi, N, xi, qi, 0.0, 1, (bSB?boxs[0][0]:box[0][0]), 1);
+                        printf("Done calling FMM 2 \n");
+                        double eyP=0.0;
+                        for(eyi=0;eyi<N;++eyi){
+                                eyP+=pi[eyi*3+0];
+                        }
+                        printf("FMM Total Coulomb Potential: %e\n", eyP*138.935485);
+                        sfree(xi);
+                        sfree(qi);
+                        sfree(fi);
+                        sfree(pi);
+                        printf("\nAFTER FMM\n");
+                        } fmmsteptaken=1;
+                        /* ENAS ADDED END */
             }
         /* Note that with separate PME nodes we get the real energies later */
         enerd->dvdl_lin[efptCOUL] += dvdl;
