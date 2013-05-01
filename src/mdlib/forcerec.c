@@ -619,9 +619,28 @@ void init_forcerec(FILE              *fp,
 
         }
         fr->ewaldcoeff = calc_ewaldcoeff(ir->rcoulomb, ir->ewald_rtol);
+	printf("\n** ewaldcoeff: %e\n", fr->ewaldcoeff); 
         init_ewald_tab(&(fr->ewald_table), cr, ir, fp);
         fprintf(fp, "Using a Gaussian width (1/beta) of %g nm for Ewald\n",
                     1/fr->ewaldcoeff);
+        /*
+	../data/ThsndWP
+
+         	 ** beta :: ewaldcoeff: 3.458911e+00
+
+         	 ** kmax 29
+
+	../data/ThsndWE
+
+         	 ** beta :: ewaldcoeff: 3.458911e+00
+
+         	 ** kmax 15
+
+	/ Set the charge scaling /
+	fr->epsfac = ONE_4PI_EPS0/fr->epsilon_r; // 138.802623674
+         */
+
+
 
     /* Electrostatics */
     fr->epsilon_r       = ir->epsilon_r;
@@ -635,12 +654,11 @@ void init_forcerec(FILE              *fp,
     fr->temp    = 0.0;
 
 
-    fr->bF_NoVirSum = (EEL_FULL(fr->eeltype) ||
+    fr->bF_NoVirSum = TRUE; /*(EEL_FULL(fr->eeltype) ||
                        gmx_mtop_ftype_count(mtop, F_POSRES) > 0 ||
                        IR_ELEC_FIELD(*ir) ||
                        (fr->adress_icor != eAdressICOff)
-                       );
-
+                       );*/
     snew(fr->shift_vec, SHIFTS);
     snew(fr->fshift, SHIFTS);
     fr->ntype = mtop->ffparams.atnr;

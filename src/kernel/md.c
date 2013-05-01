@@ -504,8 +504,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
         /* only add constraint dvdl after constraints */
         enerd->term[F_DVDL_BONDED] += dvdl;
-        /* sum up the foreign energy and dhdl terms for md and sd. currently done every step so that dhdl is correct in the .edr */
-        sum_dhdl(enerd, state->lambda, ir->fepvals);
 
         /* ################# END UPDATE STEP 2 ################# */
         /* #### We now have r(t+dt) and v(t+dt/2)  ############# */

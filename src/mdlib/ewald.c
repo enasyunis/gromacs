@@ -80,7 +80,7 @@ void init_ewald_tab(ewald_tab_t *et, const t_commrec *cr, const t_inputrec *ir,
 
     snew(*et, 1);
     if (fp)
-    {
+    {   printf("\n** Ordinary reciprocal space ewald\n");
         fprintf(fp, "Will do ordinary reciprocal space Ewald sum.\n");
     }
 
@@ -88,6 +88,7 @@ void init_ewald_tab(ewald_tab_t *et, const t_commrec *cr, const t_inputrec *ir,
     (*et)->ny       = ir->nky+1;
     (*et)->nz       = ir->nkz+1;
     (*et)->kmax     = max((*et)->nx, max((*et)->ny, (*et)->nz));
+    printf("\n** kmax %d\n", (*et)->kmax);
     (*et)->eir      = NULL;
     (*et)->tab_xy   = NULL;
     (*et)->tab_qxyz = NULL;

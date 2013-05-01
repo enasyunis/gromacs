@@ -419,7 +419,7 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
         /*init_forcerec(fplog,fr,fcd,inputrec,mtop,cr,box,FALSE,
            "nofile","nofile","nofile","nofile",FALSE,pforce);
          */
-        fr->bSepDVDL = ((Flags & MD_SEPPOT) == MD_SEPPOT);
+        fr->bSepDVDL = TRUE; // ((Flags & MD_SEPPOT) == MD_SEPPOT);
 
 
         /* Initialize the mdatoms structure.

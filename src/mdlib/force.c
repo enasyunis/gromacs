@@ -294,23 +294,6 @@ void sum_epot(t_grpopts *opts, gmx_grppairener_t *grpp, real *epot)
     }
 }
 
-void sum_dhdl(gmx_enerdata_t *enerd, real *lambda, t_lambda *fepvals)
-{// called                           
-    int    i, j, index;
-    double dlam;
-
-    enerd->dvdl_lin[efptVDW] += enerd->term[F_DVDL_VDW];  /* include dispersion correction */
-    enerd->term[F_DVDL]       = 0.0;
-    for (i = 0; i < efptNR; i++)//7
-    {
-        enerd->term[F_DVDL] += enerd->dvdl_lin[i] + enerd->dvdl_nonlin[i];
-// printf("\n------ enerd->dvdl_lin[i] %d\n", enerd->dvdl_lin[i]);
-// printf("-------- enerd->dvdl_nonlin[i] %d\n", enerd->dvdl_nonlin[i]);
-    }
-// printf("\n--------- enerd->term[F_DVDL] %d\n", enerd->term[F_DVDL]);
- // ENAS - Question enerd->term[F_DVDL] value changes with each run.. it is acting as a memory address!!!
-}
-
 
 void reset_foreign_enerdata(gmx_enerdata_t *enerd)
 {// called 
