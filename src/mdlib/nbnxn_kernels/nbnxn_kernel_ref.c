@@ -121,7 +121,7 @@ void nbnxn_kernel_ref_tab_ener(const nbnxn_pairlist_t     *nbl,
                   -= qi[i]*q[ci*UNROLLI+i]*Vc_sub_self;
            }
         }
-
+//int ey=0, ek=0;
         cjind = cjind0;
         while (cjind < cjind1 && nbl->cj[cjind].excl != 0xffff)
         {
@@ -169,7 +169,7 @@ void nbnxn_kernel_ref_tab_ener(const nbnxn_pairlist_t     *nbl,
 	    // WHEN atoms interact then interact=1 and skipamsk=1.0 otherwise both are zero.
             interact = ((l_cj[cjind].excl>>(i*UNROLLI + j)) & 1);
             skipmask = !(cj == ci_sh && j <= i);
-
+//if (interact == 0) ey++; else ek++; 
 
             aj = cj*UNROLLJ + j;
 
@@ -243,8 +243,8 @@ void nbnxn_kernel_ref_tab_ener(const nbnxn_pairlist_t     *nbl,
             f[aj*F_STRIDE+YY]  -= fy;
             f[aj*F_STRIDE+ZZ]  -= fz;
             /* 9 flops for force addition */
-        }
-    }
+        } //printf("\n** ey %d, ek %d\n", ey, ek);
+    } 
 }
 
 

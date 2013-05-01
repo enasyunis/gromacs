@@ -416,7 +416,7 @@ void init_interaction_const(FILE                 *fp,
     ic->ewaldcoeff  = fr->ewaldcoeff;
 
     ic->sh_ewald = gmx_erfc(ic->ewaldcoeff*ic->rcoulomb);
-
+printf("\n** ic->sh_ewald = %e\n", ic->sh_ewald);
     /* Reaction-field */
 
         /* For plain cut-off we might use the reaction-field kernels */
