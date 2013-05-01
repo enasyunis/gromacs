@@ -199,38 +199,6 @@ static void sum_forces(int start, int end, rvec f[], rvec flr[])
     }
 }
 
-static void calc_virial(FILE *fplog, int start, int homenr, rvec x[], rvec f[],
-                        tensor vir_part, t_graph *graph, matrix box,
-                        t_nrnb *nrnb, const t_forcerec *fr, int ePBC)
-{ // CALLED
-    int    i, j;
-    tensor virtest;
-
-    /* The short-range virial from surrounding boxes */
-    clear_mat(vir_part);
-    calc_vir(fplog, SHIFTS, fr->shift_vec, fr->fshift, vir_part, ePBC == epbcSCREW, box);
-    inc_nrnb(nrnb, eNR_VIRIAL, SHIFTS);
-
-    /* Calculate partial virial, for local atoms only, based on short range.
-     * Total virial is computed in global_stat, called from do_md
-     */
-    f_calc_vir(fplog, start, start+homenr, x, f, vir_part, graph, box);
-    inc_nrnb(nrnb, eNR_VIRIAL, homenr);
-
-    /* Add position restraint contribution */
-    for (i = 0; i < DIM; i++)
-    {
-        vir_part[i][i] += fr->vir_diag_posres[i];
-    }
-
-    /* Add wall contribution */
-    for (i = 0; i < DIM; i++)
-    {
-        vir_part[i][ZZ] += fr->vir_wall_z[i];
-    }
-
-}
-
 
 static void post_process_forces(FILE *fplog,
                                 t_commrec *cr,
@@ -239,7 +207,6 @@ static void post_process_forces(FILE *fplog,
                                 gmx_localtop_t *top,
                                 matrix box, rvec x[],
                                 rvec f[],
-                                tensor vir_force,
                                 t_mdatoms *mdatoms,
                                 t_graph *graph,
                                 t_forcerec *fr, gmx_vsite_t *vsite,
@@ -248,8 +215,6 @@ static void post_process_forces(FILE *fplog,
    /* Now add the forces, this is local */
    sum_forces(mdatoms->start, mdatoms->start+mdatoms->homenr,
                          f, fr->f_novirsum);
-   /* Add the mesh contribution to the virial */
-   m_add(vir_force, fr->vir_el_recip, vir_force);
 
 }
 
@@ -266,7 +231,6 @@ static void do_nb_verlet(t_forcerec *fr,
     nonbonded_verlet_group_t  *nbvg;
 
     nbvg = &fr->nbv->grp[ilocality];
-    wallcycle_sub_start(wcycle, ewcsNONBONDED);
     nbnxn_kernel_ref(&nbvg->nbl_lists,
                              nbvg->nbat, ic,
                              fr->shift_vec,
@@ -277,7 +241,6 @@ static void do_nb_verlet(t_forcerec *fr,
                              fr->bBHAM ?
                              enerd->grpp.ener[egBHAMSR] :
                              enerd->grpp.ener[egLJSR]);
-    wallcycle_sub_stop(wcycle, ewcsNONBONDED);
     enr_nbnxn_kernel_ljc = eNR_NBNXN_LJ_TAB +1;
     enr_nbnxn_kernel_lj = eNR_NBNXN_LJ +1;
     inc_nrnb(nrnb, enr_nbnxn_kernel_ljc,
@@ -306,7 +269,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
                          gmx_bool bBornRadii,
                          int flags)
 {
-    int                 cg0, cg1, i, j;
     int                 start, homenr;
     int                 nb_kernel_type;
     double              mu[2*DIM];
@@ -327,10 +289,7 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
 
     bSepDVDL = (fr->bSepDVDL && do_per_step(step, inputrec->nstlog));
 
-    clear_mat(vir_force);
 
-    cg0 = 0;
-    cg1 = top->cgs.nr;
 
     put_atoms_in_box_omp(fr->ePBC, box, homenr, x);
     inc_nrnb(nrnb, eNR_SHIFTX, homenr);
@@ -344,24 +303,18 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
         box_diag[YY] = box[YY][YY];
         box_diag[ZZ] = box[ZZ][ZZ];
 
-        wallcycle_start(wcycle, ewcNS);
-            wallcycle_sub_start(wcycle, ewcsNBS_GRID_LOCAL);
             nbnxn_put_on_grid(nbv->nbs, fr->ePBC, box,
                               0, vzero, box_diag,
                               0, mdatoms->homenr, -1, fr->cginfo, x,
                               0, NULL,
                               nbv->grp[eintLocal].kernel_type,
                               nbv->grp[eintLocal].nbat);
-            wallcycle_sub_stop(wcycle, ewcsNBS_GRID_LOCAL);
 
        nbnxn_atomdata_set(nbv->grp[eintLocal].nbat, eatAll,
                                nbv->nbs, mdatoms, fr->cginfo);
-        wallcycle_stop(wcycle, ewcNS);
 
 
     /* do local pair search */
-        wallcycle_start_nocount(wcycle, ewcNS);
-        wallcycle_sub_start(wcycle, ewcsNBS_SEARCH_LOCAL);
         nbnxn_make_pairlist(nbv->nbs, nbv->grp[eintLocal].nbat,
                             &top->excls,
                             ic->rlist,
@@ -370,9 +323,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
                             eintLocal,
                             nbv->grp[eintLocal].kernel_type,
                             nrnb);
-        wallcycle_sub_stop(wcycle, ewcsNBS_SEARCH_LOCAL);
-
-        wallcycle_stop(wcycle, ewcNS);
 
 
         copy_rvec(fr->mu_tot[0], mu_tot);
@@ -387,7 +337,6 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
      * No parallel communication should occur while this counter is running,
      * since that will interfere with the dynamic load balancing.
      */
-    wallcycle_start(wcycle, ewcFORCE);
         /* Reset forces for which the virial is calculated separately:
          * PME/Ewald forces if necessary */
          fr->f_novirsum = fr->f_novirsum_alloc;
@@ -423,28 +372,18 @@ void do_force_cutsVERLET(FILE *fplog, t_commrec *cr,
          * This can be split into a local a non-local part when overlapping
          * communication with calculation with domain decomposition.
          */
-        cycles_force += wallcycle_stop(wcycle, ewcFORCE);
-        wallcycle_start(wcycle, ewcNB_XF_BUF_OPS);
-        wallcycle_sub_start(wcycle, ewcsNB_F_BUF_OPS);
         nbnxn_atomdata_add_nbat_f_to_f(nbv->nbs, eatAll, nbv->grp[eintLocal].nbat, f);
-        wallcycle_sub_stop(wcycle, ewcsNB_F_BUF_OPS);
-        cycles_force += wallcycle_stop(wcycle, ewcNB_XF_BUF_OPS);
-        wallcycle_start_nocount(wcycle, ewcFORCE);
 
         /* if there are multiple fshift output buffers reduce them */
         nbnxn_atomdata_add_nbat_fshift_to_fshift(nbv->grp[eintLocal].nbat,
                                                      fr->fshift);
 
-    cycles_force += wallcycle_stop(wcycle, ewcFORCE);
     GMX_BARRIER(cr->mpi_comm_mygroup);
 
 
 
-    /* Calculation of the virial must be done after vsites! */
-    calc_virial(fplog, mdatoms->start, mdatoms->homenr, x, f,
-                        vir_force, graph, box, nrnb, fr, inputrec->ePBC);
     post_process_forces(fplog, cr, step, nrnb, wcycle,
-                            top, box, x, f, vir_force, mdatoms, graph, fr, vsite,
+                            top, box, x, f, mdatoms, graph, fr, vsite,
                             flags);
 
     /* Sum the potential energy terms from group contributions */

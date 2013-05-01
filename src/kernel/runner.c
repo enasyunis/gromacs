@@ -435,6 +435,7 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     }
 
 
+
     do_md(fplog, cr, nfile, fnm,
           oenv, bVerbose, bCompact,
           nstglobalcomm,

@@ -304,7 +304,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     bLastStep = ((ir->nsteps >= 0 && step_rel > ir->nsteps) ||
                  ((multisim_nsteps >= 0) && (step_rel >= multisim_nsteps )));
 
-    {
 
         wallcycle_start(wcycle, ewcSTEP);
 
@@ -353,14 +352,9 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         cglo_flags = (
                       CGLO_GSTAT 
                       );
-
-        force_flags = (GMX_FORCE_STATECHANGED |
-                       ((DYNAMIC_BOX(*ir)) ? GMX_FORCE_DYNAMICBOX : 0) |
+        force_flags = (
                        GMX_FORCE_ALLFORCES |
-                       GMX_FORCE_SEPLRF |
-                       (bCalcVir ? GMX_FORCE_VIRIAL : 0) |
-                       (GMX_FORCE_ENERGY) |
-                       (bDoFEP ? GMX_FORCE_DHDL : 0)
+                       GMX_FORCE_SEPLRF 
                        );
 
 
@@ -374,196 +368,36 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                      f, force_vir, mdatoms, enerd, fcd,
                      state->lambda, graph,
                      fr, vsite, mu_tot, t, outf->fp_field, ed, bBornRadii,
-                     GMX_FORCE_NS | force_flags);
+                     /*GMX_FORCE_NS |*/ force_flags);
 
         GMX_BARRIER(cr->mpi_comm_mygroup);
 
 
-
-
-        /* ########  END FIRST UPDATE STEP  ############## */
-        /* ################## START TRAJECTORY OUTPUT ################# */
-
-        /* Now we have the energies and forces corresponding to the
-         * coordinates at time t. We must output all of this before
-         * the update.
-         * for RerunMD t is read from input trajectory
-         */
-        GMX_MPE_LOG(ev_output_start);
-        mdof_flags = MDOF_F;
-
-        {
-            wallcycle_start(wcycle, ewcTRAJ);
-            write_traj(fplog, cr, outf, mdof_flags, top_global,
-                       step, t, state, state_global, f, f_global, &n_xtc, &x_xtc);
-            debug_gmx();
-
-
-                /* x and v have been collected in write_traj,
-                 * because a checkpoint file will always be written
-                 * at the last step.
-                 */
-                fprintf(stderr, "\nWriting final coordinates.\n");
-                /* Make molecules whole only for confout writing */
-                do_pbc_mtop(fplog, ir->ePBC, state->box, top_global, state_global->x);
-                write_sto_conf_mtop(ftp2fn(efSTO, nfile, fnm),
-                                    *top_global->name, top_global,
-                                    state_global->x, state_global->v,
-                                    ir->ePBC, state->box);
-                debug_gmx();
-            wallcycle_stop(wcycle, ewcTRAJ);
-        }
-        GMX_MPE_LOG(ev_output_finish);
-
-        /*  ################## END TRAJECTORY OUTPUT ################ */
-
-        /* Determine the wallclock run time up till now */
-        run_time = gmx_gettime() - (double)runtime->real;
-
-
-
-
-        {
-
-            /* We make the decision to break or not -after- the calculation of Ekin and Pressure,
-               so scroll down for that logic */
-
-            /* #########   START SECOND UPDATE STEP ################# */
-            GMX_MPE_LOG(ev_update_start);
-            /* Box is changed in update() when we do pressure coupling,
-             * but we should still use the old box for energy corrections and when
-             * writing it to the energy file, so it matches the trajectory files for
-             * the same timestep above. Make a copy in a separate array.
-             */
-            copy_mat(state->box, lastbox);
-
-            bOK = TRUE;
-                wallcycle_start(wcycle, ewcUPDATE);
-                dvdl = 0;
-                /* UPDATE PRESSURE VARIABLES IN TROTTER FORMULATION WITH CONSTRAINTS */
-                update_tcouple(fplog, step, ir, state, ekind, wcycle, upd, &MassQ, mdatoms);
-                update_pcouple(fplog, step, ir, state, pcoupl_mu, M, wcycle,
-                                   upd, bInitStep);
-
-                /* Above, initialize just copies ekinh into ekin,
-                 * it doesn't copy position (for VV),
-                 * and entire integrator for MD.
-                 */
-
-                update_coords(fplog, step, ir, mdatoms, state, fr->bMolPBC, f,
-                              0, fr->f_twin, fcd,
-                              ekind, M, wcycle, upd, bInitStep, etrtPOSITION, cr, nrnb, 0, &top->idef);
-                wallcycle_stop(wcycle, ewcUPDATE);
-
-                update_constraints(fplog, step, &dvdl, ir, ekind, mdatoms, state,
-                                   fr->bMolPBC, graph, f,
-                                   &top->idef, shake_vir, force_vir,
-                                   cr, nrnb, wcycle, upd, 0,
-                                   bInitStep, FALSE, bCalcVir, state->veta);
-
-
-                fprintf(fplog, sepdvdlformat, "Constraint dV/dl", 0.0, dvdl);
-                enerd->term[F_DVDL_BONDED] += dvdl;
-
-            GMX_BARRIER(cr->mpi_comm_mygroup);
-            GMX_MPE_LOG(ev_update_finish);
-
-
-
-            /* ############## IF NOT VV, Calculate globals HERE, also iterate constraints  ############ */
-            /* With Leap-Frog we can skip compute_globals at
-             * non-communication steps, but we need to calculate
-             * the kinetic energy one step before communication.
-             */
-                compute_globals(fplog, gstat, cr, ir, fr, ekind, state, state_global, mdatoms, nrnb, vcm,
-                                wcycle, enerd, force_vir, shake_vir, total_vir, pres, mu_tot,
-                                0,
-                                &gs,
-                                (step_rel % gs.nstms == 0) &&
-                                (multisim_nsteps < 0 || (step_rel < multisim_nsteps)),
-                                lastbox,
-                                top_global, &pcurr, top_global->natoms, &bSumEkinhOld,
-                                cglo_flags
-                                | CGLO_ENERGY
-                                | (bStopCM ? CGLO_STOPCM : 0)
-                                | CGLO_TEMPERATURE
-                                | CGLO_PRESSURE
-                                | (iterate.bIterationActive ? CGLO_ITERATE : 0)
-                                | CGLO_FIRSTITERATE
-                                | CGLO_CONSTRAINT
-                                );
-            /* bIterate is set to keep it from eliminating the old ekin kinetic energy terms */
-            /* #############  END CALC EKIN AND PRESSURE ################# */
-
-            /* Note: this is OK, but there are some numerical precision issues with using the convergence of
-               the virial that should probably be addressed eventually. state->veta has better properies,
-               but what we actually need entering the new cycle is the new shake_vir value. Ideally, we could
-               generate the new shake_vir, but test the veta value for convergence.  This will take some thought. */
-
-        }
-
-        /* only add constraint dvdl after constraints */
-        enerd->term[F_DVDL_BONDED] += dvdl;
-
-        /* ################# END UPDATE STEP 2 ################# */
-        /* #### We now have r(t+dt) and v(t+dt/2)  ############# */
-
-        
-
-        /* #########  BEGIN PREPARING EDR OUTPUT  ###########  */
-
-        /* use the directly determined last velocity, not actually the averaged half steps */
-        enerd->term[F_ETOT] = enerd->term[F_EPOT] + enerd->term[F_EKIN];
-
-        enerd->term[F_ECONSERVED] = enerd->term[F_ETOT];
-        /* #########  END PREPARING EDR OUTPUT  ###########  */
-
-        /* Time for performance */
-        runtime_upd_proc(runtime);
-
-
         /* Output stuff */
-            gmx_bool do_dr, do_or;
+          gmx_bool do_dr, do_or;
 
-            upd_mdebin(mdebin, bDoDHDL, TRUE,
-                               t, mdatoms->tmass, enerd, state,
-                               ir->fepvals, ir->expandedvals, lastbox,
-                               shake_vir, force_vir, total_vir, pres,
-                               ekind, mu_tot, 0);
+          upd_mdebin(mdebin, bDoDHDL, TRUE,
+                             t, mdatoms->tmass, enerd, state,
+                             ir->fepvals, ir->expandedvals, lastbox,
+                             shake_vir, force_vir, total_vir, pres,
+                             ekind, mu_tot, 0);
 
-            do_dr  = do_per_step(step, ir->nstdisreout);
-            do_or  = do_per_step(step, ir->nstorireout);
+          do_dr  = do_per_step(step, ir->nstdisreout);
+          do_or  = do_per_step(step, ir->nstorireout);
 
-            print_ebin(outf->fp_ene, do_ene, do_dr, do_or, fplog,
-                           step, t,
-                           eprNORMAL, bCompact, mdebin, fcd, groups, &(ir->opts));
+          print_ebin(outf->fp_ene, do_ene, do_dr, do_or, fplog,
+                         step, t,
+                        eprNORMAL, bCompact, mdebin, fcd, groups, &(ir->opts));
 
-             if (fflush(fplog) != 0)
-             {
-                  gmx_fatal(FARGS, "Cannot flush logfile - maybe you are out of disk space?");
-             }
-        /* Remaining runtime */
-        if ( (do_verbose || gmx_got_usr_signal()) )
-        {
-            print_time(stderr, runtime, step, ir, cr);
-        }
-
-            /* increase the MD step number */
-            step++;
-            step_rel++;
-
-        cycles = wallcycle_stop(wcycle, ewcSTEP);
-
-    }
+         if (fflush(fplog) != 0)
+         {
+              gmx_fatal(FARGS, "Cannot flush logfile - maybe you are out of disk space?");
+         }
     /* End of main MD loop */
     debug_gmx();
 
     /* Stop the time */
     runtime_end(runtime);
-
-
-    print_ebin(outf->fp_ene, FALSE, FALSE, FALSE, fplog, step, t,
-                       eprAVER, FALSE, mdebin, fcd, groups, &(ir->opts));
 
     done_mdoutf(outf);
 
