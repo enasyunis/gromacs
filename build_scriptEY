@@ -29,10 +29,19 @@ make -j install
 
 FILENAME=../data/ThsndWE ../exec/bin/mdrun_di > out.txt; FILENAME=../data/ThsndWP ../exec/bin/mdrun_d >> out.txt
 
+# limiting number of threads to min=2
+OMP_NUM_THREADS=2 FILENAME=../data/ThsndWE ../exec/bin/mdrun_d > out.txt; OMP_NUM_THREADS=2 FILENAME=../data/ThsndWP ../exec/bin/mdrun_d >> out.txt
+
 cat out.txt | sort | uniq > out2.txt
 
 grep 9.01453 ../data/ThsndWP.log ../data/ThsndWE.log
 ll ../data/ThsndW*.log 
+
+############################
+# TURNING OFF OPENMP & MPI #
+############################
+CMAKE_PREFIX_PATH=../../externlib cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_GPU=OFF -DGMX_DOUBLE=ON -DGMX_FORCE_CXX=ON -DGMX_THREAD_MPI=OFF -DGMX_OPENMP=OFF -DGMX_MPI=OFF
+
 
 ###########
 # GPU FMM #

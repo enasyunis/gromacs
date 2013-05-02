@@ -62,17 +62,6 @@
 #include "qmmm.h"
 
 
-static void sum_forces(int start, int end, rvec f[], rvec flr[])
-{ // called
-    int i;
-    for (i = start; (i < end); i++)
-    {
-        rvec_inc(f[i], flr[i]);
-    }
-}
-
-
-
 static void do_nb_verlet(t_forcerec *fr,
                          interaction_const_t *ic,
                          gmx_enerdata_t *enerd,
@@ -110,7 +99,7 @@ void do_force(FILE *fplog, t_commrec *cr,
               gmx_bool bBornRadii,
               int flags)
 {
-    int                 start, homenr;
+    int                 i, end, start, homenr;
     double              mu[2*DIM];
     rvec                vzero, box_diag;
     real                e, v;
@@ -121,15 +110,15 @@ void do_force(FILE *fplog, t_commrec *cr,
 
     start  = mdatoms->start;
     homenr = mdatoms->homenr;
-
+    end    = start+homenr;
 
     put_atoms_in_box_omp(fr->ePBC, box, homenr, x);
 
 
     inc_nrnb(nrnb, eNR_SHIFTX, homenr);
 
-    nbnxn_atomdata_copy_shiftvec(flags & GMX_FORCE_DYNAMICBOX,
-                                 fr->shift_vec, nbv->grp[0].nbat);
+
+    nbnxn_atomdata_copy_shiftvec(0, fr->shift_vec, nbv->grp[0].nbat);
 
 
     clear_rvec(vzero);
@@ -181,7 +170,6 @@ void do_force(FILE *fplog, t_commrec *cr,
     /* Clear the short- and long-range forces */
     clear_rvecs(fr->natoms_force_constr, f);
 
-   // clear_rvec(fr->vir_diag_posres);
 
     GMX_BARRIER(cr->mpi_comm_mygroup);
 
@@ -214,12 +202,20 @@ void do_force(FILE *fplog, t_commrec *cr,
 
     GMX_BARRIER(cr->mpi_comm_mygroup);
 
-
-    sum_forces(mdatoms->start, mdatoms->start+mdatoms->homenr,
-                         f, fr->f_novirsum);
+    // accomulating the forces.
+    for (i = start; (i < end); i++)
+    {
+        rvec_inc(f[i], fr->f_novirsum[i]); // f will be incremented by fr->f_novirsum data
+    }
 
     /* Sum the potential energy terms from group contributions */
-    sum_epot(&(inputrec->opts), &(enerd->grpp), enerd->term);
+    enerd->term[F_COUL_SR]  = enerd->grpp.ener[egCOULSR][0];
+    enerd->term[F_EPOT]= enerd->term[F_COUL_SR] + enerd->term[F_COUL_RECIP];
+    // NO NEED FOR A LOG FILE AT THIS POINT :)
+    // correct answer - only works when numthreads = 12!!!
+    // ** Potential Coul. SR -9.017649e+05, Recip 3.117281e+02, Tot -9.014532e+05
+    printf("\n** Potential Coul. SR %e, Recip %e, Tot %e\n", enerd->term[F_COUL_SR], enerd->term[F_COUL_RECIP], enerd->term[F_EPOT]);
+    fprintf(stderr,"\n** Potential Coul. SR %e, Recip %e, Tot %e\n", enerd->term[F_COUL_SR], enerd->term[F_COUL_RECIP], enerd->term[F_EPOT]);
 }
 
 

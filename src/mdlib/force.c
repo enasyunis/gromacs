@@ -217,6 +217,7 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                                             fr->vir_el_recip, fr->ewaldcoeff,
                                             &Vlr, lambda[efptCOUL], &dvdl,
                                             pme_flags);
+                    // PME mesh: Vlr  3.11728e+02  dvdl  0.00000e+0
                     PRINT_SEPDVDL("PME mesh", Vlr, dvdl);
                         /* ENAS ADDED START */
                         if (fmmsteptaken == 0) {
@@ -333,33 +334,6 @@ void init_enerdata(int ngener, int n_lambda, gmx_enerdata_t *enerd)
         snew(enerd->foreign_grpp.ener[i], n2);
     }
     enerd->n_lambda = 0;
-}
-
-void sum_epot(t_grpopts *opts, gmx_grppairener_t *grpp, real *epot)
-{// called                           
-    int i;
-
-    /* Accumulate energies */
-    epot[F_COUL_SR]  = grpp->ener[egCOULSR][0];
-    epot[F_COUL14]   = grpp->ener[egCOUL14][0];
-    epot[F_COUL_LR]  = grpp->ener[egCOULLR][0];
-    /* We have already added 1-2,1-3, and 1-4 terms to F_GBPOL */
-    epot[F_GBPOL]   += grpp->ener[egGB][0];
-
-/* lattice part of LR doesnt belong to any group
- * and has been added earlier
- */
-    epot[F_BHAM]     = grpp->ener[egBHAMSR][0];
-    epot[F_BHAM_LR]  = grpp->ener[egBHAMLR][0];
-
-    epot[F_EPOT] = 0;
-    for (i = 0; (i < F_EPOT); i++) // 70
-    {
-        if (i != F_DISRESVIOL && i != F_ORIRESDEV) // not entrant for  i=50,52
-        {
-            epot[F_EPOT] += epot[i];
-        }
-    }
 }
 
 

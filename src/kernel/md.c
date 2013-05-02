@@ -260,7 +260,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
        temperature control */
     trotter_seq = init_npt_vars(ir, state, &MassQ, 0);
     {
-	 fprintf(fplog, "Initial temperature: %g K\n", enerd->term[F_TEMP]);
         char tbuf[20];
         fprintf(stderr, "starting mdrun '%s'\n",
                     *(top_global->name));
@@ -270,12 +269,10 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
         fprintf(stderr, "%s steps, %s ps.\n",
                         gmx_step_str(ir->nsteps, sbuf), tbuf);
-        fprintf(fplog, "\n");
     }
     /* Set and write start time */
 
 
-    fprintf(fplog, "\n");
 
     /* safest point to do file checkpointing is here.  More general point would be immediately before integrator call */
 
@@ -320,8 +317,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         do_verbose = bVerbose &&
             (step % stepout == 0 || bFirstStep || bLastStep);
 
-
-        print_ebin_header(fplog, step, t, state->lambda[efptFEP]); /* can we improve the information printed here? */
 
         clear_mat(force_vir);
 
@@ -369,26 +364,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         GMX_BARRIER(cr->mpi_comm_mygroup);
 
 
-        /* Output stuff */
-          gmx_bool do_dr, do_or;
-
-          upd_mdebin(mdebin, bDoDHDL, TRUE,
-                             t, mdatoms->tmass, enerd, state,
-                             ir->fepvals, ir->expandedvals, lastbox,
-                             shake_vir, force_vir, total_vir, pres,
-                             ekind, mu_tot, 0);
-
-          do_dr  = do_per_step(step, ir->nstdisreout);
-          do_or  = do_per_step(step, ir->nstorireout);
-
-          print_ebin(outf->fp_ene, do_ene, do_dr, do_or, fplog,
-                         step, t,
-                        eprNORMAL, bCompact, mdebin, fcd, groups, &(ir->opts));
-
-         if (fflush(fplog) != 0)
-         {
-              gmx_fatal(FARGS, "Cannot flush logfile - maybe you are out of disk space?");
-         }
     /* End of main MD loop */
     debug_gmx();
 
