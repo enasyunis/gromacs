@@ -56,81 +56,12 @@
 #include "nbnxn_atomdata.h"
 #include "nbnxn_search.h"
 #include "nbnxn_kernels/nbnxn_kernel_ref.h"
-//#include "nbnxn_kernels/nbnxn_kernel_gpu_ref.h"
-
 #include "tmpi.h"
 #include "types/simple.h"
 #include "typedefs.h"
 #include "qmmm.h"
 
-/* Portable version of ctime_r implemented in src/gmxlib/string2.c, but we do not want it declared in public installed headers */
-GMX_LIBGMX_EXPORT
-char *
-gmx_ctime_r(const time_t *clock, char *buf, int n);
 
-
-double
-gmx_gettime()
-{
-    struct timeval t;
-    double         seconds;
-
-    gettimeofday(&t, NULL);
-
-    seconds = (double) t.tv_sec + 1e-6*(double)t.tv_usec;
-
-    return seconds;
-}
-
-
-#define difftime(end, start) ((double)(end)-(double)(start))
-
-void print_time(FILE *out, gmx_runtime_t *runtime, gmx_large_int_t step,
-                t_inputrec *ir, t_commrec *cr)
-{
-    time_t finish;
-    char   timebuf[STRLEN];
-    double dt;
-    char   buf[48];
-
-    fprintf(out, "\r");
-    fprintf(out, "step %s", gmx_step_str(step, buf));
-    if ((step >= ir->nstlist))
-    {
-        runtime->last          = gmx_gettime();
-        dt                     = difftime(runtime->last, runtime->real);
-        runtime->time_per_step = dt/(step - ir->init_step + 1);
-
-        dt = (ir->nsteps + ir->init_step - step)*runtime->time_per_step;
-
-        if (ir->nsteps >= 0)
-        {
-            if (dt >= 300)
-            {
-                finish = (time_t) (runtime->last + dt);
-                gmx_ctime_r(&finish, timebuf, STRLEN);
-                sprintf(buf, "%s", timebuf);
-                buf[strlen(buf)-1] = '\0';
-                fprintf(out, ", will finish %s", buf);
-            }
-            else
-            {
-                fprintf(out, ", remaining runtime: %5d s          ", (int)dt);
-            }
-        }
-        else
-        {
-            fprintf(out, " performance: %.1f ns/day    ",
-                    ir->delta_t/1000*24*60*60/runtime->time_per_step);
-        }
-    }
-
-    fflush(out);
-}
-
-#ifdef NO_CLOCK
-#define clock() -1
-#endif
 static void sum_forces(int start, int end, rvec f[], rvec flr[])
 { // called
     int i;
@@ -145,16 +76,12 @@ static void sum_forces(int start, int end, rvec f[], rvec flr[])
 static void do_nb_verlet(t_forcerec *fr,
                          interaction_const_t *ic,
                          gmx_enerdata_t *enerd,
-                         int flags, int ilocality,
+                         int flags, 
                          int clearF,
                          t_nrnb *nrnb,
                          gmx_wallcycle_t wcycle)
 {
-    int                        nnbl, kernel_type, enr_nbnxn_kernel_ljc, enr_nbnxn_kernel_lj;
-    char                      *env;
-    nonbonded_verlet_group_t  *nbvg;
-
-    nbvg = &fr->nbv->grp[ilocality];
+    nonbonded_verlet_group_t  *nbvg = &fr->nbv->grp[eintLocal];
     nbnxn_kernel_ref(&nbvg->nbl_lists,
                              nbvg->nbat, ic,
                              fr->shift_vec,
@@ -162,17 +89,7 @@ static void do_nb_verlet(t_forcerec *fr,
                              clearF,
                              fr->fshift[0],
                              enerd->grpp.ener[egCOULSR],
-                             fr->bBHAM ?
-                             enerd->grpp.ener[egBHAMSR] :
                              enerd->grpp.ener[egLJSR]);
-    enr_nbnxn_kernel_ljc = eNR_NBNXN_LJ_TAB +1;
-    enr_nbnxn_kernel_lj = eNR_NBNXN_LJ +1;
-    inc_nrnb(nrnb, enr_nbnxn_kernel_ljc,
-             nbvg->nbl_lists.natpair_ljq);
-    inc_nrnb(nrnb, enr_nbnxn_kernel_lj,
-             nbvg->nbl_lists.natpair_lj);
-    inc_nrnb(nrnb, enr_nbnxn_kernel_ljc-eNR_NBNXN_LJ_RF+eNR_NBNXN_RF,
-             nbvg->nbl_lists.natpair_q);
 }
 
 void do_force(FILE *fplog, t_commrec *cr,
@@ -194,7 +111,6 @@ void do_force(FILE *fplog, t_commrec *cr,
               int flags)
 {
     int                 start, homenr;
-    int                 nb_kernel_type;
     double              mu[2*DIM];
     rvec                vzero, box_diag;
     real                e, v;
@@ -202,7 +118,6 @@ void do_force(FILE *fplog, t_commrec *cr,
     nonbonded_verlet_t *nbv;
 
     nbv            = fr->nbv;
-    nb_kernel_type = fr->nbv->grp[0].kernel_type;
 
     start  = mdatoms->start;
     homenr = mdatoms->homenr;
@@ -282,7 +197,7 @@ void do_force(FILE *fplog, t_commrec *cr,
 
 
     /* Maybe we should move this into do_force_lowlevel */
-    do_nb_verlet(fr, fr->ic, enerd, flags, eintLocal, enbvClearFYes,
+    do_nb_verlet(fr, fr->ic, enerd, flags, enbvClearFYes,
                      nrnb, wcycle);
 
 
