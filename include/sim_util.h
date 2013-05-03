@@ -7,7 +7,6 @@
 #include "typedefs.h"
 #include "enxio.h"
 #include "mdebin.h"
-#include "update.h"
 #include "vcm.h"
 
 #ifdef __cplusplus
@@ -148,7 +147,6 @@ void init_md(FILE *fplog,
              double *t, double *t0,
              real *lambda, int *fep_state, double *lam0,
              t_nrnb *nrnb, gmx_mtop_t *mtop,
-             gmx_update_t *upd,
              int nfile, const t_filenm fnm[],
              gmx_mdoutf_t **outf, t_mdebin **mdebin,
              tensor force_vir, tensor shake_vir,

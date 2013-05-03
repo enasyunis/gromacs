@@ -13,7 +13,6 @@
 #include "vec.h"
 #include "network.h"
 #include "smalloc.h"
-#include "update.h"
 #include "mtop_util.h"
 #include "gmx_omp_nthreads.h"
 

@@ -13,7 +13,6 @@
 #include "calcmu.h"
 #include "index.h"
 #include "vsite.h"
-#include "update.h"
 #include "ns.h"
 #include "trnio.h"
 #include "xtcio.h"
@@ -107,7 +106,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     gmx_enerdata_t   *enerd;
     rvec             *f = NULL;
     gmx_global_stat_t gstat;
-    gmx_update_t      upd   = NULL;
     t_graph          *graph = NULL;
     globsig_t         gs;
     gmx_rng_t         mcrng = NULL;
@@ -176,7 +174,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     /* Initial values */
     init_md(fplog, cr, ir, oenv, &t, &t0, state_global->lambda,
             &(state_global->fep_state), lam0,
-            nrnb, top_global, &upd,
+            nrnb, top_global, 
             nfile, fnm, &outf, &mdebin,
             force_vir, shake_vir, mu_tot, &bSimAnn, &vcm, state_global, Flags);
 

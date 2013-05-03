@@ -18,7 +18,6 @@
 #include "names.h"
 #include "calcgrid.h"
 #include "gmx_random.h"
-#include "update.h"
 #include "mdebin.h"
 
 #define BUFSIZE 256
@@ -48,7 +47,6 @@ void set_state_entries(t_state *state, const t_inputrec *ir, int nnodes)
     state->flags |= (1<<estTC_INT);
 
     init_gtc_state(state, state->ngtc, state->nnhpres, ir->opts.nhchainlength); /* allocate the space for nose-hoover chains */
-    init_ekinstate(&state->ekinstate, ir);
 
     init_energyhistory(&state->enerhist);
     init_df_history(&state->dfhist, ir->fepvals->n_lambda, ir->expandedvals->init_wl_delta);

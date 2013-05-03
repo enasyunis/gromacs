@@ -30,7 +30,6 @@
 #include "mshift.h"
 #include "mdrun.h"
 #include "sim_util.h"
-#include "update.h"
 #include "physics.h"
 #include "main.h"
 #include "mdatoms.h"
@@ -224,7 +223,6 @@ void init_md(FILE *fplog,
              double *t, double *t0,
              real *lambda, int *fep_state, double *lam0,
              t_nrnb *nrnb, gmx_mtop_t *mtop,
-             gmx_update_t *upd,
              int nfile, const t_filenm fnm[],
              gmx_mdoutf_t **outf, t_mdebin **mdebin,
              tensor force_vir, tensor shake_vir, rvec mu_tot,
@@ -237,8 +235,6 @@ void init_md(FILE *fplog,
     *t = *t0       = ir->init_t;
 
     *bSimAnn = FALSE; // KEEP
-
-    *upd = init_update(fplog, ir);
 
     init_nrnb(nrnb);
 

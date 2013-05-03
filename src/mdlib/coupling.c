@@ -5,7 +5,6 @@
 
 #include "typedefs.h"
 #include "smalloc.h"
-#include "update.h"
 #include "vec.h"
 #include "macros.h"
 #include "physics.h"
@@ -14,7 +13,6 @@
 #include "txtdump.h"
 #include "nrnb.h"
 #include "gmx_random.h"
-#include "update.h"
 #include "mdrun.h"
 
 #define NTROTTERPARTS 3
