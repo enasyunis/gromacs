@@ -205,14 +205,9 @@ void set_state_entries(t_state *state, const t_inputrec *ir, int nnodes);
 
 int mdrunner(gmx_hw_opt_t *hw_opt,
              FILE *fplog, t_commrec *cr, int nfile,
-             const t_filenm fnm[], const output_env_t oenv, gmx_bool bVerbose,
-             gmx_bool bCompact, ivec ddxyz, int dd_node_order,
-             real rdd, real rconstr, const char *dddlb_opt, real dlb_scale,
+             const t_filenm fnm[], const output_env_t oenv, 
+             ivec ddxyz, 
              const char *ddcsx, const char *ddcsy, const char *ddcsz,
-             const char *nbpu_opt,
-             int nsteps_cmdline, int nstepout, int resetstep,
-             int nmultisim, int repl_ex_nst, int repl_ex_nex,
-             int repl_ex_seed, real pforce, real cpt_period, real max_hours,
              const char *deviceOptions, unsigned long Flags);
 /* Driver routine, that calls the different methods */
 

@@ -208,15 +208,9 @@ typedef struct {
 
 int mdrunner(gmx_hw_opt_t *hw_opt,
              FILE *fplog, t_commrec *cr, int nfile,
-             const t_filenm fnm[], const output_env_t oenv, gmx_bool bVerbose,
-             gmx_bool bCompact, 
-             ivec ddxyz, int dd_node_order, real rdd, real rconstr,
-             const char *dddlb_opt, real dlb_scale,
+             const t_filenm fnm[], const output_env_t oenv, 
+             ivec ddxyz, 
              const char *ddcsx, const char *ddcsy, const char *ddcsz,
-             const char *nbpu_opt,
-             int nsteps_cmdline, int nstepout, int resetstep,
-             int nmultisim, int repl_ex_nst, int repl_ex_nex,
-             int repl_ex_seed, real pforce, real cpt_period, real max_hours,
              const char *deviceOptions, unsigned long Flags)
 {
 
@@ -264,7 +258,7 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     minf.cutoff_scheme = inputrec->cutoff_scheme;
     minf.bUseGPU       = FALSE;
 
-    prepare_verlet_scheme(fplog, hwinfo, cr, hw_opt, nbpu_opt,
+    prepare_verlet_scheme(fplog, hwinfo, cr, hw_opt, "cpu",
                                   inputrec, mtop, state->box,
                                   &minf.bUseGPU);
 
@@ -314,7 +308,7 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     snew(fcd, 1);
 
     /* This needs to be called before read_checkpoint to extend the state */
-    init_disres(fplog, mtop, inputrec, cr, Flags & MD_PARTDEC, fcd, state, repl_ex_nst > 0);
+    init_disres(fplog, mtop, inputrec, cr, Flags & MD_PARTDEC, fcd, state, FALSE);
 
 
     copy_mat(state->box, box);
@@ -356,7 +350,7 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     nthreads_pp  = gmx_omp_nthreads_get(emntNonbonded);
     nthreads_pme = gmx_omp_nthreads_get(emntPME);
 
-    wcycle = wallcycle_init(fplog, resetstep, cr, nthreads_pp, nthreads_pme);
+    wcycle = wallcycle_init(fplog, -1, cr, nthreads_pp, nthreads_pme);
 
 
 
@@ -368,8 +362,8 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
                       opt2fn("-tabletf", nfile, fnm),
                       opt2fn("-tablep", nfile, fnm),
                       opt2fn("-tableb", nfile, fnm),
-                      nbpu_opt,
-                      FALSE, pforce);
+                      "cpu",
+                      FALSE, -1);
 
         /* version for PCA_NOT_READ_NODE (see md.c) */
         /*init_forcerec(fplog,fr,fcd,inputrec,mtop,cr,box,FALSE,
@@ -430,14 +424,14 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
 
 
     do_md(fplog, cr, nfile, fnm,
-          oenv, bVerbose, bCompact,
+          oenv, TRUE, TRUE,
           NULL, NULL,
-          nstepout, inputrec, mtop,
+          100, inputrec, mtop,
           fcd, state,
           mdatoms, wcycle, ed, fr,
-          repl_ex_nst, repl_ex_nex, repl_ex_seed,
+          0, 0, -1,
           NULL,
-          cpt_period, max_hours,
+          15.0, -1,
           deviceOptions,
           Flags
           );
