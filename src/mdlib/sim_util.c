@@ -225,11 +225,9 @@ void init_md(FILE *fplog,
              t_nrnb *nrnb, gmx_mtop_t *mtop,
              int nfile, const t_filenm fnm[],
              gmx_mdoutf_t **outf, t_mdebin **mdebin,
-             tensor force_vir, tensor shake_vir, rvec mu_tot,
+             rvec mu_tot,
              gmx_bool *bSimAnn, t_vcm **vcm, t_state *state, unsigned long Flags)
 {
-    int  i, j, n;
-    real tmpt, mod;
 
     /* Initial values */
     *t = *t0       = ir->init_t;
@@ -241,7 +239,6 @@ void init_md(FILE *fplog,
     *outf = init_mdoutf(nfile, fnm, Flags, cr, ir, oenv);
 
     /* Initiate variables */
-    clear_mat(shake_vir);
     clear_rvec(mu_tot);
 
     debug_gmx();

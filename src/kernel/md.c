@@ -75,73 +75,25 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
     gmx_mdoutf_t   *outf;
     gmx_large_int_t step, step_rel;
-    double          run_time;
     double          t, t0, lam0[efptNR];
-    gmx_bool        bCalcVir;
-    gmx_bool        bSimAnn, bStopCM, bNotLastFrame = FALSE;
-    gmx_bool        bFirstStep, bStateFromTPX, bInitStep, bLastStep;
-    gmx_bool        bBornRadii, bStartingFromCpt;
-    gmx_bool          bDoDHDL = FALSE, bDoFEP = FALSE;
-    gmx_bool          do_ene, do_verbose, bRerunWarnNoV = TRUE,
-                      bForceUpdate = FALSE;
-    int               mdof_flags;
-    int               force_flags, cglo_flags;
-    tensor            shake_vir, total_vir, tmp_vir, pres;
+    gmx_bool        bSimAnn;
+    gmx_bool        bBornRadii;
+    int               force_flags;
     int               i, m;
     t_trxstatus      *status;
     rvec              mu_tot;
     t_vcm            *vcm;
-    t_state          *bufstate = NULL;
-    matrix           *scale_tot, pcoupl_mu, M, ebox;
-    gmx_nlheur_t      nlh;
-    t_trxframe        rerun_fr;
-    int               nchkpt  = 1;
     gmx_localtop_t   *top;
     t_mdebin         *mdebin = NULL;
     t_state          *state    = NULL;
-    rvec             *f_global = NULL;
-    int               n_xtc    = -1;
-    rvec             *x_xtc    = NULL;
     gmx_enerdata_t   *enerd;
     rvec             *f = NULL;
-    gmx_global_stat_t gstat;
     t_graph          *graph = NULL;
     globsig_t         gs;
-    gmx_rng_t         mcrng = NULL;
     gmx_groups_t     *groups;
-    int               count, nconverged = 0;
-    real              timestep = 0;
-    double            tcount   = 0;
-    gmx_bool          bConverged = TRUE, bOK, bSumEkinhOld;
-    gmx_bool          bResetCountersHalfMaxH = FALSE;
-    gmx_bool          bTemp, bPres;
-    real              mu_aver = 0, dvdl;
     int               a0, a1, gnx = 0, ii;
-    atom_id          *grpindex = NULL;
-    char             *grpname;
-    t_coupl_rec      *tcr     = NULL;
-    rvec             *xcopy   = NULL, *vcopy = NULL, *cbuf = NULL;
-    matrix            boxcopy = {{0}}, lastbox;
-    tensor            tmpvir;
-    real              fom, oldfom, veta_save, pcurr, scalevir, tracevir;
-    real              vetanew = 0;
-    int               lamnew  = 0;
     /* for FEP */
-    int               nstfep;
-    real              rate;
-    double            cycles;
-    real              saved_conserved_quantity = 0;
-    real              last_ekin                = 0;
-    int               iter_i;
-    t_extmass         MassQ;
-    char              sbuf[STEPSTRSIZE], sbuf2[STEPSTRSIZE];
-    int               handled_stop_condition = gmx_stop_cond_none; /* compare to get_stop_condition*/
-    gmx_iterate_t     iterate;
-    gmx_large_int_t   multisim_nsteps = -1;                        /* number of steps to do  before first multisim
-                                                                      simulation stops. If equal to zero, don't
-                                                                      communicate any more between multisims.*/
-    /* PME load balancing data for GPU kernels */
-    double               cycles_pmes;
+    char              sbuf[STEPSTRSIZE];
 
     /* md-vv uses averaged full step velocities for T-control
        md-vv-avek uses averaged half step velocities for T-control (but full step ekin for P control)
@@ -150,17 +102,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
 
 
-    /* The default value of iterate->bIterationActive is set to
-       false in this step.  The correct value, true or false,
-       is set at each step, as it depends on the frequency of temperature
-       and pressure control.*/
-    iterate.iter_i           = 0;
-    iterate.bIterationActive = FALSE;
-    iterate.num_close        = 0;
-    for (i = 0; i < MAXITERCONST+2; i++)
-    {
-        iterate.allrelerr[i] = 0;
-    }
 
 
     nstglobalcomm   = ir->nstlist;
@@ -173,10 +114,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             &(state_global->fep_state), lam0,
             nrnb, top_global, 
             nfile, fnm, &outf, &mdebin,
-            NULL , shake_vir, mu_tot, &bSimAnn, &vcm, state_global, Flags);
+            mu_tot, &bSimAnn, &vcm, state_global, Flags);
 
-    clear_mat(total_vir);
-    clear_mat(pres);
     /* Energy terms and groups */
     snew(enerd, 1);
     init_enerdata(top_global->groups.grps[egcENER].nr, ir->fepvals->n_lambda,
@@ -186,7 +125,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
 
 
-    gstat = global_stat_init(ir);
     debug_gmx();
 
 
@@ -199,7 +137,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     forcerec_set_excl_load(fr, top, cr);
 
     state    = partdec_init_local_state(cr, state_global);
-    f_global = f;
 
     atoms2md(top_global, ir, 0, NULL, a0, a1-a0, mdatoms);
 
@@ -213,10 +150,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
     debug_gmx();
 
-    /* set free energy calculation frequency as the minimum of nstdhdl, nstexpanded, and nstrepl_ex_nst*/
-    nstfep = ir->fepvals->nstdhdl;
 
-    bSumEkinhOld = FALSE;
 
 
 
@@ -241,13 +175,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
 
     /* loop over MD steps or if rerunMD to end of input trajectory */
-    bFirstStep = TRUE;
-    /* Skip the first Nose-Hoover integration when we get the state from tpx */
-    bStateFromTPX    = TRUE;
-    bInitStep        = bFirstStep && (bStateFromTPX);
-    bStartingFromCpt = (Flags & MD_STARTFROMCPT) && bInitStep;
-    bLastStep        = FALSE;
-    bSumEkinhOld     = FALSE;
 
 
     step     = ir->init_step;
@@ -255,27 +182,20 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
 
 
-    bLastStep = ((ir->nsteps >= 0 && step_rel > ir->nsteps) ||
-                 ((multisim_nsteps >= 0) && (step_rel >= multisim_nsteps )));
 
 
 
         GMX_MPE_LOG(ev_timestep1);
 
-            bLastStep = (step_rel == ir->nsteps);
             t         = t0 + step*ir->delta_t;
 
 
 
-        /* Stop Center of Mass motion */
-        bStopCM = (ir->comm_mode != ecmNO && do_per_step(step, ir->nstcomm));
 
 
         /* Determine whether or not to update the Born radii if doing GB */
         bBornRadii = TRUE;
 
-        do_verbose = bVerbose &&
-            (step % stepout == 0 || bFirstStep || bLastStep);
 
 
 
@@ -287,21 +207,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
          * but never at the first step or with rerun.
          */
 
-        /* Determine the energy and pressure:
-         * at nstcalcenergy steps and at energy output steps (set below).
-         */
-        bCalcVir  = (do_per_step(step, ir->nstcalcenergy)) ||
-                (ir->epc != epcNO && do_per_step(step, ir->nstpcouple));
-
-
-        do_ene = (do_per_step(step, ir->nstenergy) || bLastStep);
-
-        bCalcVir  = TRUE;
 
         /* these CGLO_ options remain the same throughout the iteration */
-        cglo_flags = (
-                      CGLO_GSTAT 
-                      );
         force_flags = (
                        GMX_FORCE_ALLFORCES |
                        GMX_FORCE_SEPLRF 
