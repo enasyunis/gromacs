@@ -1,22 +1,10 @@
 
-set(GMXPREPROCESS_SOURCES 
-    calc_verletbuf.c
-    )
 
 set(MDRUN_SOURCES 
     runner.c
     md.c
     mdrun.c )
 
-add_library(gmxpreprocess ${GMXPREPROCESS_SOURCES})
-target_link_libraries(gmxpreprocess md)
-set_target_properties(gmxpreprocess PROPERTIES OUTPUT_NAME "gmxpreprocess${GMX_LIBS_SUFFIX}" SOVERSION ${SOVERSION} INSTALL_NAME_DIR "${LIB_INSTALL_DIR}"
-    COMPILE_FLAGS "${OpenMP_C_FLAGS}")
-
-
-if(GMX_GPU)
-    include_directories(${CMAKE_SOURCE_DIR}/src/gmxlib/gpu_utils)
-endif()
 
 if(GMX_OPENMM)
     # Even though the OpenMM build has "moved to contrib", many things
@@ -33,7 +21,7 @@ if(GMX_GPU OR GMX_FORCE_CXX)
 endif()
 
 
-list(APPEND GMX_EXTRA_LIBRARIES gmxpreprocess md ${OpenMP_LINKER_FLAGS})
+list(APPEND GMX_EXTRA_LIBRARIES md ${OpenMP_LINKER_FLAGS})
 
 
 
@@ -56,7 +44,7 @@ set(CPACK_COMPONENT_MDRUN_GROUP mdrun)
 
 foreach(PROGRAM ${GMX_KERNEL_PROGRAMS} mdrun)
     # Manage CPack component dependencies
-    set(CPACK_COMPONENT_${PROGRAM}_DEPENDS libraries libraries-gmxpreprocess)
+    set(CPACK_COMPONENT_${PROGRAM}_DEPENDS libraries )
 
     # Create custom install-xxxx target
     if (BUILD_SHARED_LIBS)
@@ -64,8 +52,6 @@ foreach(PROGRAM ${GMX_KERNEL_PROGRAMS} mdrun)
     # addition to the mdrun binary.
        add_custom_target(install-${PROGRAM}
            COMMAND ${CMAKE_COMMAND} -DCOMPONENT=libraries
-                   -P ${CMAKE_BINARY_DIR}/cmake_install.cmake
-           COMMAND ${CMAKE_COMMAND} -DCOMPONENT=libraries-gmxpreprocess
                    -P ${CMAKE_BINARY_DIR}/cmake_install.cmake
            COMMAND ${CMAKE_COMMAND} -DCOMPONENT=${PROGRAM}
                    -P ${CMAKE_BINARY_DIR}/cmake_install.cmake
@@ -86,7 +72,6 @@ foreach(PROGRAM ${GMX_KERNEL_PROGRAMS} mdrun)
       )
 endforeach()
 
-install(TARGETS gmxpreprocess DESTINATION ${LIB_INSTALL_DIR} COMPONENT libraries-gmxpreprocess)
 
 if (INSTALL_CUDART_LIB) #can be set manual by user
     if (GMX_GPU)
@@ -104,8 +89,3 @@ if (INSTALL_CUDART_LIB) #can be set manual by user
     endif()
 endif ()
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/libgmxpreprocess.pc.cmakein ${CMAKE_CURRENT_BINARY_DIR}/libgmxpreprocess.pc @ONLY)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libgmxpreprocess.pc
-        DESTINATION ${LIB_INSTALL_DIR}/pkgconfig
-        RENAME "libgmxpreprocess${GMX_LIBS_SUFFIX}.pc"
-        COMPONENT development)

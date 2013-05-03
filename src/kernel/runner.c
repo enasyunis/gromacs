@@ -34,7 +34,6 @@
 #include "gmx_detect_hardware.h"
 #include "gmx_omp_nthreads.h"
 #include "pull_rotation.h"
-#include "calc_verletbuf.h"
 #include "../mdlib/nbnxn_search.h"
 #include "../mdlib/nbnxn_consts.h"
 #include "gmx_fatal_collective.h"
@@ -43,10 +42,6 @@
 #include "gmx_thread_affinity.h"
 
 #include "tmpi.h"
-
-
-//#include "gpu_utils.h"
-//#include "nbnxn_cuda_data_mgmt.h"
 
 
 /* The array should match the eI array in include/types/enums.h */
@@ -69,18 +64,6 @@ static int get_tmpi_omp_thread_division(const gmx_hw_info_t *hwinfo,
      * Note that separate PME nodes might be switched on later.
      */
     {
-        /* TODO choose nthreads_omp based on hardware topology
-           when we have a hardware topology detection library */
-        /* In general, when running up to 4 threads, OpenMP should be faster.
-         * Note: on AMD Bulldozer we should avoid running OpenMP over two dies.
-         * On Intel>=Nehalem running OpenMP on a single CPU is always faster,
-         * even on two CPUs it's usually faster (but with many OpenMP threads
-         * it could be faster not to use HT, currently we always use HT).
-         * On Nehalem/Westmere we want to avoid running 16 threads over
-         * two CPUs with HT, so we need a limit<16; thus we use 12.
-         * A reasonable limit for Intel Sandy and Ivy bridge,
-         * not knowing the topology, is 16 threads.
-         */
         const int nthreads_omp_always_faster             =  4;
         const int nthreads_omp_always_faster_Nehalem     = 12;
         const int nthreads_omp_always_faster_SandyBridge = 16;
@@ -147,56 +130,6 @@ static int get_nthreads_mpi(gmx_hw_info_t *hwinfo,
 }
 
 
-/* Environment variable for setting nstlist */
-static const char*  NSTLIST_ENVVAR          =  "GMX_NSTLIST";
-/* Try to increase nstlist when using a GPU with nstlist less than this */
-static const int    NSTLIST_GPU_ENOUGH      = 20;
-/* Increase nstlist until the non-bonded cost increases more than this factor */
-static const float  NBNXN_GPU_LIST_OK_FAC   = 1.25;
-/* Don't increase nstlist beyond a non-bonded cost increases of this factor */
-static const float  NBNXN_GPU_LIST_MAX_FAC  = 1.40;
-
-
-static void prepare_verlet_scheme(FILE             *fplog,
-                                  gmx_hw_info_t    *hwinfo,
-                                  t_commrec        *cr,
-                                  gmx_hw_opt_t     *hw_opt,
-                                  const char       *nbpu_opt,
-                                  t_inputrec       *ir,
-                                  const gmx_mtop_t *mtop,
-                                  matrix            box,
-                                  gmx_bool         *bUseGPU)
-{
-    /* Here we only check for GPU usage on the MPI master process,
-     * as here we don't know how many GPUs we will use yet.
-     * We check for a GPU on all processes later.
-     */
-
-        /* Update the Verlet buffer size for the current run setup */
-        verletbuf_list_setup_t ls;
-        real                   rlist_new;
-
-        /* Here we assume CPU acceleration is on. But as currently
-         * calc_verlet_buffer_size gives the same results for 4x8 and 4x4
-         * and 4x2 gives a larger buffer than 4x4, this is ok.
-         */
-        verletbuf_get_list_setup(*bUseGPU, &ls);
-
-        calc_verlet_buffer_size(mtop, det(box), ir,
-                                ir->verletbuf_drift, &ls,
-                                NULL, &rlist_new);
-}
-
-
-static void check_and_update_hw_opt(gmx_hw_opt_t *hw_opt,
-                                    int           cutoff_scheme,
-                                    gmx_bool      bIsSimMaster)
-{
-    gmx_omp_nthreads_read_env(&hw_opt->nthreads_omp, bIsSimMaster);
-
-}
-
-
 
 /* Data structure set by SIMMASTER which needs to be passed to all nodes
  * before the other nodes have read the tpx file and called gmx_detect_hardware.
@@ -255,9 +188,9 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     minf.cutoff_scheme = inputrec->cutoff_scheme;
     minf.bUseGPU       = FALSE;
 
-    prepare_verlet_scheme(fplog, hwinfo, cr, hw_opt, "cpu",
-                                  inputrec, mtop, state->box,
-                                  &minf.bUseGPU);
+    //prepare_verlet_scheme(fplog, hwinfo, cr, hw_opt, "cpu",
+    //                              inputrec, mtop, state->box,
+   //                               &minf.bUseGPU);
 
     /* Check for externally set OpenMP affinity and turn off internal
      * pinning if any is found. We need to do this check early to tell
