@@ -240,8 +240,6 @@ void init_md(FILE *fplog,
 
     *upd = init_update(fplog, ir);
 
-    *vcm = init_vcm(fplog, &mtop->groups, ir);
-
     init_nrnb(nrnb);
 
     *outf = init_mdoutf(nfile, fnm, Flags, cr, ir, oenv);
