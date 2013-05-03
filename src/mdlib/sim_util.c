@@ -239,8 +239,6 @@ void init_md(FILE *fplog,
     init_nrnb(nrnb);
 
     *outf = init_mdoutf(nfile, fnm, Flags, cr, ir, oenv);
-    *mdebin = init_mdebin((*outf)->fp_ene,
-                              mtop, ir, (*outf)->fp_dhdl);
 
     /* Initiate variables */
     clear_mat(force_vir);

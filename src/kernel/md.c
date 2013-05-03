@@ -98,7 +98,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     int               nchkpt  = 1;
     gmx_localtop_t   *top;
     t_mdebin         *mdebin = NULL;
-    df_history_t      df_history;
     t_state          *state    = NULL;
     rvec             *f_global = NULL;
     int               n_xtc    = -1;
@@ -185,9 +184,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         snew(f, top_global->natoms);
 
 
-   /* lambda Monte carlo random number generator  */
-    /* copy the state into df_history */
-    copy_df_history(&df_history, &state_global->dfhist);
 
 
     gstat = global_stat_init(ir);
@@ -213,8 +209,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
 
 
-     /* Set the initial energy history in state by updating once */
-     update_energyhistory(&state_global->enerhist, mdebin);
 
 
     debug_gmx();
