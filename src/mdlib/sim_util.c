@@ -241,7 +241,6 @@ void init_md(FILE *fplog,
     *outf = init_mdoutf(nfile, fnm, Flags, cr, ir, oenv);
 
     /* Initiate variables */
-    clear_mat(force_vir);
     clear_mat(shake_vir);
     clear_rvec(mu_tot);
 

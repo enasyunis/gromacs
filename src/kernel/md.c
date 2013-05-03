@@ -86,7 +86,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                       bForceUpdate = FALSE;
     int               mdof_flags;
     int               force_flags, cglo_flags;
-    tensor            force_vir, shake_vir, total_vir, tmp_vir, pres;
+    tensor            shake_vir, total_vir, tmp_vir, pres;
     int               i, m;
     t_trxstatus      *status;
     rvec              mu_tot;
@@ -173,7 +173,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             &(state_global->fep_state), lam0,
             nrnb, top_global, 
             nfile, fnm, &outf, &mdebin,
-            force_vir, shake_vir, mu_tot, &bSimAnn, &vcm, state_global, Flags);
+            NULL , shake_vir, mu_tot, &bSimAnn, &vcm, state_global, Flags);
 
     clear_mat(total_vir);
     clear_mat(pres);
@@ -278,7 +278,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             (step % stepout == 0 || bFirstStep || bLastStep);
 
 
-        clear_mat(force_vir);
 
         GMX_MPE_LOG(ev_timestep2);
 
@@ -316,10 +315,10 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
              */
             do_force(fplog, cr, ir, step, nrnb, wcycle, top, top_global, groups,
                      state->box, state->x, &state->hist,
-                     f, force_vir, mdatoms, enerd, fcd,
+                     f, NULL , mdatoms, enerd, fcd,
                      state->lambda, graph,
                      fr, vsite, mu_tot, t, outf->fp_field, ed, bBornRadii,
-                     /*GMX_FORCE_NS |*/ force_flags);
+                     force_flags);
 
         GMX_BARRIER(cr->mpi_comm_mygroup);
 
