@@ -100,7 +100,7 @@ t_forcerec *mk_forcerec(void);
 #define GMX_MAKETABLES_FORCEUSER  (1<<0)
 #define GMX_MAKETABLES_14ONLY     (1<<1)
 
-t_forcetable make_tables(FILE *fp, const output_env_t oenv,
+t_forcetable make_tables(FILE *fp, 
                          const t_forcerec *fr, gmx_bool bVerbose,
                          const char *fn, real rtab, int flags);
 /* Return tables for inner loops. When bVerbose the tables are printed
@@ -170,7 +170,6 @@ void init_interaction_const(FILE                 *fp,
 
 GMX_LIBMD_EXPORT
 void init_forcerec(FILE              *fplog,
-                   const output_env_t oenv,
                    t_forcerec        *fr,
                    t_fcdata          *fcd,
                    const t_inputrec  *ir,

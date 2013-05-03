@@ -394,7 +394,7 @@ static void set_table_type(int tabsel[], const t_forcerec *fr, gmx_bool b14only)
     tabsel[etiLJ12] = etabLJ12;
 }
 
-t_forcetable make_tables(FILE *out, const output_env_t oenv,
+t_forcetable make_tables(FILE *out, 
                          const t_forcerec *fr,
                          gmx_bool bVerbose, const char *fn,
                          real rtab, int flags)

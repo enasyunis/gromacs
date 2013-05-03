@@ -54,17 +54,13 @@
 
 
 double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
-             const output_env_t oenv, gmx_bool bVerbose, gmx_bool bCompact,
-             gmx_vsite_t *vsite, gmx_constr_t constr,
-             int stepout, t_inputrec *ir,
+             t_inputrec *ir,
              gmx_mtop_t *top_global,
              t_fcdata *fcd,
              t_state *state_global,
              t_mdatoms *mdatoms,
              gmx_wallcycle_t wcycle,
              gmx_edsam_t ed, t_forcerec *fr,
-             int repl_ex_nst, int repl_ex_nex, int repl_ex_seed, gmx_membed_t membed,
-             real cpt_period, real max_hours,
              const char *deviceOptions,
              unsigned long Flags
               )
@@ -193,7 +189,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                      state->box, state->x, &state->hist,
                      f, NULL , mdatoms, enerd, fcd,
                      state->lambda, 
-                     fr, vsite, t, ed, 
+                     fr, NULL, t, ed, 
                      force_flags);
 
         GMX_BARRIER(cr->mpi_comm_mygroup);

@@ -65,16 +65,11 @@ int cmain(int argc, char *argv[])
 #define NFILE asize(fnm)
 
 
-
-    rvec          realddxyz          = {0, 0, 0};
-    char         *ddcsx                 = NULL, *ddcsy = NULL, *ddcsz = NULL;
-    output_env_t  oenv                  = NULL;
     const char   *deviceOptions         = "";
 
     gmx_hw_opt_t  hw_opt = {0, 0, 0, 0, threadaffSEL, 0, 0, NULL};
 
     unsigned long Flags;
-    ivec          ddxyz;
     FILE         *fplog;
     int           rc;
 
@@ -82,7 +77,7 @@ int cmain(int argc, char *argv[])
     cr = init_par(&argc, &argv);
 
     parse_common_args(&argc, argv, ((1<<10) |  (1<<12)), NFILE, fnm, 0, NULL, 
-                      asize(desc), desc, 0, NULL, &oenv);
+                      asize(desc), desc, 0, NULL);
 
     cr->npmenodes = 0;
 
@@ -97,13 +92,7 @@ int cmain(int argc, char *argv[])
     gmx_log_open(ftp2fn(efLOG, NFILE, fnm), cr,
                  FALSE, Flags & MD_APPENDFILES, &fplog);
 
-    ddxyz[XX] = (int)(realddxyz[XX] + 0.5);
-    ddxyz[YY] = (int)(realddxyz[YY] + 0.5);
-    ddxyz[ZZ] = (int)(realddxyz[ZZ] + 0.5);
-
-    rc = mdrunner(&hw_opt, fplog, cr, NFILE, fnm, oenv, 
-                  ddxyz,  
-                  ddcsx, ddcsy, ddcsz,
+    rc = mdrunner(&hw_opt, fplog, cr, NFILE, fnm,  
                   deviceOptions, Flags);
 
     gmx_finalize_par();

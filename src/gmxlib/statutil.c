@@ -593,8 +593,8 @@ static char *mk_desc(t_pargs *pa, const char *time_unit_str)
 void parse_common_args(int *argc, char *argv[], unsigned long Flags,
                        int nfile, t_filenm fnm[], int npargs, t_pargs *pa,
                        int ndesc, const char **desc,
-                       int nbugs, const char **bugs,
-                       output_env_t *oenv)
+                       int nbugs, const char **bugs
+                       )
 {
   char *filename = getenv("FILENAME");
   printf("%s\n",filename);

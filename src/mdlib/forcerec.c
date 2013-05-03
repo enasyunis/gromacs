@@ -216,7 +216,7 @@ static void set_chargesum(FILE *log, t_forcerec *fr, const gmx_mtop_t *mtop)
     fprintf(log, "System total charge: %.3f\n", fr->qsum[0]);
 }
 
-static void make_nbf_tables(FILE *fp, const output_env_t oenv,
+static void make_nbf_tables(FILE *fp, 
                             t_forcerec *fr, real rtab,
                             const t_commrec *cr,
                             const char *tabfn, char *eg1, char *eg2,
@@ -226,7 +226,7 @@ static void make_nbf_tables(FILE *fp, const output_env_t oenv,
     int  i, j;
 
     sprintf(buf, "%s", tabfn);
-    nbl->table_elec_vdw = make_tables(fp, oenv, fr, MASTER(cr), buf, rtab, 0);
+    nbl->table_elec_vdw = make_tables(fp, fr, MASTER(cr), buf, rtab, 0);
     /* Copy the contents of the table to separate coulomb and LJ tables too,
      * to improve cache performance.
      */
@@ -499,7 +499,6 @@ static void init_nb_verlet(FILE                *fp,
 }
 
 void init_forcerec(FILE              *fp,
-                   const output_env_t oenv,
                    t_forcerec        *fr,
                    t_fcdata          *fcd,
                    const t_inputrec  *ir,
@@ -721,7 +720,7 @@ void init_forcerec(FILE              *fp,
     rtab = ir->rlistlong + ir->tabext;
 
     /* make tables for ordinary interactions */
-    make_nbf_tables(fp, oenv, fr, rtab, cr, tabfn, NULL, NULL, &fr->nblists[0]);
+    make_nbf_tables(fp, fr, rtab, cr, tabfn, NULL, NULL, &fr->nblists[0]);
     fr->tab14 = fr->nblists[0].table_elec_vdw;
     m = 1;
 

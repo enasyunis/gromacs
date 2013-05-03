@@ -208,9 +208,7 @@ typedef struct {
 
 int mdrunner(gmx_hw_opt_t *hw_opt,
              FILE *fplog, t_commrec *cr, int nfile,
-             const t_filenm fnm[], const output_env_t oenv, 
-             ivec ddxyz, 
-             const char *ddcsx, const char *ddcsy, const char *ddcsz,
+             const t_filenm fnm[],  
              const char *deviceOptions, unsigned long Flags)
 {
 
@@ -357,7 +355,7 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
         /* Initiate forcerecord */
         fr         = mk_forcerec();
         fr->hwinfo = hwinfo;
-        init_forcerec(fplog, oenv, fr, fcd, inputrec, mtop, cr, box, FALSE,
+        init_forcerec(fplog, fr, fcd, inputrec, mtop, cr, box, FALSE,
                       opt2fn("-table", nfile, fnm),
                       opt2fn("-tabletf", nfile, fnm),
                       opt2fn("-tablep", nfile, fnm),
@@ -424,14 +422,9 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
 
 
     do_md(fplog, cr, nfile, fnm,
-          oenv, TRUE, TRUE,
-          NULL, NULL,
-          100, inputrec, mtop,
+          inputrec, mtop,
           fcd, state,
           mdatoms, wcycle, ed, fr,
-          0, 0, -1,
-          NULL,
-          15.0, -1,
           deviceOptions,
           Flags
           );
