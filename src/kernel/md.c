@@ -71,7 +71,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 {
 
 
-    gmx_mdoutf_t   *outf;
     gmx_large_int_t step, step_rel;
     double          t, t0, lam0[efptNR];
     int               force_flags;
@@ -89,7 +88,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     /* Initial values */
     init_md(fplog, cr, ir, oenv, &t, &t0, 
             nrnb, 
-            nfile, fnm, &outf,
+            nfile, fnm,
             Flags);
 
     /* Energy terms and groups */
@@ -197,7 +196,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                      state->box, state->x, &state->hist,
                      f, NULL , mdatoms, enerd, fcd,
                      state->lambda, 
-                     fr, vsite, t, outf->fp_field, ed, 
+                     fr, vsite, t, ed, 
                      force_flags);
 
         GMX_BARRIER(cr->mpi_comm_mygroup);
@@ -208,7 +207,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
     /* Stop the time */
 
-    done_mdoutf(outf);
 
     debug_gmx();
 

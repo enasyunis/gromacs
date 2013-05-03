@@ -94,7 +94,7 @@ void do_force(FILE *fplog, t_commrec *cr,
               real *lambda,
               t_forcerec *fr,
               gmx_vsite_t *vsite, 
-              double t, FILE *field, gmx_edsam_t ed,
+              double t,  gmx_edsam_t ed,
               int flags)
 {
     int                 i, end, start, homenr;
@@ -221,7 +221,6 @@ void init_md(FILE *fplog,
              double *t, double *t0,
              t_nrnb *nrnb, 
              int nfile, const t_filenm fnm[],
-             gmx_mdoutf_t **outf, 
              unsigned long Flags)
 {
 
@@ -230,8 +229,6 @@ void init_md(FILE *fplog,
 
 
     init_nrnb(nrnb);
-
-    *outf = init_mdoutf(nfile, fnm, Flags, cr, ir, oenv);
 
 
     debug_gmx();

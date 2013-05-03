@@ -147,7 +147,6 @@ void init_md(FILE *fplog,
              double *t, double *t0,
              t_nrnb *nrnb, 
              int nfile, const t_filenm fnm[],
-             gmx_mdoutf_t **outf, 
              unsigned long Flags);
 /* Routine in sim_util.c */
 

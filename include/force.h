@@ -242,7 +242,7 @@ extern void do_force(FILE *log, t_commrec *cr,
                      real *lambda, 
                      t_forcerec *fr,
                      gmx_vsite_t *vsite,
-                     double t, FILE *field, gmx_edsam_t ed,
+                     double t, gmx_edsam_t ed,
                      int flags);
 
 /* Communicate coordinates (if parallel).
