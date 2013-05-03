@@ -91,11 +91,10 @@ void do_force(FILE *fplog, t_commrec *cr,
               tensor vir_force,
               t_mdatoms *mdatoms,
               gmx_enerdata_t *enerd, t_fcdata *fcd,
-              real *lambda, t_graph *graph,
+              real *lambda,
               t_forcerec *fr,
-              gmx_vsite_t *vsite, rvec mu_tot,
+              gmx_vsite_t *vsite, 
               double t, FILE *field, gmx_edsam_t ed,
-              gmx_bool bBornRadii,
               int flags)
 {
     int                 i, end, start, homenr;
@@ -147,7 +146,6 @@ void do_force(FILE *fplog, t_commrec *cr,
                        nrnb);
 
 
-     copy_rvec(fr->mu_tot[0], mu_tot);
 
     /* Reset energies */
     reset_enerdata(&(inputrec->opts), fr, 1, enerd, MASTER(cr));
@@ -178,8 +176,8 @@ void do_force(FILE *fplog, t_commrec *cr,
     do_force_lowlevel(fplog, step, fr, inputrec, &(top->idef),
                       cr, nrnb, wcycle, mdatoms, &(inputrec->opts),
                       x, hist, f, f, enerd, fcd, mtop, top,
-                      &(top->atomtypes), bBornRadii, box,
-                      inputrec->fepvals, lambda, graph, &(top->excls), fr->mu_tot,
+                      &(top->atomtypes),  box,
+                      inputrec->fepvals, lambda, &(top->excls), 
                       flags, &cycles_pme);
 
 
@@ -225,21 +223,17 @@ void init_md(FILE *fplog,
              t_nrnb *nrnb, gmx_mtop_t *mtop,
              int nfile, const t_filenm fnm[],
              gmx_mdoutf_t **outf, t_mdebin **mdebin,
-             rvec mu_tot,
-             gmx_bool *bSimAnn, t_vcm **vcm, t_state *state, unsigned long Flags)
+             t_state *state, unsigned long Flags)
 {
 
     /* Initial values */
     *t = *t0       = ir->init_t;
 
-    *bSimAnn = FALSE; // KEEP
 
     init_nrnb(nrnb);
 
     *outf = init_mdoutf(nfile, fnm, Flags, cr, ir, oenv);
 
-    /* Initiate variables */
-    clear_rvec(mu_tot);
 
     debug_gmx();
 }

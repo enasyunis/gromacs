@@ -239,11 +239,10 @@ extern void do_force(FILE *log, t_commrec *cr,
                      tensor vir_force,
                      t_mdatoms *mdatoms,
                      gmx_enerdata_t *enerd, t_fcdata *fcd,
-                     real *lambda, t_graph *graph,
+                     real *lambda, 
                      t_forcerec *fr,
-                     gmx_vsite_t *vsite, rvec mu_tot,
+                     gmx_vsite_t *vsite,
                      double t, FILE *field, gmx_edsam_t ed,
-                     gmx_bool bBornRadii,
                      int flags);
 
 /* Communicate coordinates (if parallel).
@@ -292,13 +291,10 @@ extern void do_force_lowlevel(FILE         *fplog,
                               gmx_mtop_t     *mtop,
                               gmx_localtop_t *top,
                               t_atomtypes  *atype,
-                              gmx_bool         bBornRadii,
                               matrix       box,
                               t_lambda     *fepvals,
                               real         *lambda,
-                              t_graph      *graph,
                               t_blocka     *excl,
-                              rvec         mu_tot[2],
                               int          flags,
                               float        *cycles_pme);
 /* Call all the force routines */

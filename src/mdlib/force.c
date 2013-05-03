@@ -56,13 +56,10 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                        gmx_mtop_t     *mtop,
                        gmx_localtop_t *top,
                        t_atomtypes *atype,
-                       gmx_bool       bBornRadii,
                        matrix     box,
                        t_lambda   *fepvals,
                        real       *lambda,
-                       t_graph    *graph,
                        t_blocka   *excl,
-                       rvec       mu_tot[],
                        int        flags,
                        float      *cycles_pme)
 {// called 
@@ -129,7 +126,7 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
         GMX_MPE_LOG(ev_calc_bonds_start);
 
         calc_bonds(fplog, cr->ms,
-                   idef, x, hist, f, fr, &pbc, graph, enerd, nrnb, lambda, md, fcd,
+                   idef, x, hist, f, fr, &pbc, NULL, enerd, nrnb, lambda, md, fcd,
                    DOMAINDECOMP(cr) ? cr->dd->gatindex : NULL, atype, NULL,
                    flags,
                    fr->bSepDVDL && do_per_step(step, ir->nstlog), step);

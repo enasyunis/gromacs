@@ -7,7 +7,6 @@
 #include "sysstuff.h"
 #include "vec.h"
 #include "statutil.h"
-#include "vcm.h"
 #include "mdebin.h"
 #include "nrnb.h"
 #include "calcmu.h"
@@ -76,19 +75,14 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     gmx_mdoutf_t   *outf;
     gmx_large_int_t step, step_rel;
     double          t, t0, lam0[efptNR];
-    gmx_bool        bSimAnn;
-    gmx_bool        bBornRadii;
     int               force_flags;
     int               i, m;
     t_trxstatus      *status;
-    rvec              mu_tot;
-    t_vcm            *vcm;
     gmx_localtop_t   *top;
     t_mdebin         *mdebin = NULL;
     t_state          *state    = NULL;
     gmx_enerdata_t   *enerd;
     rvec             *f = NULL;
-    t_graph          *graph = NULL;
     globsig_t         gs;
     gmx_groups_t     *groups;
     int               a0, a1, gnx = 0, ii;
@@ -114,7 +108,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             &(state_global->fep_state), lam0,
             nrnb, top_global, 
             nfile, fnm, &outf, &mdebin,
-            mu_tot, &bSimAnn, &vcm, state_global, Flags);
+            state_global, Flags);
 
     /* Energy terms and groups */
     snew(enerd, 1);
@@ -193,9 +187,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
 
 
-        /* Determine whether or not to update the Born radii if doing GB */
-        bBornRadii = TRUE;
-
 
 
 
@@ -223,8 +214,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
             do_force(fplog, cr, ir, step, nrnb, wcycle, top, top_global, groups,
                      state->box, state->x, &state->hist,
                      f, NULL , mdatoms, enerd, fcd,
-                     state->lambda, graph,
-                     fr, vsite, mu_tot, t, outf->fp_field, ed, bBornRadii,
+                     state->lambda, 
+                     fr, vsite, t, outf->fp_field, ed, 
                      force_flags);
 
         GMX_BARRIER(cr->mpi_comm_mygroup);
