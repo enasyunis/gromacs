@@ -55,7 +55,6 @@
 
 double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
              const output_env_t oenv, gmx_bool bVerbose, gmx_bool bCompact,
-             int nstglobalcomm,
              gmx_vsite_t *vsite, gmx_constr_t constr,
              int stepout, t_inputrec *ir,
              gmx_mtop_t *top_global,
@@ -79,36 +78,19 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     int               i, m;
     t_trxstatus      *status;
     gmx_localtop_t   *top;
-    t_mdebin         *mdebin = NULL;
     t_state          *state    = NULL;
     gmx_enerdata_t   *enerd;
     rvec             *f = NULL;
     globsig_t         gs;
-    gmx_groups_t     *groups;
     int               a0, a1, gnx = 0, ii;
     /* for FEP */
     char              sbuf[STEPSTRSIZE];
 
-    /* md-vv uses averaged full step velocities for T-control
-       md-vv-avek uses averaged half step velocities for T-control (but full step ekin for P control)
-       md uses averaged half step kinetic energies to determine temperature unless defined otherwise by GMX_EKIN_AVE_VEL; */
-    /* all the iteratative cases - only if there are constraints */
-
-
-
-
-
-    nstglobalcomm   = ir->nstlist;
-
-
-    groups = &top_global->groups;
-
     /* Initial values */
-    init_md(fplog, cr, ir, oenv, &t, &t0, state_global->lambda,
-            &(state_global->fep_state), lam0,
-            nrnb, top_global, 
-            nfile, fnm, &outf, &mdebin,
-            state_global, Flags);
+    init_md(fplog, cr, ir, oenv, &t, &t0, 
+            nrnb, 
+            nfile, fnm, &outf,
+            Flags);
 
     /* Energy terms and groups */
     snew(enerd, 1);
@@ -210,8 +192,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
              * in do_force.
              * This is parallellized as well, and does communication too.
              * Check comments in sim_util.c
-             */
-            do_force(fplog, cr, ir, step, nrnb, wcycle, top, top_global, groups,
+             */ 
+            do_force(fplog, cr, ir, step, nrnb, wcycle, top, top_global, &top_global->groups, 
                      state->box, state->x, &state->hist,
                      f, NULL , mdatoms, enerd, fcd,
                      state->lambda, 

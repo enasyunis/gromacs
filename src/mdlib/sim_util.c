@@ -219,11 +219,10 @@ void do_force(FILE *fplog, t_commrec *cr,
 void init_md(FILE *fplog,
              t_commrec *cr, t_inputrec *ir, const output_env_t oenv,
              double *t, double *t0,
-             real *lambda, int *fep_state, double *lam0,
-             t_nrnb *nrnb, gmx_mtop_t *mtop,
+             t_nrnb *nrnb, 
              int nfile, const t_filenm fnm[],
-             gmx_mdoutf_t **outf, t_mdebin **mdebin,
-             t_state *state, unsigned long Flags)
+             gmx_mdoutf_t **outf, 
+             unsigned long Flags)
 {
 
     /* Initial values */

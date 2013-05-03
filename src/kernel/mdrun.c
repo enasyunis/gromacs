@@ -82,7 +82,6 @@ int cmain(int argc, char *argv[])
 
     int           npme          = 0;
     int           nmultisim     = 0;
-    int           nstglobalcomm = -1;
     int           repl_ex_nst   = 0;
     int           repl_ex_seed  = -1;
     int           repl_ex_nex   = 0;
@@ -144,7 +143,7 @@ int cmain(int argc, char *argv[])
     ddxyz[ZZ] = (int)(realddxyz[ZZ] + 0.5);
 
     rc = mdrunner(&hw_opt, fplog, cr, NFILE, fnm, oenv, bVerbose, bCompact,
-                  nstglobalcomm, ddxyz, dd_node_order, rdd, rconstr,
+                  ddxyz, dd_node_order, rdd, rconstr,
                   dddlb_opt[0], dlb_scale, ddcsx, ddcsy, ddcsz,
                   "cpu",
                   nsteps, nstepout, resetstep,
