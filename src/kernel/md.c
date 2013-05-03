@@ -234,16 +234,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     /* set free energy calculation frequency as the minimum of nstdhdl, nstexpanded, and nstrepl_ex_nst*/
     nstfep = ir->fepvals->nstdhdl;
 
-    /* I'm assuming we need global communication the first time! MRS */
-    cglo_flags = (CGLO_TEMPERATURE | CGLO_GSTAT
-                  | ((ir->comm_mode != ecmNO) ? CGLO_STOPCM : 0)
-                  | ((Flags & MD_READ_EKIN) ? CGLO_READEKIN : 0));
-
     bSumEkinhOld = FALSE;
-    compute_globals(fplog, gstat, cr, ir, fr, ekind, state, state_global, mdatoms, nrnb, vcm,
-                    NULL, enerd, force_vir, shake_vir, total_vir, pres, mu_tot,
-                    0, NULL, FALSE, state->box,
-                    top_global, &pcurr, top_global->natoms, &bSumEkinhOld, cglo_flags);
 
 
     /* Calculate the initial half step temperature, and save the ekinh_old */
@@ -288,7 +279,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     bLastStep        = FALSE;
     bSumEkinhOld     = FALSE;
 
-    init_global_signals(&gs, cr, ir, 0);
 
     step     = ir->init_step;
     step_rel = 0;
