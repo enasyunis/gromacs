@@ -130,8 +130,7 @@ void nbnxn_make_pairlist(const nbnxn_search_t  nbs,
                          int                   min_ci_balanced,
                          nbnxn_pairlist_set_t *nbl_list,
                          int                   iloc,
-                         int                   nb_kernel_type,
-                         t_nrnb               *nrnb);
+                         int                   nb_kernel_type);
 
 #ifdef __cplusplus
 }

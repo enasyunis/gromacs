@@ -91,7 +91,7 @@ int gmx_pme_do(gmx_pme_t pme,
                real chargeA[],  real chargeB[],
                matrix box,      t_commrec *cr,
                int  maxshift_x, int maxshift_y,
-               t_nrnb *nrnb,    gmx_wallcycle_t wcycle,
+               gmx_wallcycle_t wcycle,
                matrix lrvir,    real ewaldcoeff,
                real *energy,    real lambda,
                real *dvdlambda, int flags);

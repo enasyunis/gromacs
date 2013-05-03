@@ -45,7 +45,7 @@ int fmmsteptaken=2;
 void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                        t_forcerec *fr,      t_inputrec *ir,
                        t_idef     *idef,    t_commrec  *cr,
-                       t_nrnb     *nrnb,    gmx_wallcycle_t wcycle,
+                       gmx_wallcycle_t wcycle,
                        t_mdatoms  *md,
                        t_grpopts  *opts,
                        rvec       x[],      history_t  *hist,
@@ -126,7 +126,7 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
         GMX_MPE_LOG(ev_calc_bonds_start);
 
         calc_bonds(fplog, cr->ms,
-                   idef, x, hist, f, fr, &pbc, NULL, enerd, nrnb, lambda, md, fcd,
+                   idef, x, hist, f, fr, &pbc, NULL, enerd, NULL, lambda, md, fcd,
                    DOMAINDECOMP(cr) ? cr->dd->gatindex : NULL, atype, NULL,
                    flags,
                    fr->bSepDVDL && do_per_step(step, ir->nstlog), step);
@@ -210,7 +210,7 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                                             box, cr,
                                             0,
                                             0,
-                                            nrnb, wcycle,
+                                            wcycle,
                                             fr->vir_el_recip, fr->ewaldcoeff,
                                             &Vlr, lambda[efptCOUL], &dvdl,
                                             pme_flags);

@@ -1594,8 +1594,7 @@ void nbnxn_make_pairlist(const nbnxn_search_t  nbs,
                          int                   min_ci_balanced,
                          nbnxn_pairlist_set_t *nbl_list,
                          int                   iloc,
-                         int                   nb_kernel_type,
-                         t_nrnb               *nrnb)
+                         int                   nb_kernel_type)
 { //called - done
     nbnxn_grid_t *gridi, *gridj;
     gmx_bool bGPUCPU;
@@ -1667,7 +1666,6 @@ void nbnxn_make_pairlist(const nbnxn_search_t  nbs,
             np_hlj = 0;
             for (th = 0; th < nnbl; th++)
             {
-                inc_nrnb(nrnb, eNR_NBNXN_DIST2, nbs->work[th].ndistc);
 
                 np_tot += nbl[th]->ncj;
                 np_noq += nbl[th]->work->ncj_noq;

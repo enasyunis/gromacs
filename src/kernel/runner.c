@@ -227,7 +227,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     gmx_ddbox_t     ddbox = {0};
     int             npme_major, npme_minor;
     real            tmpr1, tmpr2;
-    t_nrnb         *nrnb;
     gmx_mtop_t     *mtop       = NULL;
     t_mdatoms      *mdatoms    = NULL;
     t_forcerec     *fr         = NULL;
@@ -361,10 +360,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     wcycle = wallcycle_init(fplog, resetstep, cr, nthreads_pp, nthreads_pme);
 
 
-    snew(nrnb, 1);
-        /* For domain decomposition we allocate dynamically
-         * in dd_partition_system.
-         */
 
         /* Initiate forcerecord */
         fr         = mk_forcerec();
@@ -440,7 +435,7 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
           NULL, NULL,
           nstepout, inputrec, mtop,
           fcd, state,
-          mdatoms, nrnb, wcycle, ed, fr,
+          mdatoms, wcycle, ed, fr,
           repl_ex_nst, repl_ex_nex, repl_ex_seed,
           NULL,
           cpt_period, max_hours,

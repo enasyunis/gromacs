@@ -141,13 +141,6 @@ void do_constrain_first(FILE *log, gmx_constr_t constr,
                         t_graph *graph, t_commrec *cr, t_nrnb *nrnb,
                         t_forcerec *fr, gmx_localtop_t *top, tensor shake_vir);
 
-GMX_LIBMD_EXPORT
-void init_md(FILE *fplog,
-             t_commrec *cr, t_inputrec *ir, const output_env_t oenv,
-             double *t, double *t0,
-             t_nrnb *nrnb, 
-             int nfile, const t_filenm fnm[],
-             unsigned long Flags);
 /* Routine in sim_util.c */
 
 #ifdef __cplusplus

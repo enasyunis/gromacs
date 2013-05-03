@@ -61,7 +61,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
              t_fcdata *fcd,
              t_state *state_global,
              t_mdatoms *mdatoms,
-             t_nrnb *nrnb, gmx_wallcycle_t wcycle,
+             gmx_wallcycle_t wcycle,
              gmx_edsam_t ed, t_forcerec *fr,
              int repl_ex_nst, int repl_ex_nex, int repl_ex_seed, gmx_membed_t membed,
              real cpt_period, real max_hours,
@@ -86,10 +86,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     char              sbuf[STEPSTRSIZE];
 
     /* Initial values */
-    init_md(fplog, cr, ir, oenv, &t, &t0, 
-            nrnb, 
-            nfile, fnm,
-            Flags);
+    t = t0       = ir->init_t;
 
     /* Energy terms and groups */
     snew(enerd, 1);
@@ -192,7 +189,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
              * This is parallellized as well, and does communication too.
              * Check comments in sim_util.c
              */ 
-            do_force(fplog, cr, ir, step, nrnb, wcycle, top, top_global, &top_global->groups, 
+            do_force(fplog, cr, ir, step, wcycle, top, top_global, &top_global->groups, 
                      state->box, state->x, &state->hist,
                      f, NULL , mdatoms, enerd, fcd,
                      state->lambda, 

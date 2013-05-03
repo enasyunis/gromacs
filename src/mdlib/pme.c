@@ -2182,7 +2182,7 @@ int gmx_pme_do(gmx_pme_t pme,
                real *chargeA,   real *chargeB,
                matrix box, t_commrec *cr,
                int  maxshift_x, int maxshift_y,
-               t_nrnb *nrnb,    gmx_wallcycle_t wcycle,
+               gmx_wallcycle_t wcycle,
                matrix vir,      real ewaldcoeff,
                real *energy,    real lambda,
                real *dvdlambda, int flags)
@@ -2253,19 +2253,6 @@ int gmx_pme_do(gmx_pme_t pme,
             /* Spread the charges on a grid */
             spread_on_grid(pme, &pme->atc[0], pmegrid, q == 0, TRUE, fftgrid);
             GMX_MPE_LOG(ev_spread_on_grid_finish);
-
-            if (q == 0)
-            {
-                inc_nrnb(nrnb, eNR_WEIGHTS, DIM*atc->n);
-            }
-            inc_nrnb(nrnb, eNR_SPREADQBSP,
-                     pme->pme_order*pme->pme_order*pme->pme_order*atc->n);
-
-
-            /*
-               dump_local_fftgrid(pme,fftgrid);
-               exit(0);
-             */
         }
 
         /* Here we start a large thread parallel region */
@@ -2305,7 +2292,6 @@ int gmx_pme_do(gmx_pme_t pme,
                 {
                     where();
                     GMX_MPE_LOG(ev_solve_pme_finish);
-                    inc_nrnb(nrnb, eNR_SOLVEPME, loop_count);
                 }
             }
 
@@ -2330,7 +2316,6 @@ int gmx_pme_do(gmx_pme_t pme,
                     {
                         ntot  = pme->nkx*pme->nky*pme->nkz;
                         npme  = ntot*log((real)ntot)/log(2.0);
-                        inc_nrnb(nrnb, eNR_FFT, 2*npme);
                     }
 
                 }
@@ -2372,8 +2357,6 @@ int gmx_pme_do(gmx_pme_t pme,
 
             GMX_MPE_LOG(ev_gather_f_bsplines_finish);
 
-            inc_nrnb(nrnb, eNR_GATHERFBSP,
-                     pme->pme_order*pme->pme_order*pme->pme_order*pme->atc[0].n);
         }
 
         if (bCalcEnerVir)

@@ -66,7 +66,6 @@ static void do_nb_verlet(t_forcerec *fr,
                          gmx_enerdata_t *enerd,
                          int flags, 
                          int clearF,
-                         t_nrnb *nrnb,
                          gmx_wallcycle_t wcycle)
 {
     nonbonded_verlet_group_t  *nbvg = &fr->nbv->grp[eintLocal];
@@ -82,7 +81,7 @@ static void do_nb_verlet(t_forcerec *fr,
 
 void do_force(FILE *fplog, t_commrec *cr,
               t_inputrec *inputrec,
-              gmx_large_int_t step, t_nrnb *nrnb, gmx_wallcycle_t wcycle,
+              gmx_large_int_t step, gmx_wallcycle_t wcycle,
               gmx_localtop_t *top,
               gmx_mtop_t *mtop,
               gmx_groups_t *groups,
@@ -113,7 +112,6 @@ void do_force(FILE *fplog, t_commrec *cr,
     put_atoms_in_box_omp(fr->ePBC, box, homenr, x);
 
 
-    inc_nrnb(nrnb, eNR_SHIFTX, homenr);
 
 
     nbnxn_atomdata_copy_shiftvec(0, fr->shift_vec, nbv->grp[0].nbat);
@@ -142,8 +140,8 @@ void do_force(FILE *fplog, t_commrec *cr,
                        nbv->min_ci_balanced,
                        &nbv->grp[eintLocal].nbl_lists,
                        eintLocal,
-                       nbv->grp[eintLocal].kernel_type,
-                       nrnb);
+                       nbv->grp[eintLocal].kernel_type
+                       );
 
 
 
@@ -174,7 +172,7 @@ void do_force(FILE *fplog, t_commrec *cr,
 
     /* Compute the bonded and non-bonded energies and optionally forces */
     do_force_lowlevel(fplog, step, fr, inputrec, &(top->idef),
-                      cr, nrnb, wcycle, mdatoms, &(inputrec->opts),
+                      cr, wcycle, mdatoms, &(inputrec->opts),
                       x, hist, f, f, enerd, fcd, mtop, top,
                       &(top->atomtypes),  box,
                       inputrec->fepvals, lambda, &(top->excls), 
@@ -183,7 +181,7 @@ void do_force(FILE *fplog, t_commrec *cr,
 
     /* Maybe we should move this into do_force_lowlevel */
     do_nb_verlet(fr, fr->ic, enerd, flags, enbvClearFYes,
-                     nrnb, wcycle);
+                     wcycle);
 
 
 
@@ -216,20 +214,3 @@ void do_force(FILE *fplog, t_commrec *cr,
 }
 
 
-void init_md(FILE *fplog,
-             t_commrec *cr, t_inputrec *ir, const output_env_t oenv,
-             double *t, double *t0,
-             t_nrnb *nrnb, 
-             int nfile, const t_filenm fnm[],
-             unsigned long Flags)
-{
-
-    /* Initial values */
-    *t = *t0       = ir->init_t;
-
-
-    init_nrnb(nrnb);
-
-
-    debug_gmx();
-}
