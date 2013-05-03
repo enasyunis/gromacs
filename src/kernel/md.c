@@ -59,7 +59,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
              t_fcdata *fcd,
              t_state *state_global,
              t_mdatoms *mdatoms,
-             gmx_wallcycle_t wcycle,
              gmx_edsam_t ed, t_forcerec *fr,
              const char *deviceOptions,
              unsigned long Flags
@@ -185,11 +184,11 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
              * This is parallellized as well, and does communication too.
              * Check comments in sim_util.c
              */ 
-            do_force(fplog, cr, ir, step, wcycle, top, top_global, &top_global->groups, 
+            do_force(fplog, cr, ir, step, top, top_global, &top_global->groups, 
                      state->box, state->x, &state->hist,
-                     f, NULL , mdatoms, enerd, fcd,
+                     f, mdatoms, enerd, fcd,
                      state->lambda, 
-                     fr, NULL, t, ed, 
+                     fr, t, ed, 
                      force_flags);
 
         GMX_BARRIER(cr->mpi_comm_mygroup);

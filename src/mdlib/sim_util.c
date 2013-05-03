@@ -64,8 +64,8 @@ static void do_nb_verlet(t_forcerec *fr,
                          interaction_const_t *ic,
                          gmx_enerdata_t *enerd,
                          int flags, 
-                         int clearF,
-                         gmx_wallcycle_t wcycle)
+                         int clearF
+                         )
 {
     nonbonded_verlet_group_t  *nbvg = &fr->nbv->grp[eintLocal];
     nbnxn_kernel_ref(&nbvg->nbl_lists,
@@ -80,18 +80,16 @@ static void do_nb_verlet(t_forcerec *fr,
 
 void do_force(FILE *fplog, t_commrec *cr,
               t_inputrec *inputrec,
-              gmx_large_int_t step, gmx_wallcycle_t wcycle,
+              gmx_large_int_t step, 
               gmx_localtop_t *top,
               gmx_mtop_t *mtop,
               gmx_groups_t *groups,
               matrix box, rvec x[], history_t *hist,
               rvec f[],
-              tensor vir_force,
               t_mdatoms *mdatoms,
               gmx_enerdata_t *enerd, t_fcdata *fcd,
               real *lambda,
               t_forcerec *fr,
-              gmx_vsite_t *vsite, 
               double t,  gmx_edsam_t ed,
               int flags)
 {
@@ -171,7 +169,7 @@ void do_force(FILE *fplog, t_commrec *cr,
 
     /* Compute the bonded and non-bonded energies and optionally forces */
     do_force_lowlevel(fplog, step, fr, inputrec, &(top->idef),
-                      cr, wcycle, mdatoms, &(inputrec->opts),
+                      cr, mdatoms, &(inputrec->opts),
                       x, hist, f, f, enerd, fcd, mtop, top,
                       &(top->atomtypes),  box,
                       inputrec->fepvals, lambda, &(top->excls), 
@@ -179,8 +177,8 @@ void do_force(FILE *fplog, t_commrec *cr,
 
 
     /* Maybe we should move this into do_force_lowlevel */
-    do_nb_verlet(fr, fr->ic, enerd, flags, enbvClearFYes,
-                     wcycle);
+    do_nb_verlet(fr, fr->ic, enerd, flags, enbvClearFYes
+                     );
 
 
 

@@ -226,7 +226,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     gmx_pme_t      *pmedata    = NULL;
     int             i, m, nChargePerturbed = -1, status, nalloc;
     char           *gro;
-    gmx_wallcycle_t wcycle;
     gmx_bool        bReadRNG, bReadEkin;
     int             list;
     int             rc;
@@ -348,7 +347,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     nthreads_pp  = gmx_omp_nthreads_get(emntNonbonded);
     nthreads_pme = gmx_omp_nthreads_get(emntPME);
 
-    wcycle = wallcycle_init(fplog, -1, cr, nthreads_pp, nthreads_pme);
 
 
 
@@ -424,7 +422,7 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     do_md(fplog, cr, nfile, fnm,
           inputrec, mtop,
           fcd, state,
-          mdatoms, wcycle, ed, fr,
+          mdatoms, ed, fr,
           deviceOptions,
           Flags
           );
