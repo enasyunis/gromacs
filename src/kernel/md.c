@@ -110,7 +110,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     globsig_t         gs;
     gmx_rng_t         mcrng = NULL;
     gmx_groups_t     *groups;
-    gmx_ekindata_t   *ekind, *ekind_save;
     int               count, nconverged = 0;
     real              timestep = 0;
     double            tcount   = 0;
@@ -136,7 +135,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     real              last_ekin                = 0;
     int               iter_i;
     t_extmass         MassQ;
-    int             **trotter_seq;
     char              sbuf[STEPSTRSIZE], sbuf2[STEPSTRSIZE];
     int               handled_stop_condition = gmx_stop_cond_none; /* compare to get_stop_condition*/
     gmx_iterate_t     iterate;
@@ -191,14 +189,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     /* copy the state into df_history */
     copy_df_history(&df_history, &state_global->dfhist);
 
-    /* Kinetic energy data */
-    snew(ekind, 1);
-    init_ekindata(fplog, top_global, &(ir->opts), ekind);
-    /* needed for iteration of constraints */
-    snew(ekind_save, 1);
-    init_ekindata(fplog, top_global, &(ir->opts), ekind_save);
-    /* Copy the cos acceleration to the groups struct */
-    ekind->cosacc.cos_accel = ir->cos_accel;
 
     gstat = global_stat_init(ir);
     debug_gmx();
@@ -235,19 +225,11 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     bSumEkinhOld = FALSE;
 
 
-    /* Calculate the initial half step temperature, and save the ekinh_old */
-    for (i = 0; (i < ir->opts.ngtc); i++)
-    {
-         copy_mat(ekind->tcstat[i].ekinh, ekind->tcstat[i].ekinh_old);
-    }
 
     enerd->term[F_TEMP] *= 2; /* result of averages being done over previous and current step,
                                      and there is no previous step */
 
 
-    /* need to make an initiation call to get the Trotter variables set, as well as other constants for non-trotter
-       temperature control */
-    trotter_seq = init_npt_vars(ir, state, &MassQ, 0);
     {
         char tbuf[20];
         fprintf(stderr, "starting mdrun '%s'\n",
@@ -259,11 +241,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
         fprintf(stderr, "%s steps, %s ps.\n",
                         gmx_step_str(ir->nsteps, sbuf), tbuf);
     }
-    /* Set and write start time */
 
-
-
-    /* safest point to do file checkpointing is here.  More general point would be immediately before integrator call */
 
     debug_gmx();
 
