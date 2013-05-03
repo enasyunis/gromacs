@@ -65,7 +65,7 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
 {// called 
     int         i, j, status;
     int         donb_flags;
-    gmx_bool    bDoEpot, bSepDVDL, bSB;
+    gmx_bool    bDoEpot, bSB;
     int         pme_flags;
     matrix      boxs;
     rvec        box_size;
@@ -79,7 +79,7 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
 
     double  t0 = 0.0, t1, t2, t3; /* time measurement for coarse load balancing */
 
-#define PRINT_SEPDVDL(s, v, dvdlambda) if (bSepDVDL) {fprintf(fplog, sepdvdlformat, s, v, dvdlambda); }
+#define PRINT_SEPDVDL(s, v, dvdlambda) fprintf(fplog, sepdvdlformat, s, v, dvdlambda); 
 
     GMX_MPE_LOG(ev_force_start);
     set_pbc(&pbc, fr->ePBC, box);
@@ -96,7 +96,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
     {
         box_size[i] = box[i][i];
     }
-    bSepDVDL = (fr->bSepDVDL && do_per_step(step, ir->nstlog));
     debug_gmx();
 
     fprintf(fplog, "Step %s: non-bonded V and dVdl for node %d:\n",
@@ -124,12 +123,11 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
     set_pbc_dd(&pbc, fr->ePBC, cr->dd, TRUE, box);
     debug_gmx();
         GMX_MPE_LOG(ev_calc_bonds_start);
-
         calc_bonds(fplog, cr->ms,
                    idef, x, hist, f, fr, &pbc, NULL, enerd, NULL, lambda, md, fcd,
-                   DOMAINDECOMP(cr) ? cr->dd->gatindex : NULL, atype, NULL,
+                    NULL, atype, NULL,
                    flags,
-                   fr->bSepDVDL && do_per_step(step, ir->nstlog), step);
+                   fr->bSepDVDL, step);
 
         debug_gmx();
         GMX_MPE_LOG(ev_calc_bonds_finish);

@@ -44,7 +44,6 @@
 #include "visibility.h"
 #include "typedefs.h"
 #include "network.h"
-#include "sim_util.h"
 #include "tgroup.h"
 #include "filenm.h"
 #include "mshift.h"
@@ -144,8 +143,8 @@ typedef double gmx_integrator_t (FILE *log, t_commrec *cr,
                                  gmx_membed_t membed,
                                  real cpt_period, real max_hours,
                                  const char *deviceOptions,
-                                 unsigned long Flags,
-                                 gmx_runtime_t *runtime);
+                                 unsigned long Flags
+                                 );
 
 /* ROUTINES from md.c */
 

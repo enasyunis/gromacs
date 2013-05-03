@@ -66,8 +66,8 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
              int repl_ex_nst, int repl_ex_nex, int repl_ex_seed, gmx_membed_t membed,
              real cpt_period, real max_hours,
              const char *deviceOptions,
-             unsigned long Flags,
-             gmx_runtime_t *runtime)
+             unsigned long Flags
+              )
 {
 
 

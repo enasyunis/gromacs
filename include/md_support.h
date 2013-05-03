@@ -41,7 +41,6 @@
 #include "visibility.h"
 #include "typedefs.h"
 #include "types/globsig.h"
-#include "sim_util.h"
 #include "vcm.h"
 
 #ifdef __cplusplus
@@ -127,17 +126,6 @@ void copy_coupling_state(t_state *statea, t_state *stateb,
                          gmx_ekindata_t *ekinda, gmx_ekindata_t *ekindb, t_grpopts* opts);
 /* Copy stuff from state A to state B */
 
-GMX_LIBMD_EXPORT
-void compute_globals(FILE *fplog, gmx_global_stat_t gstat, t_commrec *cr, t_inputrec *ir,
-                     t_forcerec *fr, gmx_ekindata_t *ekind,
-                     t_state *state, t_state *state_global, t_mdatoms *mdatoms,
-                     t_nrnb *nrnb, t_vcm *vcm, gmx_wallcycle_t wcycle,
-                     gmx_enerdata_t *enerd, tensor force_vir, tensor shake_vir, tensor total_vir,
-                     tensor pres, rvec mu_tot, gmx_constr_t constr,
-                     globsig_t *gs, gmx_bool bInterSimGS,
-                     matrix box, gmx_mtop_t *top_global, real *pcurr,
-                     int natoms, gmx_bool *bSumEkinhOld, int flags);
-/* Compute global variables during integration */
 
 #ifdef __cplusplus
 }

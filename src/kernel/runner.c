@@ -237,7 +237,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     gmx_wallcycle_t wcycle;
     gmx_bool        bReadRNG, bReadEkin;
     int             list;
-    gmx_runtime_t   runtime;
     int             rc;
     gmx_large_int_t reset_counters;
     gmx_edsam_t     ed           = NULL;
@@ -440,8 +439,8 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
           NULL,
           cpt_period, max_hours,
           deviceOptions,
-          Flags,
-          &runtime);
+          Flags
+          );
 
 
 
