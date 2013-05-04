@@ -44,56 +44,6 @@
 #include "gmx_fatal.h"
 #include "smalloc.h"
 
-int xdr_real(XDR *xdrs, real *r)
-{
-#ifdef GMX_DOUBLE
-    float f;
-    int   ret;
-
-    f   = *r;
-    ret = xdr_float(xdrs, &f);
-    *r  = f;
-
-    return ret;
-#else
-    return xdr_float(xdrs, (float *)r);
-#endif
-}
-
-int xdr3drcoord(XDR *xdrs, real *fp, int *size, real *precision)
-{
-#ifdef GMX_DOUBLE
-    float *ffp;
-    float  fprec;
-    int    i, ret, isize;
-
-    isize = *size*DIM;
-    if (isize <= 0)
-    {
-        gmx_fatal(FARGS, "Don't know what to malloc for ffp, isize = %d", isize);
-    }
-
-    snew(ffp, isize);
-
-    for (i = 0; (i < isize); i++)
-    {
-        ffp[i] = fp[i];
-    }
-    fprec = *precision;
-    ret   = xdr3dfcoord(xdrs, ffp, size, &fprec);
-
-    *precision = fprec;
-    for (i = 0; (i < isize); i++)
-    {
-        fp[i] = ffp[i];
-    }
-
-    sfree(ffp);
-    return ret;
-#else
-    return xdr3dfcoord(xdrs, (float *)fp, size, (float *)precision);
-#endif
-}
 
 int xdr_gmx_large_int(XDR *xdrs, gmx_large_int_t *i, const char *warn)
 {
