@@ -660,21 +660,6 @@ if(${GMX_FFT_LIBRARY} STREQUAL "FFTW3")
 
     set(GMX_FFT_FFTW3 1)
 
-
-
-elseif(${GMX_FFT_LIBRARY} STREQUAL "MKL")
-#    MESSAGE(STATUS "Using external FFT library - Intel MKL")
-    find_package(MKL REQUIRED)
-    include_directories(${MKL_INCLUDE_DIR})
-    set(FFT_LIBRARIES ${MKL_LIBRARIES})
-    set(PKG_FFT_LIBS ${MKL_LIBRARIES})
-
-    set(GMX_FFT_MKL 1)
-    set(HAVE_MKL 1)
-
-elseif(${GMX_FFT_LIBRARY} STREQUAL "FFTPACK")
-    MESSAGE(STATUS "Using internal FFT library - fftpack")
-    set(GMX_FFT_FFTPACK 1)
 else(${GMX_FFT_LIBRARY} STREQUAL "FFTW3")
     MESSAGE(FATAL_ERROR "Invalid FFT library setting: ${GMX_FFT_LIBRARY}. Choose one of: fftw3, mkl, fftpack")
 endif(${GMX_FFT_LIBRARY} STREQUAL "FFTW3")
