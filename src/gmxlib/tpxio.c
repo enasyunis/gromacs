@@ -64,6 +64,7 @@
 #include "copyrite.h"
 #include "vec.h"
 #include "mtop_util.h"
+#include "version.h"
 
 #define TPX_TAG_RELEASE  "release"
 
@@ -2483,50 +2484,6 @@ static void do_cmap(t_fileio *fio, gmx_cmap_t *cmap_grid, gmx_bool bRead)
 }
 
 
-void tpx_make_chain_identifiers(t_atoms *atoms, t_block *mols)
-{
-    int  m, a, a0, a1, r;
-    char c, chainid;
-    int  chainnum;
-
-    /* We always assign a new chain number, but save the chain id characters
-     * for larger molecules.
-     */
-#define CHAIN_MIN_ATOMS 15
-
-    chainnum = 0;
-    chainid  = 'A';
-    for (m = 0; m < mols->nr; m++)
-    {
-        a0 = mols->index[m];
-        a1 = mols->index[m+1];
-        if ((a1-a0 >= CHAIN_MIN_ATOMS) && (chainid <= 'Z'))
-        {
-            c = chainid;
-            chainid++;
-        }
-        else
-        {
-            c = ' ';
-        }
-        for (a = a0; a < a1; a++)
-        {
-            atoms->resinfo[atoms->atom[a].resind].chainnum = chainnum;
-            atoms->resinfo[atoms->atom[a].resind].chainid  = c;
-        }
-        chainnum++;
-    }
-
-    /* Blank out the chain id if there was only one chain */
-    if (chainid == 'B')
-    {
-        for (r = 0; r < atoms->nres; r++)
-        {
-            atoms->resinfo[r].chainid = ' ';
-        }
-    }
-}
-
 static void do_moltype(t_fileio *fio, gmx_moltype_t *molt, gmx_bool bRead,
                        t_symtab *symtab, int file_version,
                        gmx_groups_t *groups)
@@ -2902,7 +2859,7 @@ static void do_tpxheader(t_fileio *fio, gmx_bool bRead, t_tpxheader *tpx,
     }
     else
     {
-        gmx_fio_write_string(fio, GromacsVersion());
+        gmx_fio_write_string(fio, _gmx_ver_string);
         bDouble = (precision == sizeof(double));
         gmx_fio_setprecision(fio, bDouble);
         gmx_fio_do_int(fio, precision);
@@ -3315,25 +3272,6 @@ void close_tpx(t_fileio *fio)
     gmx_fio_close(fio);
 }
 
-void read_tpxheader(const char *fn, t_tpxheader *tpx, gmx_bool TopOnlyOK,
-                    int *file_version, int *file_generation)
-{
-    t_fileio *fio;
-
-    fio = open_tpx(fn, "r");
-    do_tpxheader(fio, TRUE, tpx, TopOnlyOK, file_version, file_generation);
-    close_tpx(fio);
-}
-
-void write_tpx_state(const char *fn,
-                     t_inputrec *ir, t_state *state, gmx_mtop_t *mtop)
-{
-    t_fileio *fio;
-
-    fio = open_tpx(fn, "w");
-    do_tpx(fio, FALSE, ir, state, NULL, mtop, FALSE);
-    close_tpx(fio);
-}
 
 void read_tpx_state(const char *fn,
                     t_inputrec *ir, t_state *state, rvec *f, gmx_mtop_t *mtop)
@@ -3345,133 +3283,4 @@ void read_tpx_state(const char *fn,
     close_tpx(fio);
 }
 
-int read_tpx(const char *fn,
-             t_inputrec *ir, matrix box, int *natoms,
-             rvec *x, rvec *v, rvec *f, gmx_mtop_t *mtop)
-{
-    t_fileio *fio;
-    t_state   state;
-    int       ePBC;
 
-    state.x = x;
-    state.v = v;
-    fio     = open_tpx(fn, "r");
-    ePBC    = do_tpx(fio, TRUE, ir, &state, f, mtop, TRUE);
-    close_tpx(fio);
-    *natoms = state.natoms;
-    if (box)
-    {
-        copy_mat(state.box, box);
-    }
-    state.x = NULL;
-    state.v = NULL;
-    done_state(&state);
-
-    return ePBC;
-}
-
-int read_tpx_top(const char *fn,
-                 t_inputrec *ir, matrix box, int *natoms,
-                 rvec *x, rvec *v, rvec *f, t_topology *top)
-{
-    gmx_mtop_t  mtop;
-    t_topology *ltop;
-    int         ePBC;
-
-    ePBC = read_tpx(fn, ir, box, natoms, x, v, f, &mtop);
-
-    *top = gmx_mtop_t_to_t_topology(&mtop);
-
-    return ePBC;
-}
-
-gmx_bool fn2bTPX(const char *file)
-{
-    switch (fn2ftp(file))
-    {
-        case efTPR:
-        case efTPB:
-        case efTPA:
-            return TRUE;
-        default:
-            return FALSE;
-    }
-}
-
-gmx_bool read_tps_conf(const char *infile, char *title, t_topology *top, int *ePBC,
-                       rvec **x, rvec **v, matrix box, gmx_bool bMass)
-{
-    t_tpxheader      header;
-    int              natoms, i, version, generation;
-    gmx_bool         bTop, bXNULL = FALSE;
-    gmx_mtop_t      *mtop;
-    t_topology      *topconv;
-    gmx_atomprop_t   aps;
-
-    bTop  = fn2bTPX(infile);
-    *ePBC = -1;
-    if (bTop)
-    {
-        read_tpxheader(infile, &header, TRUE, &version, &generation);
-        if (x)
-        {
-            snew(*x, header.natoms);
-        }
-        if (v)
-        {
-            snew(*v, header.natoms);
-        }
-        snew(mtop, 1);
-        *ePBC = read_tpx(infile, NULL, box, &natoms,
-                         (x == NULL) ? NULL : *x, (v == NULL) ? NULL : *v, NULL, mtop);
-        *top = gmx_mtop_t_to_t_topology(mtop);
-        sfree(mtop);
-        strcpy(title, *top->name);
-        tpx_make_chain_identifiers(&top->atoms, &top->mols);
-    }
-    else
-    {
-        get_stx_coordnum(infile, &natoms);
-        init_t_atoms(&top->atoms, natoms, (fn2ftp(infile) == efPDB));
-        if (x == NULL)
-        {
-            snew(x, 1);
-            bXNULL = TRUE;
-        }
-        snew(*x, natoms);
-        if (v)
-        {
-            snew(*v, natoms);
-        }
-        read_stx_conf(infile, title, &top->atoms, *x, (v == NULL) ? NULL : *v, ePBC, box);
-        if (bXNULL)
-        {
-            sfree(*x);
-            sfree(x);
-        }
-        if (bMass)
-        {
-            aps = gmx_atomprop_init();
-            for (i = 0; (i < natoms); i++)
-            {
-                if (!gmx_atomprop_query(aps, epropMass,
-                                        *top->atoms.resinfo[top->atoms.atom[i].resind].name,
-                                        *top->atoms.atomname[i],
-                                        &(top->atoms.atom[i].m)))
-                {
-                    if (debug)
-                    {
-                        fprintf(debug, "Can not find mass for atom %s %d %s, setting to 1\n",
-                                *top->atoms.resinfo[top->atoms.atom[i].resind].name,
-                                top->atoms.resinfo[top->atoms.atom[i].resind].nr,
-                                *top->atoms.atomname[i]);
-                    }
-                }
-            }
-            gmx_atomprop_destroy(aps);
-        }
-        top->idef.ntypes = -1;
-    }
-
-    return bTop;
-}

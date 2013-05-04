@@ -55,6 +55,7 @@
 #include "smalloc.h"
 #include "gmxfio.h"
 #include "gmx_fatal_collective.h"
+#include "version.h"
 
 #ifdef GMX_LIB_MPI
 #include <mpi.h>
@@ -761,13 +762,12 @@ void _gmx_error(const char *key, const char *msg, const char *file, int line)
         sprintf(errerrbuf, "Empty fatal_error message. %s", gmxuser);
     }
 
-    cool_quote(tmpbuf, 1023, &cqnum);
     strerr = gmx_strerror(key);
     sprintf(buf, "\n%s\nProgram %s, %s\n"
             "Source code file: %s, line: %d\n\n"
             "%s:\n%s\nFor more information and tips for troubleshooting, please check the GROMACS\n"
             "website at http://www.gromacs.org/Documentation/Errors\n%s\n\n%s\n",
-            llines, ShortProgram(), GromacsVersion(), file, line,
+            llines, ShortProgram(), _gmx_ver_string, file, line,
             strerr, msg ? msg : errerrbuf, llines, tmpbuf);
     free(strerr);
 

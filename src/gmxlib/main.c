@@ -340,7 +340,6 @@ void gmx_log_open(const char *lognm, const t_commrec *cr, gmx_bool bMasterOnly,
             "Log file opened on %s"
             "Host: %s  pid: %d  nodeid: %d  nnodes:  %d\n",
             timebuf, host, pid, cr->nodeid, cr->nnodes);
-    gmx_print_version_info(fp);
     fprintf(fp, "\n\n");
 
     fflush(fp);
