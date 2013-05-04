@@ -60,9 +60,6 @@ enum {
     ecenterDEF = ecenterTRIC
 };
 
-GMX_LIBGMX_EXPORT
-int ePBC2npbcdim(int ePBC);
-/* Returns the number of dimensions that use pbc, starting at X */
 
 GMX_LIBGMX_EXPORT
 int inputrec2nboundeddim(t_inputrec *ir);

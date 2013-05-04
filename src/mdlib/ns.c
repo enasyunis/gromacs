@@ -129,7 +129,12 @@ void init_ns(FILE *fplog, const t_commrec *cr,
 
     ns->bExcludeAlleg[0] = FALSE;
     /* Grid search */
-    ns->grid = init_grid(fplog, fr);
+    snew(ns->grid, 1);
+    ns->grid->npbcdim = 3;
+    /* The ideal number of cg's per ns grid cell seems to be 10 */
+    ns->grid->ncg_ideal = 10;
+
+
     init_nsgrid_lists(fr, ngid, ns);
 
     /* Create array that determines whether or not atoms have VdW */

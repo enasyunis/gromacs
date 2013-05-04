@@ -74,10 +74,13 @@ int cmain(int argc, char *argv[])
     int           rc;
 
 
-    cr = init_par(&argc, &argv);
+    cr = init_par(&argc, &argv); // parallel code setup.
 
-    parse_common_args(&argc, argv, ((1<<10) |  (1<<12)), NFILE, fnm, 0, NULL, 
-                      asize(desc), desc, 0, NULL);
+    char *filename = getenv("FILENAME");
+    printf("%s\n",filename);
+    set_default_file_name(filename);
+    parse_file_args(&argc, argv, NFILE, fnm, 0, 1);
+
 
     cr->npmenodes = 0;
 
