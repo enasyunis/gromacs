@@ -189,54 +189,6 @@ static int pick_module_nthreads(FILE *fplog, int m,
     return modth.nth[m] = nth;
 }
 
-void gmx_omp_nthreads_read_env(int     *nthreads_omp,
-                               gmx_bool bIsSimMaster)
-{
-    char    *env;
-    gmx_bool bCommandLineSetNthreadsOMP = *nthreads_omp > 0;
-    char     buffer[STRLEN];
-
-    assert(nthreads_omp);
-
-    if ((env = getenv("OMP_NUM_THREADS")) != NULL)
-    {
-        int nt_omp;
-
-        sscanf(env, "%d", &nt_omp);
-        if (nt_omp <= 0)
-        {
-            gmx_fatal(FARGS, "OMP_NUM_THREADS is invalid: '%s'", env);
-        }
-
-        if (bCommandLineSetNthreadsOMP && nt_omp != *nthreads_omp)
-        {
-            gmx_fatal(FARGS, "Environment variable OMP_NUM_THREADS (%d) and the number of threads requested on the command line (%d) have different values. Either omit one, or set them both to the same value.", nt_omp, *nthreads_omp);
-        }
-
-        /* Setting the number of OpenMP threads. */
-        *nthreads_omp = nt_omp;
-
-        /* Output the results */
-        sprintf(buffer,
-                "The number of OpenMP threads was set by environment variable OMP_NUM_THREADS to %d%s\n",
-                nt_omp,
-                bCommandLineSetNthreadsOMP ? " (and the command-line setting agreed with that)" : "");
-        if (bIsSimMaster)
-        {
-            /* This prints once per simulation for multi-simulations,
-             * which might help diagnose issues with inhomogenous
-             * cluster setups. */
-            fputs(buffer, stderr);
-        }
-        if (debug)
-        {
-            /* This prints once per process for real MPI (i.e. once
-             * per debug file), and once per simulation for thread MPI
-             * (because of logic in the calling function). */
-            fputs(buffer, debug);
-        }
-    }
-}
 
 void gmx_omp_nthreads_init(FILE *fplog, t_commrec *cr,
                            int nthreads_hw_avail,
@@ -304,7 +256,7 @@ void gmx_omp_nthreads_init(FILE *fplog, t_commrec *cr,
             }
             else
             {
-                nth = gmx_omp_get_max_threads();
+               nth = gmx_omp_get_max_threads();
             }
         }
         else if (omp_nthreads_req > 0)
