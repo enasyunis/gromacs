@@ -132,7 +132,6 @@ double do_md (FILE *log, t_commrec *cr,
                                  gmx_mtop_t *mtop, 
                                  t_state *state,
                                  t_mdatoms *mdatoms,
-                                 gmx_edsam_t ed,
                                  t_forcerec *fr,
                                  const char *deviceOptions,
                                  unsigned long Flags

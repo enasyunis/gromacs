@@ -58,7 +58,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
              gmx_mtop_t *top_global,
              t_state *state_global,
              t_mdatoms *mdatoms,
-             gmx_edsam_t ed, t_forcerec *fr,
+             t_forcerec *fr,
              const char *deviceOptions,
              unsigned long Flags
               )
@@ -106,18 +106,10 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
     atoms2md(top_global, ir, 0, NULL, a0, a1-a0, mdatoms);
 
-
-
-    update_mdatoms(mdatoms, state->lambda[efptMASS]);
-
-
-
+    mdatoms->tmass = mdatoms->tmassA; // total system mass 3024.0
 
 
     debug_gmx();
-
-
-
 
 
     enerd->term[F_TEMP] *= 2; /* result of averages being done over previous and current step,
@@ -187,7 +179,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                      state->box, state->x, &state->hist,
                      f, mdatoms, enerd, 
                      state->lambda, 
-                     fr, t, ed, 
+                     fr, t,  
                      force_flags);
 
         GMX_BARRIER(cr->mpi_comm_mygroup);

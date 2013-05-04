@@ -46,9 +46,6 @@ extern "C" {
 #endif
 
 GMX_LIBMD_EXPORT
-t_mdatoms *init_mdatoms(FILE *fp, gmx_mtop_t *mtop, gmx_bool bFreeEnergy);
-
-GMX_LIBMD_EXPORT
 void atoms2md(gmx_mtop_t *mtop, t_inputrec *ir,
               int nindex, int *index,
               int start, int homenr,
@@ -57,9 +54,6 @@ void atoms2md(gmx_mtop_t *mtop, t_inputrec *ir,
  * If index!=NULL only the indexed atoms are copied.
  */
 
-GMX_LIBMD_EXPORT
-void update_mdatoms(t_mdatoms *md, real lambda);
-/* (Re)set all the mass parameters */
 
 #ifdef __cplusplus
 }

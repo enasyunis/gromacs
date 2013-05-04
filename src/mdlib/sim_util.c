@@ -90,7 +90,7 @@ void do_force(FILE *fplog, t_commrec *cr,
               gmx_enerdata_t *enerd, 
               real *lambda,
               t_forcerec *fr,
-              double t,  gmx_edsam_t ed,
+              double t,  
               int flags)
 {
     int                 i, end, start, homenr;

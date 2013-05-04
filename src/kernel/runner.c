@@ -64,27 +64,13 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
              const char *deviceOptions, unsigned long Flags)
 {
 
-    double          nodetime = 0, realtime;
     t_inputrec     *inputrec;
     t_state        *state = NULL;
     matrix          box;
-    gmx_ddbox_t     ddbox = {0};
-    int             npme_major, npme_minor;
-    real            tmpr1, tmpr2;
     gmx_mtop_t     *mtop       = NULL;
     t_mdatoms      *mdatoms    = NULL;
     t_forcerec     *fr         = NULL;
     gmx_pme_t      *pmedata    = NULL;
-    int             i, m, nChargePerturbed = -1, status, nalloc;
-    char           *gro;
-    gmx_bool        bReadRNG, bReadEkin;
-    int             list;
-    int             rc;
-    gmx_large_int_t reset_counters;
-    gmx_edsam_t     ed           = NULL;
-    t_commrec      *cr_old       = cr;
-    int             nthreads_pme = 1;
-    int             nthreads_pp  = 1;
     gmx_hw_info_t  *hwinfo       = NULL;
     master_inf_t    minf         = {-1, FALSE};
 
@@ -114,8 +100,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     /* PME, if used, is done on all nodes with 1D decomposition */
     cr->npmenodes = 0;
     cr->duty      = (DUTY_PP | DUTY_PME);
-    npme_minor    = 1;
-    npme_major = cr->nnodes;
 
 
     gmx_omp_nthreads_init(fplog, cr,
@@ -124,11 +108,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
                           hw_opt->nthreads_omp_pme,
                           0,
                           TRUE);
-
-
-    // Both numbers equal to 12 - the number of OMP_NUM_THREADS
-    nthreads_pp  = gmx_omp_nthreads_get(emntNonbonded);
-    nthreads_pme = gmx_omp_nthreads_get(emntPME);
 
 
 
@@ -150,7 +129,15 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
      * mdatoms is not filled with atom data,
      * as this can not be done now with domain decomposition.
      */
-    mdatoms = init_mdatoms(fplog, mtop, inputrec->efep != efepNO);
+    //mdatoms = init_mdatoms(fplog, mtop);
+    snew(mdatoms, 1);
+
+    mdatoms->nenergrp = mtop->groups.grps[egcENER].nr;
+    mdatoms->bVCMgrps = FALSE;
+    mdatoms->tmassA = 3024.0; // SUM over all t_atom->m
+    mdatoms->tmassB = 3024.0; // SUM over all t_atom->mB
+    mdatoms->bOrires = 0;
+
 
 
     /*** ENAS TODO SPEAK TO RIO ABOUT MASSIVE EFFECT OF CALC_SHIFTS */
@@ -171,16 +158,11 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     }
 
     if (EEL_PME(inputrec->coulombtype)) // PME 1, EWALD 0
-    {
-        nChargePerturbed = mdatoms->nChargePerturbed;
-
-        status = gmx_pme_init(pmedata, cr, npme_major, npme_minor, inputrec,
-                                  mtop ? mtop->natoms : 0, nChargePerturbed,
-                                  (Flags & MD_REPRODUCIBLE), nthreads_pme);
-        if (status != 0)
-        {
-            gmx_fatal(FARGS, "Error %d initializing PME", status);
-         }
+    { 
+        // cr->nnodes=1, natoms=3000,gmx_omp_nthreads_get(emntPME)=12
+        gmx_pme_init(pmedata, cr,  cr->nnodes, 1, inputrec,
+                                  mtop->natoms, 0,
+                                  0, gmx_omp_nthreads_get(emntPME));
     }
 
 
@@ -188,7 +170,7 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     do_md(fplog, cr, nfile, fnm,
           inputrec, mtop,
           state,
-          mdatoms, ed, fr,
+          mdatoms, fr,
           deviceOptions,
           Flags
           );

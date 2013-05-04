@@ -12,36 +12,6 @@
 
 #define ALMOST_ZERO 1e-30
 
-t_mdatoms *init_mdatoms(FILE *fp, gmx_mtop_t *mtop, gmx_bool bFreeEnergy)
-{ 
-    int                     mb, a, g, nmol;
-    double                  tmA, tmB;
-    t_atom                 *atom;
-    t_mdatoms              *md;
-    gmx_mtop_atomloop_all_t aloop;
-    t_ilist                *ilist;
-
-    snew(md, 1);
-
-    md->nenergrp = mtop->groups.grps[egcENER].nr;
-    md->bVCMgrps = FALSE;
-    tmA          = 0.0;
-    tmB          = 0.0;
-
-    aloop = gmx_mtop_atomloop_all_init(mtop);
-    while (gmx_mtop_atomloop_all_next(aloop, &a, &atom))
-    {
-        tmA += atom->m;
-        tmB += atom->mB;
-    } //Final result tmA 3.024000e+03, tmB 3.024000e+03
-
-    md->tmassA = tmA;
-    md->tmassB = tmB;
-    md->bOrires = gmx_mtop_ftype_count(mtop, F_ORIRES);
-
-    return md;
-}
-
 void atoms2md(gmx_mtop_t *mtop, t_inputrec *ir,
               int nindex, int *index,
               int start, int homenr,
@@ -101,8 +71,3 @@ void atoms2md(gmx_mtop_t *mtop, t_inputrec *ir,
     md->lambda = 0;
 }
 
-void update_mdatoms(t_mdatoms *md, real lambda)
-{ 
-    md->tmass = md->tmassA;
-    md->lambda = lambda;
-}

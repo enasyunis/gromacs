@@ -1625,13 +1625,13 @@ make_gridindex5_to_localindex(int n, int local_start, int local_range,
 
 int gmx_pme_init(gmx_pme_t *         pmedata,
                  t_commrec *         cr,
-                 int                 nnodes_major,
-                 int                 nnodes_minor,
+                 int                 nnodes_major, // 1
+                 int                 nnodes_minor, // 1
                  t_inputrec *        ir,
-                 int                 homenr,
-                 gmx_bool            bFreeEnergy,
-                 gmx_bool            bReproducible,
-                 int                 nthread)
+                 int                 homenr, // 3000
+                 gmx_bool            bFreeEnergy, // 0
+                 gmx_bool            bReproducible, // 0
+                 int                 nthread) //12
 { // called
     gmx_pme_t pme = NULL;
 
@@ -1663,12 +1663,8 @@ int gmx_pme_init(gmx_pme_t *         pmedata,
 
     pme->nthread = nthread;
 
-    if (ir->ePBC == epbcSCREW)
-    {
-        gmx_fatal(FARGS, "pme does not (yet) work with pbc = screw");
-    }
 
-    pme->bFEP        = ((ir->efep != efepNO) && bFreeEnergy);
+    pme->bFEP        = FALSE;
     pme->nkx         = ir->nkx;
     pme->nky         = ir->nky;
     pme->nkz         = ir->nkz;
@@ -1676,11 +1672,6 @@ int gmx_pme_init(gmx_pme_t *         pmedata,
     pme->pme_order   = ir->pme_order;
     pme->epsilon_r   = ir->epsilon_r;
 
-    if (pme->pme_order > PME_ORDER_MAX)
-    {
-        gmx_fatal(FARGS, "pme_order (%d) is larger than the maximum allowed value (%d). Modify and recompile the code if you really need such a high order.",
-                  pme->pme_order, PME_ORDER_MAX);
-    }
 
     /* For non-divisible grid we need pme_order iso pme_order-1 */
     /* In sum_qgrid_dd x overlap is copied in place: take padding into account.
@@ -1703,15 +1694,6 @@ int gmx_pme_init(gmx_pme_t *         pmedata,
                       pme->nky,
                       (div_round_up(pme->nkx, pme->nnodes_major)+pme->pme_order+1)*pme->nkz);
 
-    /* Check for a limitation of the (current) sum_fftgrid_dd code.
-     * We only allow multiple communication pulses in dim 1, not in dim 0.
-     */
-    if (pme->nthread > 1 && (pme->overlap[0].noverlap_nodes > 1 ||
-                             pme->nkx < pme->nnodes_major*pme->pme_order))
-    {
-        gmx_fatal(FARGS, "The number of PME grid lines per node along x is %g. But when using OpenMP threads, the number of grid lines per node along x and should be >= pme_order (%d). To resolve this issue, use less nodes along x (and possibly more along y and/or z) by specifying -dd manually.",
-                  pme->nkx/(double)pme->nnodes_major, pme->pme_order);
-    }
 
     snew(pme->bsp_mod[XX], pme->nkx);
     snew(pme->bsp_mod[YY], pme->nky);
@@ -1764,31 +1746,12 @@ int gmx_pme_init(gmx_pme_t *         pmedata,
                             pme->overlap[0].s2g0, pme->overlap[1].s2g0,
                             bReproducible, pme->nthread);
 
-    if (bFreeEnergy)
-    {
-        pmegrids_init(&pme->pmegridB,
-                      pme->pmegrid_nx, pme->pmegrid_ny, pme->pmegrid_nz,
-                      pme->pmegrid_nz_base,
-                      pme->pme_order,
-                      pme->nthread,
-                      pme->nkx % pme->nnodes_major != 0,
-                      pme->nky % pme->nnodes_minor != 0);
+    pme->pmegridB.grid.grid = NULL;
+    pme->fftgridB           = NULL;
+    pme->cfftgridB          = NULL;
 
-        gmx_parallel_3dfft_init(&pme->pfft_setupB, ndata,
-                                &pme->fftgridB, &pme->cfftgridB,
-                                pme->mpi_comm_d,
-                                pme->overlap[0].s2g0, pme->overlap[1].s2g0,
-                                bReproducible, pme->nthread);
-    }
-    else
-    {
-        pme->pmegridB.grid.grid = NULL;
-        pme->fftgridB           = NULL;
-        pme->cfftgridB          = NULL;
-    }
-
-        /* Use plain SPME B-spline interpolation */
-        make_bspline_moduli(pme->bsp_mod, pme->nkx, pme->nky, pme->nkz, pme->pme_order);
+    /* Use plain SPME B-spline interpolation */
+    make_bspline_moduli(pme->bsp_mod, pme->nkx, pme->nky, pme->nkz, pme->pme_order);
 
     /* Use atc[0] for spreading */
     init_atomcomm(pme, &pme->atc[0], cr, nnodes_major > 1 ? 0 : 1, TRUE);
