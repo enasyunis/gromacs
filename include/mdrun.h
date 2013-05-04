@@ -53,7 +53,6 @@
 #include "vcm.h"
 #include "vsite.h"
 #include "pull.h"
-#include "gmx_random.h"
 #include "maths.h"
 #include "types/membedt.h"
 #include "types/globsig.h"

@@ -45,7 +45,6 @@
 #include "xtcio.h"
 #include "copyrite.h"
 #include "pull_rotation.h"
-#include "gmx_random.h"
 #include "mpelogging.h"
 #include "domdec.h"
 #include "partdec.h"

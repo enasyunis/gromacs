@@ -14,7 +14,6 @@
 #include "ns.h"
 #include "partdec.h"
 #include "splitter.h"
-#include "gmx_random.h"
 #include "mtop_util.h"
 #include "mvdata.h"
 #include "vec.h"
