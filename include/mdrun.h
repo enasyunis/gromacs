@@ -129,7 +129,7 @@ extern tMPI_Thread_mutex_t deform_init_box_mutex;
 double do_md (FILE *log, t_commrec *cr,
                                  int nfile, const t_filenm fnm[],
                                  t_inputrec *inputrec,
-                                 gmx_mtop_t *mtop, t_fcdata *fcd,
+                                 gmx_mtop_t *mtop, 
                                  t_state *state,
                                  t_mdatoms *mdatoms,
                                  gmx_edsam_t ed,

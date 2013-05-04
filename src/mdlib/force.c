@@ -51,7 +51,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                        rvec       f[],
                        rvec       f_longrange[],
                        gmx_enerdata_t *enerd,
-                       t_fcdata   *fcd,
                        gmx_mtop_t     *mtop,
                        gmx_localtop_t *top,
                        t_atomtypes *atype,
@@ -123,7 +122,7 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
     debug_gmx();
         GMX_MPE_LOG(ev_calc_bonds_start);
         calc_bonds(fplog, cr->ms,
-                   idef, x, hist, f, fr, &pbc, NULL, enerd, NULL, lambda, md, fcd,
+                   idef, x, hist, f, fr, &pbc, NULL, enerd, NULL, lambda, md, 
                     NULL, atype, NULL,
                    flags,
                    fr->bSepDVDL, step);

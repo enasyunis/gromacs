@@ -500,7 +500,6 @@ static void init_nb_verlet(FILE                *fp,
 
 void init_forcerec(FILE              *fp,
                    t_forcerec        *fr,
-                   t_fcdata          *fcd,
                    const t_inputrec  *ir,
                    const gmx_mtop_t  *mtop,
                    const t_commrec   *cr,
@@ -726,9 +725,6 @@ void init_forcerec(FILE              *fp,
 
     /* Wall stuff */
     fr->nwall = ir->nwall;
-    fcd->bondtab  = NULL; 
-    fcd->angletab = NULL; 
-    fcd->dihtab   = NULL; 
 
     /* Set all the static charge group info */
     fr->cginfo_mb = init_cginfo_mb(fp, mtop, fr, bNoSolvOpt,

@@ -56,7 +56,6 @@
 double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
              t_inputrec *ir,
              gmx_mtop_t *top_global,
-             t_fcdata *fcd,
              t_state *state_global,
              t_mdatoms *mdatoms,
              gmx_edsam_t ed, t_forcerec *fr,
@@ -186,7 +185,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
              */ 
             do_force(fplog, cr, ir, step, top, top_global, &top_global->groups, 
                      state->box, state->x, &state->hist,
-                     f, mdatoms, enerd, fcd,
+                     f, mdatoms, enerd, 
                      state->lambda, 
                      fr, t, ed, 
                      force_flags);

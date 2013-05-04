@@ -66,7 +66,7 @@ void calc_bonds(FILE *fplog, const gmx_multisim_t *ms,
                 const t_pbc *pbc, const t_graph *g,
                 gmx_enerdata_t *enerd, t_nrnb *nrnb, real *lambda,
                 const t_mdatoms *md,
-                t_fcdata *fcd, int *ddgatindex,
+                int *ddgatindex,
                 t_atomtypes *atype, gmx_genborn_t *born,
                 int force_flags,
                 gmx_bool bPrintSepPot, gmx_large_int_t step);
