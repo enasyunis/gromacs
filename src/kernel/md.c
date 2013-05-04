@@ -24,7 +24,6 @@
 #include "xvgr.h"
 #include "physics.h"
 #include "names.h"
-#include "xmdrun.h"
 #include "disre.h"
 #include "orires.h"
 #include "pme.h"
@@ -101,7 +100,18 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
     forcerec_set_excl_load(fr, top, cr);
 
-    state    = partdec_init_local_state(cr, state_global);
+    // initialize the local state
+    snew(state, 1);
+    /* Copy all the contents */
+    *state = *state_global;
+    snew(state->lambda, efptNR);
+
+    /* local storage for lambda */
+    for (i = 0; i < efptNR; i++) // 7
+    {
+        state->lambda[i] = state_global->lambda[i];
+    }
+
 
     atoms2md(top_global, ir, 0, NULL, a0, a1-a0, mdatoms);
 
