@@ -118,16 +118,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     npme_major = cr->nnodes;
 
 
-    /* Initialize per-physical-node MPI process/thread ID and counters. */
-    gmx_init_intranode_counters(cr);
-
-
-    md_print_info(cr, fplog, "Using %d MPI %s\n",
-                  cr->nnodes,
-                  cr->nnodes == 1 ? "thread" : "threads"
-                  );
-    fflush(stderr);
-
     gmx_omp_nthreads_init(fplog, cr,
                           hwinfo->nthreads_hw_avail,
                           hw_opt->nthreads_omp,
@@ -135,25 +125,17 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
                           0,
                           TRUE);
 
-    gmx_check_hw_runconf_consistency(fplog, hwinfo, cr, hw_opt->nthreads_tmpi, minf.bUseGPU);
 
-    /* getting number of PP/PME threads
-       PME: env variable should be read only on one node to make sure it is
-       identical everywhere;
-     */
-    /* TODO nthreads_pp is only used for pinning threads.
-     * This is a temporary solution until we have a hw topology library.
-     */
+    // Both numbers equal to 12 - the number of OMP_NUM_THREADS
     nthreads_pp  = gmx_omp_nthreads_get(emntNonbonded);
     nthreads_pme = gmx_omp_nthreads_get(emntPME);
 
 
 
-
-        /* Initiate forcerecord */
-        fr         = mk_forcerec();
-        fr->hwinfo = hwinfo;
-        init_forcerec(fplog, fr, inputrec, mtop, cr, box, FALSE,
+    /* Initiate forcerecord */
+    snew(fr, 1);
+    fr->hwinfo = hwinfo;
+    init_forcerec(fplog, fr, inputrec, mtop, cr, box, FALSE,
                       opt2fn("-table", nfile, fnm),
                       opt2fn("-tabletf", nfile, fnm),
                       opt2fn("-tablep", nfile, fnm),
@@ -161,45 +143,33 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
                       "cpu",
                       FALSE, -1);
 
-        fr->bSepDVDL = TRUE; 
+     fr->bSepDVDL = TRUE; 
 
 
-        /* Initialize the mdatoms structure.
-         * mdatoms is not filled with atom data,
-         * as this can not be done now with domain decomposition.
-         */
-        mdatoms = init_mdatoms(fplog, mtop, inputrec->efep != efepNO);
+    /* Initialize the mdatoms structure.
+     * mdatoms is not filled with atom data,
+     * as this can not be done now with domain decomposition.
+     */
+    mdatoms = init_mdatoms(fplog, mtop, inputrec->efep != efepNO);
 
 
-	/*** ENAS TODO SPEAK TO RIO ABOUT MASSIVE EFFECT OF CALC_SHIFTS */
-        calc_shifts(box, fr->shift_vec);
+    /*** ENAS TODO SPEAK TO RIO ABOUT MASSIVE EFFECT OF CALC_SHIFTS */
+    calc_shifts(box, fr->shift_vec);
 
 
-        /* With periodic molecules the charge groups should be whole at start up
-         * and the virtual sites should not be far from their proper positions.
-         */
-        /* Make molecules whole at start of run */
-        if (EEL_PME(fr->eeltype)) // PME HERE
-        { 
-            pmedata    = &fr->pmedata;
-        }
-        else // EWALD HERE
-        {
-            pmedata = NULL;
-        }
+    /* With periodic molecules the charge groups should be whole at start up
+     * and the virtual sites should not be far from their proper positions.
+     */
+    /* Make molecules whole at start of run */
+    if (EEL_PME(fr->eeltype)) // PME HERE
+    { 
+        pmedata    = &fr->pmedata;
+    }
+    else // EWALD HERE
+    {
+        pmedata = NULL;
+    }
 
-        /* Before setting affinity, check whether the affinity has changed
-         * - which indicates that probably the OpenMP library has changed it
-         * since we first checked).
-         */
-        gmx_check_thread_affinity_set(fplog, cr,
-                                      hw_opt, hwinfo->nthreads_hw_avail, TRUE);
-
-        /* Set the CPU affinity */
-        gmx_set_thread_affinity(fplog, cr, hw_opt, nthreads_pme, hwinfo, inputrec);
-
-    /* Initiate PME if necessary,
-     * either on all nodes or on dedicated PME nodes only. */
     if (EEL_PME(inputrec->coulombtype)) // PME 1, EWALD 0
     {
         nChargePerturbed = mdatoms->nChargePerturbed;
@@ -223,11 +193,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
           Flags
           );
 
-
-
-
-
-    /* Does what it says */
 
     return 0;
 }

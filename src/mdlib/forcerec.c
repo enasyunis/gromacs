@@ -723,13 +723,7 @@ void init_forcerec(FILE              *fp,
     fr->tab14 = fr->nblists[0].table_elec_vdw;
     m = 1;
 
-    /* Wall stuff */
-    fr->nwall = ir->nwall;
 
-    /* Set all the static charge group info */
-    fr->cginfo_mb = init_cginfo_mb(fp, mtop, fr, bNoSolvOpt,
-                                   &fr->bExcl_IntraCGAll_InterCGNone);
-    fr->cginfo = cginfo_expand(mtop->nmolblock, fr->cginfo_mb);
 
     /* When using particle decomposition, the effect of the second argument,
      * which sets fr->hcg, is corrected later in do_md and init_em.
@@ -737,7 +731,6 @@ void init_forcerec(FILE              *fp,
     forcerec_set_ranges(fr, ncg_mtop(mtop), ncg_mtop(mtop),
                             mtop->natoms, mtop->natoms, mtop->natoms);
 
-    fr->print_force = print_force;
 
 
     /* coarse load balancing vars */
@@ -747,7 +740,6 @@ void init_forcerec(FILE              *fp,
 
     /* Initialize neighbor search */
     init_ns(fp, cr, &fr->ns, fr, mtop, box);
-    //gmx_nonbonded_setup(fp, fr, FALSE);
 
     /* Initialize the thread working data for bonded interactions */
     init_forcerec_f_threads(fr, mtop->groups.grps[egcENER].nr);
