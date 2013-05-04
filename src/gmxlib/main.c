@@ -80,10 +80,6 @@
 
 
 
-/* Portable version of ctime_r implemented in src/gmxlib/string2.c, but we do not want it declared in public installed headers */
-char *
-gmx_ctime_r(const time_t *clock, char *buf, int n);
-
 
 #define BUFSIZE 1024
 
@@ -334,7 +330,6 @@ void gmx_log_open(const char *lognm, const t_commrec *cr, gmx_bool bMasterOnly,
                 );
     }
 
-    gmx_ctime_r(&t, timebuf, STRLEN);
 
     fprintf(fp,
             "Log file opened on %s"
