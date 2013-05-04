@@ -21,9 +21,6 @@
 
 int cmain(int argc, char *argv[])
 {
-    const char   *desc[] = {""
-    };
-    t_commrec    *cr;
     t_filenm      fnm[] = {
         { efTPX, NULL,      NULL,       ffREAD },
         { efTRN, "-o",      NULL,       ffWRITE },
@@ -65,24 +62,28 @@ int cmain(int argc, char *argv[])
 #define NFILE asize(fnm)
 
 
-    const char   *deviceOptions         = "";
-
     gmx_hw_opt_t  hw_opt = {0, 0, 0, 0, threadaffSEL, 0, 0, NULL};
 
     unsigned long Flags;
-    FILE         *fplog;
+    FILE         *fplog=stdout;
     int           rc;
 
+    t_commrec    *cr;
+    snew(cr, 1);
+    cr->mpi_comm_mysim   = NULL;
+    cr->mpi_comm_mygroup = NULL;
+    cr->nnodes           = 1;
+    cr->sim_nodeid       = 0;
+    cr->nodeid           = 0;
+    cr->npmenodes        = 0;
+    cr->duty = (DUTY_PP | DUTY_PME);
 
-    cr = init_par(&argc, &argv); // parallel code setup.
 
     char *filename = getenv("FILENAME");
     printf("%s\n",filename);
     set_default_file_name(filename);
     parse_file_args(&argc, argv, NFILE, fnm, 0, 1);
 
-
-    cr->npmenodes = 0;
 
     hw_opt.thread_affinity = 4; //nenum(thread_aff_opt);
     Flags =  ( MD_SEPPOT ); // 128
@@ -92,15 +93,10 @@ int cmain(int argc, char *argv[])
     Flags = Flags | ( MD_CONFOUT  ); // 4096
 
 
-    gmx_log_open(ftp2fn(efLOG, NFILE, fnm), cr,
-                 FALSE, Flags & MD_APPENDFILES, &fplog);
+    gmx_fatal_set_log_file(fplog);
 
-    rc = mdrunner(&hw_opt, fplog, cr, NFILE, fnm,  
-                  deviceOptions, Flags);
+    rc = mdrunner(&hw_opt, fplog, cr, NFILE, fnm, Flags);
 
-    gmx_finalize_par();
-
-    gmx_log_close(fplog);
-
+    gmx_fatal_set_log_file(NULL);
     return rc;
 }

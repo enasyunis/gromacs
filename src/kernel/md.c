@@ -59,7 +59,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
              t_state *state_global,
              t_mdatoms *mdatoms,
              t_forcerec *fr,
-             const char *deviceOptions,
              unsigned long Flags
               )
 {

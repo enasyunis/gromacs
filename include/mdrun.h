@@ -133,7 +133,6 @@ double do_md (FILE *log, t_commrec *cr,
                                  t_state *state,
                                  t_mdatoms *mdatoms,
                                  t_forcerec *fr,
-                                 const char *deviceOptions,
                                  unsigned long Flags
                                  );
 
@@ -146,7 +145,7 @@ void set_state_entries(t_state *state, const t_inputrec *ir, int nnodes);
 int mdrunner(gmx_hw_opt_t *hw_opt,
              FILE *fplog, t_commrec *cr, int nfile,
              const t_filenm fnm[], 
-             const char *deviceOptions, unsigned long Flags);
+             unsigned long Flags);
 /* Driver routine, that calls the different methods */
 
 #ifdef __cplusplus

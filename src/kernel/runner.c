@@ -61,7 +61,7 @@ typedef struct {
 int mdrunner(gmx_hw_opt_t *hw_opt,
              FILE *fplog, t_commrec *cr, int nfile,
              const t_filenm fnm[],  
-             const char *deviceOptions, unsigned long Flags)
+             unsigned long Flags)
 {
 
     t_inputrec     *inputrec;
@@ -171,7 +171,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
           inputrec, mtop,
           state,
           mdatoms, fr,
-          deviceOptions,
           Flags
           );
 
