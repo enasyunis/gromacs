@@ -34,7 +34,6 @@
 #include "orires.h"
 #include "network.h"
 #include "trnio.h"
-#include "pull_rotation.h"
 #include "mpelogging.h"
 #include "gmx_wallcycle.h"
 #include "nbnxn_atomdata.h"

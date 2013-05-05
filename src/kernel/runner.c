@@ -26,7 +26,6 @@
 #include "tpxio.h"
 #include "txtdump.h"
 #include "gmx_omp_nthreads.h"
-#include "pull_rotation.h"
 #include "../mdlib/nbnxn_search.h"
 #include "../mdlib/nbnxn_consts.h"
 #include "gmx_fatal_collective.h"
