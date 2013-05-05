@@ -44,10 +44,6 @@
 #include <intrin.h>
 #endif
 
-#include "types/nbnxn_cuda_types_ext.h"
-#include "gpu_utils.h"
-#include "nbnxn_cuda_data_mgmt.h"
-#include "pmalloc_cuda.h"
 
 t_forcerec *mk_forcerec(void) // called
 {
@@ -350,7 +346,6 @@ static void init_forcerec_f_threads(t_forcerec *fr, int nenergrp)
 
 static void pick_nbnxn_resources(FILE                *fp,
                                  const t_commrec     *cr,
-                                 const gmx_hw_info_t *hwinfo,
                                  gmx_bool             bDoNonbonded,
                                  gmx_bool            *bUseGPU,
                                  gmx_bool            *bEmulateGPU)
@@ -373,8 +368,7 @@ static void pick_nbnxn_resources(FILE                *fp,
      * if mdrun is compiled without GPU acceleration support.
      * Note that you should freezing the system as otherwise it will explode.
      */
-    *bEmulateGPU = (bEmulateGPUEnvVarSet ||
-                    (!bDoNonbonded && hwinfo->bCanUseGPU));
+    *bEmulateGPU = FALSE; 
 
 }
 
@@ -490,7 +484,7 @@ static void init_nb_verlet(FILE                *fp,
 
     snew(nbv, 1);
 
-    pick_nbnxn_resources(fp, cr, fr->hwinfo,
+    pick_nbnxn_resources(fp, cr, 
                          fr->bNonbonded,
                          &nbv->bUseGPU,
                          &bEmulateGPU);

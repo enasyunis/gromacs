@@ -57,7 +57,6 @@ typedef enum module_nth
  *  This function should caled only once during the initialization of mdrun. */
 GMX_LIBGMX_EXPORT
 void gmx_omp_nthreads_init(FILE *fplog, t_commrec *cr,
-                           int nthreads_hw_avail,
                            int omp_nthreads_req,
                            int omp_nthreads_pme_req,
                            gmx_bool bCurrNodePMEOnly,

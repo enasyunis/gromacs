@@ -38,6 +38,15 @@
 #include "string2.h"
 #include "gmx_omp.h"
 
+int gmx_omp_get_num_procs(void)
+{
+#ifdef GMX_OPENMP
+    return omp_get_num_procs();
+#else
+    return 1;
+#endif
+}
+
 int gmx_omp_get_max_threads(void)
 {
 #ifdef GMX_OPENMP

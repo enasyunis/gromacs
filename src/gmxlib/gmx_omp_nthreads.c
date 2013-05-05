@@ -191,7 +191,6 @@ static int pick_module_nthreads(FILE *fplog, int m,
 
 
 void gmx_omp_nthreads_init(FILE *fplog, t_commrec *cr,
-                           int nthreads_hw_avail,
                            int omp_nthreads_req,
                            int omp_nthreads_pme_req,
                            gmx_bool bThisNodePMEOnly,
@@ -200,8 +199,10 @@ void gmx_omp_nthreads_init(FILE *fplog, t_commrec *cr,
     int      nth, nth_pmeonly, gmx_maxth, nppn;
     char    *env;
     gmx_bool bSepPME, bOMP;
+    int nthreads_hw_avail =1;
 
 #ifdef GMX_OPENMP
+    nthreads_hw_avail = gmx_omp_get_num_procs();
     bOMP = TRUE;
 #else
     bOMP = FALSE;

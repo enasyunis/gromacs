@@ -31,7 +31,6 @@
 #include "sighandler.h"
 #include "tpxio.h"
 #include "txtdump.h"
-#include "gmx_detect_hardware.h"
 #include "gmx_omp_nthreads.h"
 #include "pull_rotation.h"
 #include "../mdlib/nbnxn_search.h"
@@ -39,7 +38,6 @@
 #include "gmx_fatal_collective.h"
 #include "types/membedt.h"
 #include "gmx_omp.h"
-#include "gmx_thread_affinity.h"
 
 #include "tmpi.h"
 
@@ -71,7 +69,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     t_mdatoms      *mdatoms    = NULL;
     t_forcerec     *fr         = NULL;
     gmx_pme_t      *pmedata    = NULL;
-    gmx_hw_info_t  *hwinfo       = NULL;
     master_inf_t    minf         = {-1, FALSE};
 
     /* CAUTION: threads may be started later on in this function, so
@@ -84,10 +81,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     /* Read (nearly) all data required for the simulation */
     read_tpx_state(ftp2fn(efTPX, nfile, fnm), inputrec, state, NULL, mtop);
 
-    /* Detect hardware, gather information. With tMPI only thread 0 does it
-     * and after threads are started broadcasts hwinfo around. */
-    snew(hwinfo, 1);
-    gmx_detect_hardware(fplog, hwinfo, cr, 0,0, hw_opt->gpu_id);
 
     minf.cutoff_scheme = inputrec->cutoff_scheme;
     minf.bUseGPU       = FALSE;
@@ -103,7 +96,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
 
 
     gmx_omp_nthreads_init(fplog, cr,
-                          hwinfo->nthreads_hw_avail,
                           hw_opt->nthreads_omp,
                           hw_opt->nthreads_omp_pme,
                           0,
@@ -113,7 +105,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
 
     /* Initiate forcerecord */
     snew(fr, 1);
-    fr->hwinfo = hwinfo;
     init_forcerec(fplog, fr, inputrec, mtop, cr, box, FALSE,
                       opt2fn("-table", nfile, fnm),
                       opt2fn("-tabletf", nfile, fnm),

@@ -46,7 +46,6 @@
 #include "types/membedt.h"
 #include "types/nlistheuristics.h"
 #include "types/iteratedconstraints.h"
-#include "nbnxn_cuda_data_mgmt.h"
 
 #include "tmpi.h"
 

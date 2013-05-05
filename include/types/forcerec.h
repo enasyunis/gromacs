@@ -42,7 +42,6 @@
 #include "idef.h"
 #include "nb_verlet.h"
 #include "interaction_const.h"
-#include "hw_info.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -198,7 +197,6 @@ typedef struct {
     rvec           posres_com;
     rvec           posres_comB;
 
-    gmx_hw_info_t *hwinfo;
     gmx_bool       use_cpu_acceleration;
 
     /* Interaction for calculated in kernels. In many cases this is similar to

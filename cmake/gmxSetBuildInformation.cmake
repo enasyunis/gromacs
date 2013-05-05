@@ -82,78 +82,6 @@ macro(gmx_set_build_information)
         message(STATUS "Setting build user & time - not on Unix, using anonymous")
     endif(CMAKE_HOST_UNIX)
 
-    if(NOT CMAKE_CROSSCOMPILING)
-        # Get CPU acceleration information
-        try_run(GMX_CPUID_RUN_VENDOR GMX_CPUID_COMPILED
-            ${CMAKE_BINARY_DIR}
-            ${CMAKE_SOURCE_DIR}/src/gmxlib/gmx_cpuid.c
-            COMPILE_DEFINITIONS "@GCC_INLINE_ASM_DEFINE@ -I${CMAKE_SOURCE_DIR}/include -DGMX_CPUID_STANDALONE"
-            RUN_OUTPUT_VARIABLE OUTPUT_CPU_VENDOR ARGS "-vendor")
-        try_run(GMX_CPUID_RUN_BRAND GMX_CPUID_COMPILED
-            ${CMAKE_BINARY_DIR}
-            ${CMAKE_SOURCE_DIR}/src/gmxlib/gmx_cpuid.c
-            COMPILE_DEFINITIONS "@GCC_INLINE_ASM_DEFINE@ -I${CMAKE_SOURCE_DIR}/include -DGMX_CPUID_STANDALONE"
-            RUN_OUTPUT_VARIABLE OUTPUT_CPU_BRAND ARGS "-brand")
-        try_run(GMX_CPUID_RUN_FAMILY GMX_CPUID_COMPILED
-            ${CMAKE_BINARY_DIR}
-            ${CMAKE_SOURCE_DIR}/src/gmxlib/gmx_cpuid.c
-            COMPILE_DEFINITIONS "@GCC_INLINE_ASM_DEFINE@ -I${CMAKE_SOURCE_DIR}/include -DGMX_CPUID_STANDALONE"
-            RUN_OUTPUT_VARIABLE OUTPUT_CPU_FAMILY ARGS "-family")
-        try_run(GMX_CPUID_RUN_MODEL GMX_CPUID_COMPILED
-            ${CMAKE_BINARY_DIR}
-            ${CMAKE_SOURCE_DIR}/src/gmxlib/gmx_cpuid.c
-            COMPILE_DEFINITIONS "@GCC_INLINE_ASM_DEFINE@ -I${CMAKE_SOURCE_DIR}/include -DGMX_CPUID_STANDALONE"
-            RUN_OUTPUT_VARIABLE OUTPUT_CPU_MODEL ARGS "-model")
-       try_run(GMX_CPUID_RUN_STEPPING GMX_CPUID_COMPILED
-            ${CMAKE_BINARY_DIR}
-            ${CMAKE_SOURCE_DIR}/src/gmxlib/gmx_cpuid.c
-            COMPILE_DEFINITIONS "@GCC_INLINE_ASM_DEFINE@ -I${CMAKE_SOURCE_DIR}/include -DGMX_CPUID_STANDALONE"
-            RUN_OUTPUT_VARIABLE OUTPUT_CPU_STEPPING ARGS "-stepping")
-        try_run(GMX_CPUID_RUN_FEATURES GMX_CPUID_COMPILED
-            ${CMAKE_BINARY_DIR}
-            ${CMAKE_SOURCE_DIR}/src/gmxlib/gmx_cpuid.c
-            COMPILE_DEFINITIONS "@GCC_INLINE_ASM_DEFINE@ -I${CMAKE_SOURCE_DIR}/include -DGMX_CPUID_STANDALONE"
-            RUN_OUTPUT_VARIABLE OUTPUT_CPU_FEATURES ARGS "-features")
-
-        string(STRIP "@OUTPUT_CPU_VENDOR@" OUTPUT_CPU_VENDOR)
-        string(STRIP "@OUTPUT_CPU_BRAND@" OUTPUT_CPU_BRAND)
-        string(STRIP "@OUTPUT_CPU_FAMILY@" OUTPUT_CPU_FAMILY)
-        string(STRIP "@OUTPUT_CPU_MODEL@" OUTPUT_CPU_MODEL)
-        string(STRIP "@OUTPUT_CPU_STEPPING@" OUTPUT_CPU_STEPPING)
-        string(STRIP "@OUTPUT_CPU_FEATURES@" OUTPUT_CPU_FEATURES)
-
-        if(GMX_CPUID_RUN_VENDOR EQUAL 0)
-            set(BUILD_CPU_VENDOR   "@OUTPUT_CPU_VENDOR@"   CACHE INTERNAL "Build CPU vendor")
-        else()
-            set(BUILD_CPU_VENDOR   "Unknown, detect failed" CACHE INTERNAL "Build CPU vendor")
-        endif()
-        if(GMX_CPUID_RUN_BRAND EQUAL 0)
-            set(BUILD_CPU_BRAND    "@OUTPUT_CPU_BRAND@"    CACHE INTERNAL "Build CPU brand")
-        else()
-            set(BUILD_CPU_BRAND    "Unknown, detect failed" CACHE INTERNAL "Build CPU brand")
-        endif()
-        if(GMX_CPUID_RUN_FAMILY EQUAL 0)
-            set(BUILD_CPU_FAMILY   "@OUTPUT_CPU_FAMILY@"   CACHE INTERNAL "Build CPU family")
-        else()
-            set(BUILD_CPU_FAMILY   "0"                     CACHE INTERNAL "Build CPU family")
-        endif()
-        if(GMX_CPUID_RUN_MODEL EQUAL 0)
-            set(BUILD_CPU_MODEL    "@OUTPUT_CPU_MODEL@"    CACHE INTERNAL "Build CPU model")
-        else()
-            set(BUILD_CPU_MODEL    "0"                     CACHE INTERNAL "Build CPU model")
-        endif()
-        if(GMX_CPUID_RUN_STEPPING EQUAL 0)
-            set(BUILD_CPU_STEPPING "@OUTPUT_CPU_STEPPING@" CACHE INTERNAL "Build CPU stepping")
-        else()
-            set(BUILD_CPU_STEPPING "0"                     CACHE INTERNAL "Build CPU stepping")
-        endif()
-            if(GMX_CPUID_RUN_FEATURES EQUAL 0)
-            set(BUILD_CPU_FEATURES "@OUTPUT_CPU_FEATURES@" CACHE INTERNAL "Build CPU features")
-        else()
-            set(BUILD_CPU_FEATURES ""                      CACHE INTERNAL "Build CPU features")
-        endif()
-
-    else(NOT CMAKE_CROSSCOMPILING)
         
         set(BUILD_CPU_VENDOR   "Unknown, cross-compiled"   CACHE INTERNAL "Build CPU vendor")
         set(BUILD_CPU_BRAND    "Unknown, cross-compiled"    CACHE INTERNAL "Build CPU brand")
@@ -162,7 +90,6 @@ macro(gmx_set_build_information)
         set(BUILD_CPU_STEPPING "0" CACHE INTERNAL "Build CPU stepping")
         set(BUILD_CPU_FEATURES "" CACHE INTERNAL "Build CPU features")
 
-    endif(NOT CMAKE_CROSSCOMPILING)
 
     ENDIF(NOT DEFINED BUILD_USER)
 endmacro(gmx_set_build_information)
