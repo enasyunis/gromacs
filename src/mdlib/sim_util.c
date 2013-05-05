@@ -44,7 +44,6 @@
 #include "copyrite.h"
 #include "pull_rotation.h"
 #include "mpelogging.h"
-#include "partdec.h"
 #include "gmx_wallcycle.h"
 #include "genborn.h"
 #include "nbnxn_atomdata.h"

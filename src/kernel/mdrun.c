@@ -12,7 +12,6 @@
 #include "smalloc.h"
 #include "edsam.h"
 #include "mdrun.h"
-#include "checkpoint.h"
 #include "thread_mpi.h"
 
 /* afm stuf */
