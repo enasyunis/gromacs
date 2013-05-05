@@ -5,7 +5,6 @@
 #include "typedefs.h"
 #include "macros.h"
 #include "main.h"
-#include "statutil.h"
 #include "smalloc.h"
 #include "futil.h"
 #include "smalloc.h"

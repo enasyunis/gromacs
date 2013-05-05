@@ -34,7 +34,6 @@
 
 #include "md_logging.h"
 #include "gmx_fatal.h"
-#include "statutil.h"
 #include "string2.h"
 #include "gmx_omp.h"
 

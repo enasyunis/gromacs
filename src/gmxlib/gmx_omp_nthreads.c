@@ -49,7 +49,6 @@
 #include "typedefs.h"
 #include "macros.h"
 #include "network.h"
-#include "statutil.h"
 #include "gmx_omp.h"
 #include "gmx_omp_nthreads.h"
 #include "md_logging.h"
@@ -140,7 +139,7 @@ static int pick_module_nthreads(FILE *fplog, int m,
         if (!bOMP)
         {
             gmx_warning("%s=%d is set, but %s is compiled without OpenMP!",
-                        modth_env_var[m], nth, ShortProgram());
+                        modth_env_var[m], nth, "mdrun");
         }
 
         /* with the verlet codepath, when any GMX_*_NUM_THREADS env var is set,
@@ -253,7 +252,7 @@ void gmx_omp_nthreads_init(FILE *fplog, t_commrec *cr,
             if (!bOMP && (strncmp(env, "1", 1) != 0))
             {
                 gmx_warning("OMP_NUM_THREADS is set, but %s was compiled without OpenMP support!",
-                            ShortProgram());
+                            "mdrun");
             }
             else
             {

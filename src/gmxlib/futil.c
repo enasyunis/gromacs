@@ -59,7 +59,6 @@
 #include "network.h"
 #include "gmx_fatal.h"
 #include "smalloc.h"
-#include "statutil.h"
 
 
 #ifdef GMX_THREAD_MPI

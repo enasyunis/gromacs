@@ -9,7 +9,6 @@
 #include "typedefs.h"
 #include "smalloc.h"
 #include "sysstuff.h"
-#include "statutil.h"
 #include "mdrun.h"
 #include "md_logging.h"
 #include "network.h"

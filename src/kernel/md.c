@@ -6,7 +6,6 @@
 #include "smalloc.h"
 #include "sysstuff.h"
 #include "vec.h"
-#include "statutil.h"
 #include "nrnb.h"
 #include "index.h"
 #include "ns.h"
@@ -52,7 +51,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     double          t, t0, lam0[efptNR];
     int               force_flags;
     int               i, m;
-    t_trxstatus      *status;
     gmx_localtop_t   *top;
     t_state          *state    = NULL;
     gmx_enerdata_t   *enerd;

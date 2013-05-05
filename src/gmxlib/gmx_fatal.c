@@ -45,7 +45,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include "futil.h"
-#include "statutil.h"
 #include "main.h"
 #include "network.h"
 #include "gmx_fatal.h"
@@ -766,7 +765,7 @@ void _gmx_error(const char *key, const char *msg, const char *file, int line)
             "Source code file: %s, line: %d\n\n"
             "%s:\n%s\nFor more information and tips for troubleshooting, please check the GROMACS\n"
             "website at http://www.gromacs.org/Documentation/Errors\n%s\n\n%s\n",
-            llines, ShortProgram(), _gmx_ver_string, file, line,
+            llines, "md_run", _gmx_ver_string, file, line,
             strerr, msg ? msg : errerrbuf, llines, tmpbuf);
     free(strerr);
 
