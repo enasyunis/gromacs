@@ -35,7 +35,6 @@
 #include "network.h"
 #include "trnio.h"
 #include "mpelogging.h"
-#include "gmx_wallcycle.h"
 #include "nbnxn_atomdata.h"
 #include "nbnxn_search.h"
 #include "nbnxn_kernels/nbnxn_kernel_ref.h"
@@ -82,7 +81,6 @@ void do_force(FILE *fplog, t_commrec *cr,
     double              mu[2*DIM];
     rvec                vzero, box_diag;
     real                e, v;
-    float               cycles_pme;
     nonbonded_verlet_t *nbv;
 
     nbv            = fr->nbv;
@@ -132,11 +130,6 @@ void do_force(FILE *fplog, t_commrec *cr,
     clear_rvecs(SHIFTS, fr->fshift);
 
 
-    /* Start the force cycle counter.
-     * This counter is stopped in do_forcelow_level.
-     * No parallel communication should occur while this counter is running,
-     * since that will interfere with the dynamic load balancing.
-     */
     /* Reset forces for which the virial is calculated separately:
      * PME/Ewald forces if necessary */
     fr->f_novirsum = fr->f_novirsum_alloc;
@@ -158,7 +151,7 @@ void do_force(FILE *fplog, t_commrec *cr,
                       x, hist, f, f, enerd,  mtop, top,
                       &(top->atomtypes),  box,
                       inputrec->fepvals, lambda, &(top->excls), 
-                      flags, &cycles_pme);
+                      flags);
 
 
     /* Maybe we should move this into do_force_lowlevel */

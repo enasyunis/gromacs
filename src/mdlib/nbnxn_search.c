@@ -14,7 +14,6 @@
 #include "nbnxn_internal.h"
 #include "nbnxn_atomdata.h"
 #include "nbnxn_search.h"
-#include "gmx_cyclecounter.h"
 #include "gmxfio.h"
 #include "gmx_omp_nthreads.h"
 #include "nrnb.h"
@@ -83,16 +82,6 @@
 #define NBNXN_NA_SC_MAX (GPU_NSUBCELL*NBNXN_GPU_CLUSTER_SIZE)
 
 
-static void nbs_cycle_clear(nbnxn_cycle_t *cc)
-{// called
-    int i;
-
-    for (i = 0; i < enbsCCnr; i++)
-    {
-        cc[i].count = 0;
-        cc[i].c     = 0;
-    }
-}
 
 static void nbnxn_grid_init(nbnxn_grid_t * grid)
 { // called
@@ -154,13 +143,7 @@ void nbnxn_init_search(nbnxn_search_t    * nbs_ptr,
     }
 
     /* Initialize detailed nbsearch cycle counting */
-    nbs->print_cycles = (getenv("GMX_NBNXN_CYCLE") != 0);
     nbs->search_count = 0;
-    nbs_cycle_clear(nbs->cc);
-    for (t = 0; t < nbs->nthread_max; t++)
-    {
-        nbs_cycle_clear(nbs->work[t].cc);
-    }
 }
 
 static real grid_atom_density(int n, rvec corner0, rvec corner1)
@@ -706,7 +689,6 @@ void nbnxn_put_on_grid(nbnxn_search_t nbs,
 
     grid = &nbs->grid[dd_zone];
 
-    nbs_cycle_start(&nbs->cc[enbsCCgrid]);
 
     grid->bSimple = TRUE;
 
@@ -760,7 +742,6 @@ void nbnxn_put_on_grid(nbnxn_search_t nbs,
         nbat->natoms_local = nbat->natoms;
     }
 
-    nbs_cycle_stop(&nbs->cc[enbsCCgrid]);
 }
 
 
@@ -1281,7 +1262,6 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
     unsigned *gridj_flag  = NULL;
     int  ncj_old_i, ncj_old_j;
 
-    nbs_cycle_start(&work->cc[enbsCCsearch]);
 
 
     nbl->na_sc = gridj->na_sc;
@@ -1564,7 +1544,6 @@ static void nbnxn_make_pairlist_part(const nbnxn_search_t nbs,
 
     work->ndistc = ndistc;
 
-    nbs_cycle_stop(&work->cc[enbsCCsearch]);
 
 }
 
@@ -1632,7 +1611,6 @@ void nbnxn_make_pairlist(const nbnxn_search_t  nbs,
     gridj = &nbs->grid[0];
 
 
-    nbs_cycle_start(&nbs->cc[enbsCCsearch]);
 
     ci_block = get_ci_block_size(gridi, nbs->DomDec, nnbl);
 
@@ -1658,7 +1636,6 @@ void nbnxn_make_pairlist(const nbnxn_search_t  nbs,
                                          th, nnbl,
                                          nbl[th]);
             }
-            nbs_cycle_stop(&nbs->cc[enbsCCsearch]);
 
             np_tot = 0;
             np_noq = 0;

@@ -40,7 +40,6 @@
 #define _nbnxn_internal_h
 
 #include "typedefs.h"
-#include "gmx_cyclecounter.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -127,17 +126,7 @@ static gmx_icell_set_x_t icell_set_x_supersub;
 #undef GMX_MM128_HERE
 #undef GMX_MM256_HERE
 
-/* Local cycle count struct for profiling */
-typedef struct {
-    int          count;
-    gmx_cycles_t c;
-    gmx_cycles_t start;
-} nbnxn_cycle_t;
 
-/* Local cycle count enum for profiling */
-enum {
-    enbsCCgrid, enbsCCsearch, enbsCCcombine, enbsCCreducef, enbsCCnr
-};
 
 /* Thread-local work struct, contains part of nbnxn_grid_t */
 typedef struct {
@@ -153,7 +142,6 @@ typedef struct {
 
     int                  ndistc;       /* Number of distance checks for flop counting */
 
-    nbnxn_cycle_t        cc[enbsCCnr];
 
     gmx_cache_protect_t  cp1;
 } nbnxn_search_work_t;
@@ -177,9 +165,7 @@ typedef struct nbnxn_search {
     int                 natoms_nonlocal; /* The non-local atoms run from natoms_local
                                           * to natoms_nonlocal */
 
-    gmx_bool             print_cycles;
     int                  search_count;
-    nbnxn_cycle_t        cc[enbsCCnr];
 
     gmx_icell_set_x_t   *icell_set_x; /* Function for setting i-coords    */
 
@@ -188,16 +174,7 @@ typedef struct nbnxn_search {
 } nbnxn_search_t_t;
 
 
-static void nbs_cycle_start(nbnxn_cycle_t *cc)
-{
-    cc->start = gmx_cycles_read();
-}
 
-static void nbs_cycle_stop(nbnxn_cycle_t *cc)
-{
-    cc->c += gmx_cycles_read() - cc->start;
-    cc->count++;
-}
 
 
 #ifdef __cplusplus

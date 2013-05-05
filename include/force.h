@@ -286,8 +286,7 @@ extern void do_force_lowlevel(FILE         *fplog,
                               t_lambda     *fepvals,
                               real         *lambda,
                               t_blocka     *excl,
-                              int          flags,
-                              float        *cycles_pme);
+                              int          flags);
 /* Call all the force routines */
 
 #ifdef __cplusplus

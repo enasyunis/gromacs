@@ -452,7 +452,7 @@ static void joinAxesTrans12(t_complex* lout, const t_complex* lin, int maxN, int
     }
 }
 
-void fft5d_execute(fft5d_plan plan, int thread, fft5d_time times)
+void fft5d_execute(fft5d_plan plan, int thread)
 {// called 
     t_complex  *lin   = plan->lin;
     t_complex  *lout  = plan->lout;

@@ -43,7 +43,6 @@
 #include "visibility.h"
 #include "typedefs.h"
 #include "gmxcomplex.h"
-#include "gmx_wallcycle.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,9 +50,6 @@ extern "C" {
 
 typedef real *splinevec[DIM];
 
-enum {
-    GMX_SUM_QGRID_FORWARD, GMX_SUM_QGRID_BACKWARD
-};
 
 GMX_LIBMD_EXPORT
 int gmx_pme_init(gmx_pme_t *pmedata, t_commrec *cr,
@@ -64,18 +60,7 @@ int gmx_pme_init(gmx_pme_t *pmedata, t_commrec *cr,
  * Return value 0 indicates all well, non zero is an error code.
  */
 
-GMX_LIBMD_EXPORT
-int gmx_pme_reinit(gmx_pme_t *         pmedata,
-                   t_commrec *         cr,
-                   gmx_pme_t           pme_src,
-                   const t_inputrec *  ir,
-                   ivec                grid_size);
-/* As gmx_pme_init, but takes most settings, except the grid, from pme_src */
 
-int gmx_pme_destroy(FILE *log, gmx_pme_t *pmedata);
-/* Destroy the pme data structures resepectively.
- * Return value 0 indicates all well, non zero is an error code.
- */
 
 #define GMX_PME_SPREAD_Q      (1<<0)
 #define GMX_PME_SOLVE         (1<<1)
@@ -91,7 +76,6 @@ int gmx_pme_do(gmx_pme_t pme,
                real chargeA[],  real chargeB[],
                matrix box,      t_commrec *cr,
                int  maxshift_x, int maxshift_y,
-               gmx_wallcycle_t wcycle,
                matrix lrvir,    real ewaldcoeff,
                real *energy,    real lambda,
                real *dvdlambda, int flags);
@@ -99,77 +83,6 @@ int gmx_pme_do(gmx_pme_t pme,
  * flags, defined above, determine which parts of the calculation are performed.
  * Return value 0 indicates all well, non zero is an error code.
  */
-
-GMX_LIBMD_EXPORT
-int gmx_pmeonly(gmx_pme_t pme,
-                t_commrec *cr,     t_nrnb *mynrnb,
-                gmx_wallcycle_t wcycle,
-                real ewaldcoeff,   gmx_bool bGatherOnly,
-                t_inputrec *ir);
-/* Called on the nodes that do PME exclusively (as slaves)
- */
-
-void gmx_pme_calc_energy(gmx_pme_t pme, int n, rvec *x, real *q, real *V);
-/* Calculate the PME grid energy V for n charges with a potential
- * in the pme struct determined before with a call to gmx_pme_do
- * with at least GMX_PME_SPREAD_Q and GMX_PME_SOLVE specified.
- * Note that the charges are not spread on the grid in the pme struct.
- * Currently does not work in parallel or with free energy.
- */
-
-/* The following three routines are for PME/PP node splitting in pme_pp.c */
-
-/* Abstract type for PME <-> PP communication */
-typedef struct gmx_pme_pp *gmx_pme_pp_t;
-
-gmx_pme_pp_t gmx_pme_pp_init(t_commrec *cr);
-/* Initialize the PME-only side of the PME <-> PP communication */
-
-void gmx_pme_send_q(t_commrec *cr,
-                    gmx_bool bFreeEnergy, real *chargeA, real *chargeB,
-                    int maxshift_x, int maxshift_y);
-/* Send the charges and maxshift to out PME-only node. */
-
-void gmx_pme_send_x(t_commrec *cr, matrix box, rvec *x,
-                    gmx_bool bFreeEnergy, real lambda,
-                    gmx_bool bEnerVir,
-                    gmx_large_int_t step);
-/* Send the coordinates to our PME-only node and request a PME calculation */
-
-GMX_LIBMD_EXPORT
-void gmx_pme_send_finish(t_commrec *cr);
-/* Tell our PME-only node to finish */
-
-GMX_LIBMD_EXPORT
-void gmx_pme_send_switch(t_commrec *cr, ivec grid_size, real ewaldcoeff);
-/* Tell our PME-only node to switch to a new grid size */
-
-void gmx_pme_receive_f(t_commrec *cr,
-                       rvec f[], matrix vir,
-                       real *energy, real *dvdlambda,
-                       float *pme_cycles);
-/* PP nodes receive the long range forces from the PME nodes */
-
-int gmx_pme_recv_q_x(gmx_pme_pp_t pme_pp,
-                     real **chargeA, real **chargeB,
-                     matrix box, rvec **x, rvec **f,
-                     int *maxshift_x, int *maxshift_y,
-                     gmx_bool *bFreeEnergy, real *lambda,
-                     gmx_bool *bEnerVir,
-                     gmx_large_int_t *step,
-                     ivec grid_size, real *ewaldcoeff);
-;
-/* Receive charges and/or coordinates from the PP-only nodes.
- * Returns the number of atoms, or -1 when the run is finished.
- * In the special case of a PME grid size switch request, -2 is returned
- * and grid_size and *ewaldcoeff are set, which are otherwise not set.
- */
-
-void gmx_pme_send_force_vir_ener(gmx_pme_pp_t pme_pp,
-                                 rvec *f, matrix vir,
-                                 real energy, real dvdlambda,
-                                 float cycles);
-/* Send the PME mesh force, virial and energy to the PP-only nodes */
 
 #ifdef __cplusplus
 }

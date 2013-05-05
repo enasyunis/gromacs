@@ -55,8 +55,7 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                        t_lambda   *fepvals,
                        real       *lambda,
                        t_blocka   *excl,
-                       int        flags,
-                       float      *cycles_pme)
+                       int        flags)
 {// called 
     int         i, j, status;
     int         donb_flags;
@@ -129,7 +128,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
 
     where();
 
-    *cycles_pme = 0;
         bSB = FALSE;
 
         clear_mat(fr->vir_el_recip);
@@ -190,7 +188,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                                             box, cr,
                                             0,
                                             0,
-                                            NULL,
                                             fr->vir_el_recip, fr->ewaldcoeff,
                                             &Vlr, lambda[efptCOUL], &dvdl,
                                             pme_flags);

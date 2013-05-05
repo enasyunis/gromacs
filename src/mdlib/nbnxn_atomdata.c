@@ -368,7 +368,6 @@ void nbnxn_atomdata_add_nbat_f_to_f(const nbnxn_search_t    nbs,
     int a0 = 0, na = 0;
     int nth, th;
 
-    nbs_cycle_start(&nbs->cc[enbsCCreducef]);
 
     a0 = 0;
     na = nbs->natoms_nonlocal;
@@ -431,7 +430,6 @@ void nbnxn_atomdata_add_nbat_f_to_f(const nbnxn_search_t    nbs,
                                             f);
     }
 
-    nbs_cycle_stop(&nbs->cc[enbsCCreducef]);
 }
 
 /* Adds the shift forces from nbnxn_atomdata_t to fshift */

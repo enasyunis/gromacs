@@ -48,10 +48,8 @@
 #include "network.h"
 #include "physics.h"
 #include "nrnb.h"
-#include "gmx_wallcycle.h"
 #include "gmx_parallel_3dfft.h"
 #include "pdbio.h"
-#include "gmx_cyclecounter.h"
 #include "gmx_omp.h"
 
 #include "mpelogging.h"
@@ -2144,7 +2142,6 @@ int gmx_pme_do(gmx_pme_t pme,
                real *chargeA,   real *chargeB,
                matrix box, t_commrec *cr,
                int  maxshift_x, int maxshift_y,
-               gmx_wallcycle_t wcycle,
                matrix vir,      real ewaldcoeff,
                real *energy,    real lambda,
                real *dvdlambda, int flags)
@@ -2232,7 +2229,7 @@ int gmx_pme_do(gmx_pme_t pme,
                     GMX_MPE_LOG(ev_gmxfft3d_start);
                 }
                 gmx_parallel_3dfft_execute(pfft_setup, GMX_FFT_REAL_TO_COMPLEX,
-                                           fftgrid, cfftgrid, thread, wcycle);
+                                           fftgrid, cfftgrid, thread);
                 if (thread == 0)
                 {
                     GMX_MPE_LOG(ev_gmxfft3d_finish);
@@ -2267,7 +2264,7 @@ int gmx_pme_do(gmx_pme_t pme,
                     where();
                 }
                 gmx_parallel_3dfft_execute(pfft_setup, GMX_FFT_COMPLEX_TO_REAL,
-                                           cfftgrid, fftgrid, thread, wcycle);
+                                           cfftgrid, fftgrid, thread);
                 if (thread == 0)
                 {
 

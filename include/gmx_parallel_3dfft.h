@@ -114,8 +114,8 @@ gmx_parallel_3dfft_execute(gmx_parallel_3dfft_t    pfft_setup,
                            enum gmx_fft_direction  dir,
                            void *                  in_data,
                            void *                  out_data,
-                           int                     thread,
-                           gmx_wallcycle_t         wcycle);
+                           int                     thread
+                           );
 
 
 /*! \brief Release all data in parallel fft setup
@@ -129,7 +129,6 @@ gmx_parallel_3dfft_execute(gmx_parallel_3dfft_t    pfft_setup,
  *  \param thread     Thread index of the calling thread, i.e. index to the part
  *                    of the data operated on last by the calling thread. This
  *                    is needed to start the FFT without an OpenMP barrier.
- *  \param wcycle     Wall cycle counters.
  *
  *  \return 0 or a standard error code.
  */
