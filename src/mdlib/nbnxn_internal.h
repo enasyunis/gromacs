@@ -166,7 +166,6 @@ typedef struct nbnxn_search {
 
     gmx_bool            DomDec;          /* Are we doing domain decomposition?         */
     ivec                dd_dim;          /* Are we doing DD in x,y,z?                  */
-    gmx_domdec_zones_t *zones;           /* The domain decomposition zones        */
 
     int                 ngrid;           /* The number of grids, equal to #DD-zones    */
     nbnxn_grid_t       *grid;            /* Array of grids, size ngrid                 */

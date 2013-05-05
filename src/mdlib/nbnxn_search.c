@@ -119,7 +119,6 @@ static int get_2log(int n)
 
 void nbnxn_init_search(nbnxn_search_t    * nbs_ptr,
                        ivec               *n_dd_cells,
-                       gmx_domdec_zones_t *zones,
                        int                 nthread_max)
 { // called
     nbnxn_search_t nbs;
@@ -1654,7 +1653,7 @@ void nbnxn_make_pairlist(const nbnxn_search_t  nbs,
                                          ci_block,
                                          nbat->bUseBufferFlags,
                                          nsubpair_max,
-                                         (LOCAL_I(iloc) || nbs->zones->n <= 2),
+                                         LOCAL_I(iloc),
                                          min_ci_balanced,
                                          th, nnbl,
                                          nbl[th]);

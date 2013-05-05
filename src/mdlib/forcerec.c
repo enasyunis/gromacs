@@ -505,7 +505,6 @@ static void init_nb_verlet(FILE                *fp,
 
     nbnxn_init_search(&nbv->nbs,
                       NULL,
-                      NULL,
                       gmx_omp_nthreads_get(emntNonbonded));
 
 

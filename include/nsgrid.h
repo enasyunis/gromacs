@@ -86,7 +86,6 @@ void grid_first(FILE *log, t_grid *grid,
                 real rlong, real grid_density);
 
 void fill_grid(FILE *log,
-               gmx_domdec_zones_t *dd_zones,
                t_grid *grid, int ncg_tot,
                int cg0, int cg1, rvec cg_cm[]);
 /* Allocates space on the grid for ncg_tot cg's.
