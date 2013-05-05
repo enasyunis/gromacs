@@ -40,12 +40,14 @@
 #define _readinp_h
 #include "visibility.h"
 #include "typedefs.h"
-#include "warninp.h"
 
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* Abstract type for warning bookkeeping */
+typedef struct warninp *warninp_t;
 
 typedef struct {
     int      count;     /* sort order for output  */
