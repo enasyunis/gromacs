@@ -230,8 +230,6 @@ t_fileio *gmx_fio_all_output_fsync(void);
  */
 
 
-int gmx_fio_get_file_md5(t_fileio *fio, gmx_off_t offset,
-                         unsigned char digest[]);
 
 
 int xtc_seek_frame(t_fileio *fio, int frame, int natoms);

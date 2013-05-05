@@ -53,7 +53,6 @@
 #include "filenm.h"
 #include "string2.h"
 #include "gmxfio.h"
-#include "md5.h"
 
 #ifdef GMX_THREAD_MPI
 #include "thread_mpi.h"
