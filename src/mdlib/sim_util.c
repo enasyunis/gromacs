@@ -23,7 +23,6 @@
 #include "mvdata.h"
 #include "txtdump.h"
 #include "pbc.h"
-#include "chargegroup.h"
 #include "vec.h"
 #include <time.h>
 #include "nrnb.h"
@@ -38,7 +37,6 @@
 #include "disre.h"
 #include "orires.h"
 #include "network.h"
-#include "calcmu.h"
 #include "constr.h"
 #include "trnio.h"
 #include "copyrite.h"

@@ -41,7 +41,6 @@
 #include "visibility.h"
 #include "typedefs.h"
 #include "types/globsig.h"
-#include "vcm.h"
 
 #ifdef __cplusplus
 extern "C" {
