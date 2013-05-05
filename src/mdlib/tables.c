@@ -10,7 +10,6 @@
 #include "gmx_fatal.h"
 #include "futil.h"
 #include "vec.h"
-#include "main.h"
 #include "network.h"
 #include "physics.h"
 #include "force.h"

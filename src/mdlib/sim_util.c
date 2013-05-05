@@ -26,7 +26,6 @@
 #include "nrnb.h"
 #include "mdrun.h"
 #include "physics.h"
-#include "main.h"
 #include "mdatoms.h"
 #include "force.h"
 #include "bondf.h"

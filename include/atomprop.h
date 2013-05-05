@@ -43,7 +43,6 @@
 extern "C" {
 #endif
 
-#include "index.h"
 
 /* Abstract type for the atom property database */
 typedef struct gmx_atomprop *gmx_atomprop_t;

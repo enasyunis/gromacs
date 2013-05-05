@@ -7,7 +7,6 @@
 #include "sysstuff.h"
 #include "vec.h"
 #include "nrnb.h"
-#include "index.h"
 #include "ns.h"
 #include "trnio.h"
 #include "mdrun.h"

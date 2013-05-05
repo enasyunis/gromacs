@@ -44,7 +44,6 @@
 #include "typedefs.h"
 #include "vec.h"
 #include "maths.h"
-#include "main.h"
 #include "pbc.h"
 #include "smalloc.h"
 #include "txtdump.h"

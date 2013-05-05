@@ -51,7 +51,6 @@
 #include <string.h>
 #include "gmx_fatal.h"
 #include "smalloc.h"
-#include "main.h"
 #ifdef WITH_DMALLOC
 #include "dmalloc.h"
 #endif

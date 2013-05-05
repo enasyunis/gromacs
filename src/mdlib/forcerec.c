@@ -18,7 +18,6 @@
 #include "force.h"
 #include "tables.h"
 #include "nonbonded.h"
-#include "invblock.h"
 #include "names.h"
 #include "network.h"
 #include "pbc.h"

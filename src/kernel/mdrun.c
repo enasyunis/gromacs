@@ -4,7 +4,6 @@
 
 #include "typedefs.h"
 #include "macros.h"
-#include "main.h"
 #include "smalloc.h"
 #include "futil.h"
 #include "smalloc.h"

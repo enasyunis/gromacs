@@ -49,7 +49,6 @@
 #include "types/simple.h"
 #include "types/commrec.h"
 #include "typedefs.h"
-#include "main.h"
 #include "gmx_fatal.h"
 
 #ifdef __cplusplus

@@ -5,7 +5,6 @@
 #include "typedefs.h"
 #include "mdatoms.h"
 #include "smalloc.h"
-#include "main.h"
 #include "qmmm.h"
 #include "mtop_util.h"
 #include "gmx_omp_nthreads.h"
