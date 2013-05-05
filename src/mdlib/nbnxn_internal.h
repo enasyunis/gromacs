@@ -40,7 +40,6 @@
 #define _nbnxn_internal_h
 
 #include "typedefs.h"
-#include "domdec.h"
 #include "gmx_cyclecounter.h"
 
 #ifdef __cplusplus

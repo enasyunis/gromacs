@@ -24,7 +24,6 @@
 #include "coulomb.h"
 #include "pme.h"
 #include "mdrun.h"
-#include "domdec.h"
 #include "partdec.h"
 #include "qmmm.h"
 #include "mpelogging.h"

@@ -51,7 +51,6 @@
 #include "edsam.h"
 #include "mdebin.h"
 #include "vcm.h"
-#include "vsite.h"
 #include "pull.h"
 #include "maths.h"
 #include "types/membedt.h"

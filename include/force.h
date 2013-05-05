@@ -45,7 +45,6 @@
 #include "pbc.h"
 #include "network.h"
 #include "tgroup.h"
-#include "vsite.h"
 #include "genborn.h"
 
 

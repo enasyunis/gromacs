@@ -39,7 +39,6 @@
 #ifndef _partdec_h
 #define _partdec_h
 #include "visibility.h"
-#include "vsite.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -121,8 +120,6 @@ gmx_localtop_t *split_system(FILE *log,
                              t_commrec *cr);
 /* Split the system over N processors. */
 
-gmx_bool setup_parallel_vsites(t_idef *idef, t_commrec *cr,
-                               t_comm_vsites *vsitecomm);
 
 GMX_LIBMD_EXPORT
 t_state *partdec_init_local_state(t_commrec *cr, t_state *state_global);

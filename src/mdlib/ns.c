@@ -21,7 +21,6 @@
 #include "txtdump.h"
 #include "mtop_util.h"
 
-#include "domdec.h"
 #include "types/simple.h"
 #include "typedefs.h"
 

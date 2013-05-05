@@ -22,7 +22,6 @@
 #include "mdatoms.h"
 #include "qmmm.h"
 #include "mpelogging.h"
-#include "domdec.h"
 #include "partdec.h"
 #include "coulomb.h"
 #include "mvdata.h"

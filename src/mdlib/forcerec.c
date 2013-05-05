@@ -28,7 +28,6 @@
 #include "coulomb.h"
 #include "md_support.h"
 #include "md_logging.h"
-#include "domdec.h"
 #include "partdec.h"
 #include "qmmm.h"
 #include "copyrite.h"
