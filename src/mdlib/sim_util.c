@@ -37,7 +37,6 @@
 #include "pull_rotation.h"
 #include "mpelogging.h"
 #include "gmx_wallcycle.h"
-#include "genborn.h"
 #include "nbnxn_atomdata.h"
 #include "nbnxn_search.h"
 #include "nbnxn_kernels/nbnxn_kernel_ref.h"

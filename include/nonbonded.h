@@ -43,7 +43,6 @@
 #include "pbc.h"
 #include "network.h"
 #include "tgroup.h"
-#include "genborn.h"
 
 #ifdef __cplusplus
 extern "C" {

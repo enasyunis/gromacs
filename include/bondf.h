@@ -45,7 +45,6 @@
 #include "typedefs.h"
 #include "nrnb.h"
 #include "pbc.h"
-#include "genborn.h"
 
 #ifdef __cplusplus
 extern "C" {
