@@ -44,7 +44,6 @@
 #include "typedefs.h"
 #include "filenm.h"
 #include "readinp.h"
-#include "wman.h"
 #include "pdbio.h"
 #include "oenv.h"
 #include "gmxfio.h"

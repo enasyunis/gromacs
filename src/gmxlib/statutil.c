@@ -52,7 +52,6 @@
 #include "names.h"
 #include "vec.h"
 #include "futil.h"
-#include "wman.h"
 #include "tpxio.h"
 #include "gmx_fatal.h"
 #include "network.h"

@@ -47,7 +47,6 @@
 #include "gmx_fatal.h"
 #include "filenm.h"
 #include "futil.h"
-#include "wman.h"
 #include "xdrf.h"
 #include "macros.h"
 
