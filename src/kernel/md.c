@@ -7,19 +7,16 @@
 #include "sysstuff.h"
 #include "vec.h"
 #include "statutil.h"
-#include "mdebin.h"
 #include "nrnb.h"
 #include "index.h"
 #include "ns.h"
 #include "trnio.h"
 #include "mdrun.h"
-#include "md_support.h"
 #include "md_logging.h"
 #include "network.h"
 #include "pull.h"
 #include "physics.h"
 #include "names.h"
-#include "disre.h"
 #include "orires.h"
 #include "pme.h"
 #include "mdatoms.h"
@@ -160,7 +157,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
          */
 
 
-        /* these CGLO_ options remain the same throughout the iteration */
         force_flags = (
                        GMX_FORCE_ALLFORCES |
                        GMX_FORCE_SEPLRF 

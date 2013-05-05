@@ -43,7 +43,6 @@
 
 #include "typedefs.h"
 #include "bondf.h"
-#include "disre.h"
 #include "orires.h"
 #include "genborn.h"
 

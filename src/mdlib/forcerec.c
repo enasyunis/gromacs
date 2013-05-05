@@ -25,7 +25,6 @@
 #include "ns.h"
 #include "txtdump.h"
 #include "coulomb.h"
-#include "md_support.h"
 #include "md_logging.h"
 #include "qmmm.h"
 #include "mtop_util.h"

@@ -31,7 +31,6 @@
 #include "force.h"
 #include "bondf.h"
 #include "pme.h"
-#include "disre.h"
 #include "orires.h"
 #include "network.h"
 #include "trnio.h"
