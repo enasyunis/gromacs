@@ -9,7 +9,6 @@
 #include "smalloc.h"
 #include "futil.h"
 #include "smalloc.h"
-#include "edsam.h"
 #include "mdrun.h"
 #include "thread_mpi.h"
 
