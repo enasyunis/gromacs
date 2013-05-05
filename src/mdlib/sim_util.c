@@ -36,7 +36,6 @@
 #include "tmpi.h"
 #include "types/simple.h"
 #include "typedefs.h"
-#include "qmmm.h"
 
 
 static void do_nb_verlet(t_forcerec *fr,

@@ -6,6 +6,7 @@
 #include <string.h>
 #include <assert.h>
 #include "sysstuff.h"
+#include "vec.h"
 #include "typedefs.h"
 #include "macros.h"
 #include "smalloc.h"
@@ -21,7 +22,6 @@
 #include "coulomb.h"
 #include "pme.h"
 #include "mdrun.h"
-#include "qmmm.h"
 #include "gmx_omp_nthreads.h"
 
 /* ENAS ADDED START */

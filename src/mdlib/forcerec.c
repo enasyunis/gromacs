@@ -24,7 +24,6 @@
 #include "txtdump.h"
 #include "coulomb.h"
 #include "md_logging.h"
-#include "qmmm.h"
 #include "mtop_util.h"
 #include "nbnxn_search.h"
 #include "nbnxn_atomdata.h"

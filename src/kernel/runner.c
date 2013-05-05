@@ -6,19 +6,17 @@
 #include <string.h>
 #include <assert.h>
 
+#include "vec.h"
 #include "typedefs.h"
 #include "smalloc.h"
 #include "sysstuff.h"
 #include "mdrun.h"
 #include "md_logging.h"
-#include "pull.h"
 #include "names.h"
 #include "pme.h"
 #include "mdatoms.h"
-#include "qmmm.h"
 #include "coulomb.h"
 #include "mtop_util.h"
-#include "sighandler.h"
 #include "tpxio.h"
 #include "txtdump.h"
 #include "gmx_omp_nthreads.h"

@@ -47,7 +47,6 @@
 #include "pme.h"
 #include "physics.h"
 #include "gmx_parallel_3dfft.h"
-#include "pdbio.h"
 #include "gmx_omp.h"
 
 

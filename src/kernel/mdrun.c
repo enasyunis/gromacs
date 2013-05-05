@@ -10,8 +10,6 @@
 #include "mdrun.h"
 #include "thread_mpi.h"
 
-/* afm stuf */
-#include "pull.h"
 
 int cmain(int argc, char *argv[])
 {
