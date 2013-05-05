@@ -49,7 +49,6 @@
 #include "main.h"
 #include "network.h"
 #include "gmx_fatal.h"
-#include "copyrite.h"
 #include "macros.h"
 #include "string2.h"
 #include "smalloc.h"

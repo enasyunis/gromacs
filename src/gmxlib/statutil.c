@@ -42,7 +42,6 @@
 
 #include <ctype.h>
 #include <assert.h>
-#include "copyrite.h"
 #include "sysstuff.h"
 #include "macros.h"
 #include "string2.h"

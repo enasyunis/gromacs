@@ -48,7 +48,6 @@
 #include "network.h"
 #include "physics.h"
 #include "nrnb.h"
-#include "copyrite.h"
 #include "gmx_wallcycle.h"
 #include "gmx_parallel_3dfft.h"
 #include "pdbio.h"

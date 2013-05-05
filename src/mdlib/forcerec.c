@@ -28,7 +28,6 @@
 #include "md_support.h"
 #include "md_logging.h"
 #include "qmmm.h"
-#include "copyrite.h"
 #include "mtop_util.h"
 #include "nbnxn_search.h"
 #include "nbnxn_atomdata.h"
