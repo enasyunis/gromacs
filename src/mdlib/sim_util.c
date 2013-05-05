@@ -40,7 +40,6 @@
 #include "network.h"
 #include "calcmu.h"
 #include "constr.h"
-#include "xvgr.h"
 #include "trnio.h"
 #include "xtcio.h"
 #include "copyrite.h"
