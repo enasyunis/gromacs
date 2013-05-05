@@ -67,7 +67,7 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
     int         pme_flags;
     matrix      boxs;
     rvec        box_size;
-    real        Vlr, Vcorr = 0;
+    real        Vlr;
     t_pbc       pbc;
     real        dvdgb;
     char        buf[22];
@@ -136,21 +136,8 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
         bSB = FALSE;
 
         clear_mat(fr->vir_el_recip);
-            Vcorr = 0;
-            dvdl  = 0;
 
-            /* With the Verlet scheme exclusion forces are calculated
-             * in the non-bonded kernel.
-             */
-            /* The TPI molecule does not have exclusions with the rest
-             * of the system and no intra-molecular PME grid contributions
-             * will be calculated in gmx_pme_calc_energy.
-             */
-            Vcorr += ewald_charge_correction(cr, fr, lambda[efptCOUL], box,
-                                                 &dvdl, fr->vir_el_recip);
 
-            PRINT_SEPDVDL("Ewald excl./charge/dip. corr.", Vcorr, dvdl);
-            enerd->dvdl_lin[efptCOUL] += dvdl;
 
         status = 0;
         Vlr    = 0;
@@ -296,7 +283,7 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
             }
         /* Note that with separate PME nodes we get the real energies later */
         enerd->dvdl_lin[efptCOUL] += dvdl;
-        enerd->term[F_COUL_RECIP]  = Vlr + Vcorr;
+        enerd->term[F_COUL_RECIP]  = Vlr;
     where();
     debug_gmx();
 

@@ -289,6 +289,38 @@ void forcerec_set_ranges(t_forcerec *fr,
     srenew(fr->f_novirsum_alloc, fr->f_novirsum_nalloc);
 }
 
+real calc_ewaldcoeff(real rc, real dtol)
+{ // called 
+    real x = 5, low, high;
+    int  n, i = 0;
+
+
+    do
+    {
+        i++;
+        x *= 2;
+    }
+    while (gmx_erfc(x*rc) > dtol);
+
+    n    = i+60; /* search tolerance is 2^-60 */
+    low  = 0;
+    high = x;
+    for (i = 0; i < n; i++)
+    {
+        x = (low+high)/2;
+        if (gmx_erfc(x*rc) > dtol)
+        {
+            low = x;
+        }
+        else
+        {
+            high = x;
+        }
+    }
+    return x;
+}
+
+
 static void init_forcerec_f_threads(t_forcerec *fr, int nenergrp)
 { // called
     int t, i;

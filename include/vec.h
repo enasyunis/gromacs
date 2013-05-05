@@ -1,40 +1,3 @@
-/*
- * This file is part of the GROMACS molecular simulation package.
- *
- * Copyright (c) 1991-2000, University of Groningen, The Netherlands.
- * Copyright (c) 2001-2004, The GROMACS development team,
- * check out http://www.gromacs.org for more information.
- * Copyright (c) 2012,2013, by the GROMACS development team, led by
- * David van der Spoel, Berk Hess, Erik Lindahl, and including many
- * others, as listed in the AUTHORS file in the top-level source
- * directory and at http://www.gromacs.org.
- *
- * GROMACS is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License
- * as published by the Free Software Foundation; either version 2.1
- * of the License, or (at your option) any later version.
- *
- * GROMACS is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with GROMACS; if not, see
- * http://www.gnu.org/licenses, or write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA.
- *
- * If you want to redistribute modifications to GROMACS, please
- * consider that scientific software is very special. Version
- * control is crucial - bugs must be traceable. We will be happy to
- * consider code for inclusion in the official distribution, but
- * derived work must not be called official GROMACS. Details are found
- * in the README & COPYING files - if they are missing, get the
- * official version at http://www.gromacs.org.
- *
- * To help us fund GROMACS development, we humbly ask that you cite
- * the research papers on the package. Check out http://www.gromacs.org.
- */
 #ifndef _vec_h
 #define _vec_h
 
@@ -173,7 +136,10 @@ static real gmx_software_invsqrt(real x)
     y = (half*lu*(three-((x*lu)*lu)));
 #ifdef GMX_DOUBLE
     y2 = (half*y*(three-((x*y)*y)));
-
+//    ENAS RIO TODO
+//    The error ranges from 10^-14 to 10^-19, but when the answer is 10^18 the error is 10^2. 
+//    real k = 1.0/sqrt(x);
+//    printf("\n** y2=%e, k=%e, k-y2=%e\n",y2, k, k-y2);
     return y2;                  /* 10 Flops */
 #else
     return y;                   /* 5  Flops */

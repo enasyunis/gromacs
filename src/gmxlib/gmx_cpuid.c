@@ -159,75 +159,11 @@ struct gmx_cpuid
 };
 
 
-/* Simple routines to access the data structure. The initialization routine is
- * further down since that needs to call other static routines in this file.
- */
-enum gmx_cpuid_vendor
-gmx_cpuid_vendor            (gmx_cpuid_t                cpuid)
-{
-    return cpuid->vendor;
-}
 
 
-const char *
-gmx_cpuid_brand             (gmx_cpuid_t                cpuid)
-{
-    return cpuid->brand;
-}
-
-int
-gmx_cpuid_family            (gmx_cpuid_t                cpuid)
-{
-    return cpuid->family;
-}
-
-int
-gmx_cpuid_model             (gmx_cpuid_t                cpuid)
-{
-    return cpuid->model;
-}
-
-int
-gmx_cpuid_stepping          (gmx_cpuid_t                cpuid)
-{
-    return cpuid->stepping;
-}
-
-int
-gmx_cpuid_feature           (gmx_cpuid_t                cpuid,
-                             enum gmx_cpuid_feature     feature)
-{
-    return (cpuid->feature[feature] != 0);
-}
-
-
-
-
-/* What type of acceleration was compiled in, if any?
- * This is set from Cmake. Note that the SSE2 and SSE4_1 macros are set for
- * AVX too, so it is important that they appear last in the list.
- */
-#ifdef GMX_X86_AVX_256
-static const
-enum gmx_cpuid_acceleration
-    compiled_acc = GMX_CPUID_ACCELERATION_X86_AVX_256;
-#elif defined GMX_X86_AVX_128_FMA
-static const
-enum gmx_cpuid_acceleration
-    compiled_acc = GMX_CPUID_ACCELERATION_X86_AVX_128_FMA;
-#elif defined GMX_X86_SSE4_1
-static const
-enum gmx_cpuid_acceleration
-    compiled_acc = GMX_CPUID_ACCELERATION_X86_SSE4_1;
-#elif defined GMX_X86_SSE2
-static const
-enum gmx_cpuid_acceleration
-    compiled_acc = GMX_CPUID_ACCELERATION_X86_SSE2;
-#else
 static const
 enum gmx_cpuid_acceleration
     compiled_acc = GMX_CPUID_ACCELERATION_NONE;
-#endif
 
 
 #ifdef GMX_CPUID_X86
@@ -409,6 +345,7 @@ cpuid_check_common_x86(gmx_cpuid_t                cpuid)
     return 0;
 }
 
+
 /* This routine returns the number of unique different elements found in the array,
  * and renumbers these starting from 0. For example, the array {0,1,2,8,9,10,8,9,10,0,1,2}
  * will be rewritten to {0,1,2,3,4,5,3,4,5,0,1,2}, and it returns 6 for the
@@ -496,7 +433,6 @@ cpuid_x86_decode_apic_id(gmx_cpuid_t cpuid, int *apic_id, int core_bits, int hwt
         cpuid->locality_order[idx] = i;
     }
 }
-
 
 /* Detection of AMD-specific CPU features */
 static int
@@ -657,100 +593,6 @@ cpuid_check_intel_x86(gmx_cpuid_t                cpuid)
 #endif /* GMX_CPUID_X86 */
 
 
-
-/* Try to find the vendor of the current CPU, so we know what specific
- * detection routine to call.
- */
-static enum gmx_cpuid_vendor
-cpuid_check_vendor(void)
-{
-    enum gmx_cpuid_vendor      i, vendor;
-    /* Register data used on x86 */
-    unsigned int               eax, ebx, ecx, edx;
-    char                       vendorstring[13];
-
-    /* Set default first */
-    vendor = GMX_CPUID_VENDOR_UNKNOWN;
-
-#ifdef GMX_CPUID_X86
-    execute_x86cpuid(0x0, 0, &eax, &ebx, &ecx, &edx);
-
-    memcpy(vendorstring, &ebx, 4);
-    memcpy(vendorstring+4, &edx, 4);
-    memcpy(vendorstring+8, &ecx, 4);
-
-    vendorstring[12] = '\0';
-
-    for (i = GMX_CPUID_VENDOR_UNKNOWN; i < GMX_CPUID_NVENDORS; i++)
-    {
-        if (!strncmp(vendorstring, gmx_cpuid_vendor_string[i], 12))
-        {
-            vendor = i;
-        }
-    }
-#else
-    vendor = GMX_CPUID_VENDOR_UNKNOWN;
-#endif
-
-    return vendor;
-}
-
-
-
-int
-gmx_cpuid_topology(gmx_cpuid_t        cpuid,
-                   int *              nprocessors,
-                   int *              npackages,
-                   int *              ncores_per_package,
-                   int *              nhwthreads_per_core,
-                   const int **       package_id,
-                   const int **       core_id,
-                   const int **       hwthread_id,
-                   const int **       locality_order)
-{
-    int rc;
-
-    if (cpuid->have_cpu_topology)
-    {
-        *nprocessors          = cpuid->nproc;
-        *npackages            = cpuid->npackages;
-        *ncores_per_package   = cpuid->ncores_per_package;
-        *nhwthreads_per_core  = cpuid->nhwthreads_per_core;
-        *package_id           = cpuid->package_id;
-        *core_id              = cpuid->core_id;
-        *hwthread_id          = cpuid->hwthread_id;
-        *locality_order       = cpuid->locality_order;
-        rc                    = 0;
-    }
-    else
-    {
-        rc = -1;
-    }
-    return rc;
-}
-
-
-enum gmx_cpuid_x86_smt
-gmx_cpuid_x86_smt(gmx_cpuid_t cpuid)
-{
-    enum gmx_cpuid_x86_smt rc;
-
-    if (cpuid->have_cpu_topology)
-    {
-        rc = (cpuid->nhwthreads_per_core > 1) ? GMX_CPUID_X86_SMT_ENABLED : GMX_CPUID_X86_SMT_DISABLED;
-    }
-    else if (cpuid->vendor == GMX_CPUID_VENDOR_AMD || gmx_cpuid_feature(cpuid, GMX_CPUID_FEATURE_X86_HTT) == 0)
-    {
-        rc = GMX_CPUID_X86_SMT_DISABLED;
-    }
-    else
-    {
-        rc = GMX_CPUID_X86_SMT_CANNOTDETECT;
-    }
-    return rc;
-}
-
-
 int
 gmx_cpuid_init               (gmx_cpuid_t *              pcpuid)
 {
@@ -775,7 +617,7 @@ gmx_cpuid_init               (gmx_cpuid_t *              pcpuid)
     cpuid->hwthread_id         = NULL;
     cpuid->locality_order      = NULL;
 
-    cpuid->vendor = cpuid_check_vendor();
+    cpuid->vendor = GMX_CPUID_VENDOR_UNKNOWN;; //cpuid_check_vendor();
 
     switch (cpuid->vendor)
     {
@@ -807,225 +649,4 @@ gmx_cpuid_init               (gmx_cpuid_t *              pcpuid)
 
 
 
-void
-gmx_cpuid_done               (gmx_cpuid_t              cpuid)
-{
-    free(cpuid);
-}
 
-
-int
-gmx_cpuid_formatstring       (gmx_cpuid_t              cpuid,
-                              char *                   str,
-                              int                      n)
-{
-    int                     c;
-    int                     i;
-    enum gmx_cpuid_feature  feature;
-
-#ifdef _MSC_VER
-    _snprintf(str, n,
-              "Vendor: %s\n"
-              "Brand:  %s\n"
-              "Family: %2d  Model: %2d  Stepping: %2d\n"
-              "Features:",
-              gmx_cpuid_vendor_string[gmx_cpuid_vendor(cpuid)],
-              gmx_cpuid_brand(cpuid),
-              gmx_cpuid_family(cpuid), gmx_cpuid_model(cpuid), gmx_cpuid_stepping(cpuid));
-#else
-    snprintf(str, n,
-             "Vendor: %s\n"
-             "Brand:  %s\n"
-             "Family: %2d  Model: %2d  Stepping: %2d\n"
-             "Features:",
-             gmx_cpuid_vendor_string[gmx_cpuid_vendor(cpuid)],
-             gmx_cpuid_brand(cpuid),
-             gmx_cpuid_family(cpuid), gmx_cpuid_model(cpuid), gmx_cpuid_stepping(cpuid));
-#endif
-
-    str[n-1] = '\0';
-    c        = strlen(str);
-    n       -= c;
-    str     += c;
-
-    for (feature = GMX_CPUID_FEATURE_CANNOTDETECT; feature < GMX_CPUID_NFEATURES; feature++)
-    {
-        if (gmx_cpuid_feature(cpuid, feature) == 1)
-        {
-#ifdef _MSC_VER
-            _snprintf(str, n, " %s", gmx_cpuid_feature_string[feature]);
-#else
-            snprintf(str, n, " %s", gmx_cpuid_feature_string[feature]);
-#endif
-            str[n-1] = '\0';
-            c        = strlen(str);
-            n       -= c;
-            str     += c;
-        }
-    }
-#ifdef _MSC_VER
-    _snprintf(str, n, "\n");
-#else
-    snprintf(str, n, "\n");
-#endif
-    str[n-1] = '\0';
-
-    return 0;
-}
-
-
-
-enum gmx_cpuid_acceleration
-gmx_cpuid_acceleration_suggest  (gmx_cpuid_t                 cpuid)
-{
-    enum gmx_cpuid_acceleration  tmpacc;
-
-    tmpacc = GMX_CPUID_ACCELERATION_NONE;
-
-    if (gmx_cpuid_vendor(cpuid) == GMX_CPUID_VENDOR_INTEL)
-    {
-        if (gmx_cpuid_feature(cpuid, GMX_CPUID_FEATURE_X86_AVX))
-        {
-            tmpacc = GMX_CPUID_ACCELERATION_X86_AVX_256;
-        }
-        else if (gmx_cpuid_feature(cpuid, GMX_CPUID_FEATURE_X86_SSE4_1))
-        {
-            tmpacc = GMX_CPUID_ACCELERATION_X86_SSE4_1;
-        }
-        else if (gmx_cpuid_feature(cpuid, GMX_CPUID_FEATURE_X86_SSE2))
-        {
-            tmpacc = GMX_CPUID_ACCELERATION_X86_SSE2;
-        }
-    }
-    else if (gmx_cpuid_vendor(cpuid) == GMX_CPUID_VENDOR_AMD)
-    {
-        if (gmx_cpuid_feature(cpuid, GMX_CPUID_FEATURE_X86_AVX))
-        {
-            tmpacc = GMX_CPUID_ACCELERATION_X86_AVX_128_FMA;
-        }
-        else if (gmx_cpuid_feature(cpuid, GMX_CPUID_FEATURE_X86_SSE4_1))
-        {
-            tmpacc = GMX_CPUID_ACCELERATION_X86_SSE4_1;
-        }
-        else if (gmx_cpuid_feature(cpuid, GMX_CPUID_FEATURE_X86_SSE2))
-        {
-            tmpacc = GMX_CPUID_ACCELERATION_X86_SSE2;
-        }
-    }
-
-    return tmpacc;
-}
-
-
-
-int
-gmx_cpuid_acceleration_check(gmx_cpuid_t   cpuid,
-                             FILE *        log)
-{
-    int                           rc;
-    char                          str[1024];
-    enum gmx_cpuid_acceleration   acc;
-
-    acc = gmx_cpuid_acceleration_suggest(cpuid);
-
-    rc = (acc != compiled_acc);
-
-    gmx_cpuid_formatstring(cpuid, str, 1023);
-    str[1023] = '\0';
-
-    if (log != NULL)
-    {
-        fprintf(log,
-                "\nDetecting CPU-specific acceleration.\nPresent hardware specification:\n"
-                "%s"
-                "Acceleration most likely to fit this hardware: %s\n"
-                "Acceleration selected at GROMACS compile time: %s\n\n",
-                str,
-                gmx_cpuid_acceleration_string[acc],
-                gmx_cpuid_acceleration_string[compiled_acc]);
-    }
-
-    return rc;
-}
-
-
-
-#ifdef GMX_CPUID_STANDALONE
-/* Stand-alone program to enable queries of CPU features from Cmake.
- * Note that you need to check inline ASM capabilities before compiling and set
- * -DGMX_X86_GCC_INLINE_ASM for the cpuid instruction to work...
- */
-int
-main(int argc, char **argv)
-{
-    gmx_cpuid_t                   cpuid;
-    enum gmx_cpuid_acceleration   acc;
-    int                           i, cnt;
-
-    if (argc < 2)
-    {
-        fprintf(stdout,
-                "Usage:\n\n%s [flags]\n\n"
-                "Available flags:\n"
-                "-vendor        Print CPU vendor.\n"
-                "-brand         Print CPU brand string.\n"
-                "-family        Print CPU family version.\n"
-                "-model         Print CPU model version.\n"
-                "-stepping      Print CPU stepping version.\n"
-                "-features      Print CPU feature flags.\n"
-                "-acceleration  Print suggested GROMACS acceleration.\n",
-                argv[0]);
-        exit(0);
-    }
-
-    gmx_cpuid_init(&cpuid);
-
-    if (!strncmp(argv[1], "-vendor", 3))
-    {
-        printf("%s\n", gmx_cpuid_vendor_string[cpuid->vendor]);
-    }
-    else if (!strncmp(argv[1], "-brand", 3))
-    {
-        printf("%s\n", cpuid->brand);
-    }
-    else if (!strncmp(argv[1], "-family", 3))
-    {
-        printf("%d\n", cpuid->family);
-    }
-    else if (!strncmp(argv[1], "-model", 3))
-    {
-        printf("%d\n", cpuid->model);
-    }
-    else if (!strncmp(argv[1], "-stepping", 3))
-    {
-        printf("%d\n", cpuid->stepping);
-    }
-    else if (!strncmp(argv[1], "-features", 3))
-    {
-        cnt = 0;
-        for (i = 0; i < GMX_CPUID_NFEATURES; i++)
-        {
-            if (cpuid->feature[i] == 1)
-            {
-                if (cnt++ > 0)
-                {
-                    printf(" ");
-                }
-                printf("%s", gmx_cpuid_feature_string[i]);
-            }
-        }
-        printf("\n");
-    }
-    else if (!strncmp(argv[1], "-acceleration", 3))
-    {
-        acc = gmx_cpuid_acceleration_suggest(cpuid);
-        fprintf(stdout, "%s\n", gmx_cpuid_acceleration_string[acc]);
-    }
-
-    gmx_cpuid_done(cpuid);
-
-
-    return 0;
-}
-
-#endif
