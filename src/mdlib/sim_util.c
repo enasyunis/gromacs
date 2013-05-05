@@ -33,7 +33,6 @@
 #include "orires.h"
 #include "network.h"
 #include "trnio.h"
-#include "mpelogging.h"
 #include "nbnxn_atomdata.h"
 #include "nbnxn_search.h"
 #include "nbnxn_kernels/nbnxn_kernel_ref.h"
@@ -132,15 +131,12 @@ void do_force(FILE *fplog, t_commrec *cr,
     /* Reset forces for which the virial is calculated separately:
      * PME/Ewald forces if necessary */
     fr->f_novirsum = fr->f_novirsum_alloc;
-    GMX_BARRIER(cr->mpi_comm_mygroup);
     clear_rvecs(homenr, fr->f_novirsum+start);
-    GMX_BARRIER(cr->mpi_comm_mygroup);
 
     /* Clear the short- and long-range forces */
     clear_rvecs(fr->natoms_force_constr, f);
 
 
-    GMX_BARRIER(cr->mpi_comm_mygroup);
 
 
 
@@ -169,7 +165,6 @@ void do_force(FILE *fplog, t_commrec *cr,
     nbnxn_atomdata_add_nbat_fshift_to_fshift(nbv->grp[eintLocal].nbat,
                                                      fr->fshift);
 
-    GMX_BARRIER(cr->mpi_comm_mygroup);
 
     // accomulating the forces.
     for (i = start; (i < end); i++)

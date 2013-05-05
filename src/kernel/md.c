@@ -19,7 +19,6 @@
 #include "pme.h"
 #include "mdatoms.h"
 #include "qmmm.h"
-#include "mpelogging.h"
 #include "topsort.h"
 #include "coulomb.h"
 #include "mtop_util.h"
@@ -134,7 +133,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
 
 
-        GMX_MPE_LOG(ev_timestep1);
 
             t         = t0 + step*ir->delta_t;
 
@@ -145,7 +143,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
 
 
-        GMX_MPE_LOG(ev_timestep2);
 
         /* We write a checkpoint at this MD step when:
          * either at an NS step when we signalled through gs,
@@ -172,7 +169,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
                      fr, t,  
                      force_flags);
 
-        GMX_BARRIER(cr->mpi_comm_mygroup);
 
 
     /* End of main MD loop */

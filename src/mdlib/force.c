@@ -24,7 +24,6 @@
 #include "pme.h"
 #include "mdrun.h"
 #include "qmmm.h"
-#include "mpelogging.h"
 #include "gmx_omp_nthreads.h"
 
 /* ENAS ADDED START */
@@ -75,7 +74,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
 
 #define PRINT_SEPDVDL(s, v, dvdlambda) fprintf(fplog, sepdvdlformat, s, v, dvdlambda); 
 
-    GMX_MPE_LOG(ev_force_start);
     set_pbc(&pbc, fr->ePBC, box);
 
     /* reset free energy components */
@@ -96,7 +94,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                 gmx_step_str(step, buf), cr->nodeid);
 
     /* Call the short range functions all in one go. */
-    GMX_MPE_LOG(ev_do_fnbf_start);
 
 
     where();
@@ -108,7 +105,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
 
     debug_gmx();
 
-    GMX_MPE_LOG(ev_do_fnbf_finish);
 
 
     /* Since all atoms are in the rectangular or triclinic unit-cell,
@@ -116,7 +112,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
      */
     set_pbc_dd(&pbc, fr->ePBC, cr->dd, TRUE, box);
     debug_gmx();
-        GMX_MPE_LOG(ev_calc_bonds_start);
         calc_bonds(fplog, cr->ms,
                    idef, x, hist, f, fr, &pbc, NULL, enerd, NULL, lambda, md, 
                     NULL, atype, NULL,
@@ -124,7 +119,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                    fr->bSepDVDL, step);
 
         debug_gmx();
-        GMX_MPE_LOG(ev_calc_bonds_finish);
 
     where();
 
@@ -281,7 +275,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
     where();
     debug_gmx();
 
-    GMX_MPE_LOG(ev_force_finish);
 }
 
 void init_enerdata(int ngener, int n_lambda, gmx_enerdata_t *enerd)

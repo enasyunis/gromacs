@@ -52,7 +52,6 @@
 #include "pdbio.h"
 #include "gmx_omp.h"
 
-#include "mpelogging.h"
 
 #define DFT_TOL 1e-7
 /* #define PRT_FORCE */
@@ -2207,11 +2206,9 @@ int gmx_pme_do(gmx_pme_t pme,
         {
 
             /* Spread the charges on a grid */
-            GMX_MPE_LOG(ev_spread_on_grid_start);
 
             /* Spread the charges on a grid */
             spread_on_grid(pme, &pme->atc[0], pmegrid, q == 0, TRUE, fftgrid);
-            GMX_MPE_LOG(ev_spread_on_grid_finish);
         }
 
         /* Here we start a large thread parallel region */
@@ -2222,54 +2219,27 @@ int gmx_pme_do(gmx_pme_t pme,
             {
                 int loop_count;
 
-                /* do 3d-fft */
-                if (thread == 0)
-                {
-                    GMX_BARRIER(cr->mpi_comm_mygroup);
-                    GMX_MPE_LOG(ev_gmxfft3d_start);
-                }
                 gmx_parallel_3dfft_execute(pfft_setup, GMX_FFT_REAL_TO_COMPLEX,
                                            fftgrid, cfftgrid, thread);
-                if (thread == 0)
-                {
-                    GMX_MPE_LOG(ev_gmxfft3d_finish);
-                }
                 where();
 
                 /* solve in k-space for our local cells */
-                if (thread == 0)
-                {
-                    GMX_BARRIER(cr->mpi_comm_mygroup);
-                    GMX_MPE_LOG(ev_solve_pme_start);
-                }
                 loop_count =
                     solve_pme_yzx(pme, cfftgrid, ewaldcoeff,
                                   box[XX][XX]*box[YY][YY]*box[ZZ][ZZ],
                                   bCalcEnerVir,
                                   pme->nthread, thread);
-                if (thread == 0)
-                {
-                    where();
-                    GMX_MPE_LOG(ev_solve_pme_finish);
-                }
             }
 
             if (bCalcF)
             {
                 /* do 3d-invfft */
-                if (thread == 0)
-                {
-                    GMX_BARRIER(cr->mpi_comm_mygroup);
-                    GMX_MPE_LOG(ev_gmxfft3d_start);
-                    where();
-                }
                 gmx_parallel_3dfft_execute(pfft_setup, GMX_FFT_COMPLEX_TO_REAL,
                                            cfftgrid, fftgrid, thread);
                 if (thread == 0)
                 {
 
                     where();
-                    GMX_MPE_LOG(ev_gmxfft3d_finish);
 
                     if (pme->nodeid == 0)
                     {
@@ -2293,9 +2263,6 @@ int gmx_pme_do(gmx_pme_t pme,
 
             unwrap_periodic_pmegrid(pme, grid);
 
-            /* interpolate forces for our local atoms */
-            GMX_BARRIER(cr->mpi_comm_mygroup);
-            GMX_MPE_LOG(ev_gather_f_bsplines_start);
 
             where();
 
@@ -2314,7 +2281,6 @@ int gmx_pme_do(gmx_pme_t pme,
 
             where();
 
-            GMX_MPE_LOG(ev_gather_f_bsplines_finish);
 
         }
 

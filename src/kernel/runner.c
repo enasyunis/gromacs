@@ -18,7 +18,6 @@
 #include "pme.h"
 #include "mdatoms.h"
 #include "qmmm.h"
-#include "mpelogging.h"
 #include "coulomb.h"
 #include "mtop_util.h"
 #include "sighandler.h"
