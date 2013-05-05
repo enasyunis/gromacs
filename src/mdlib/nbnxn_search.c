@@ -16,7 +16,6 @@
 #include "nbnxn_search.h"
 #include "gmxfio.h"
 #include "gmx_omp_nthreads.h"
-#include "nrnb.h"
 
 
 /* Pair search box lower and upper corner in x,y,z.

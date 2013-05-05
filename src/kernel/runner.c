@@ -13,7 +13,6 @@
 #include "md_logging.h"
 #include "pull.h"
 #include "names.h"
-#include "orires.h"
 #include "pme.h"
 #include "mdatoms.h"
 #include "qmmm.h"

@@ -43,7 +43,6 @@
 #include <stdio.h>
 #include "visibility.h"
 #include "typedefs.h"
-#include "nrnb.h"
 #include "pbc.h"
 
 #ifdef __cplusplus

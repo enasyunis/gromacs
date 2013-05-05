@@ -16,7 +16,6 @@
 #include "names.h"
 #include "pbc.h"
 #include "ns.h"
-#include "nrnb.h"
 #include "bondf.h"
 #include "txtdump.h"
 #include "coulomb.h"

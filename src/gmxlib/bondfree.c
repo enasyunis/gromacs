@@ -14,7 +14,6 @@
 #include "macros.h"
 #include "names.h"
 #include "gmx_fatal.h"
-#include "orires.h"
 #include "force.h"
 #include "nonbonded.h"
 

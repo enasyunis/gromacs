@@ -43,7 +43,6 @@
 
 #include "typedefs.h"
 #include "bondf.h"
-#include "orires.h"
 
 
 #define  def_bonded(str, lstr, nra, nrpa, nrpb, ind, func) \
