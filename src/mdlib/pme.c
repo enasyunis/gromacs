@@ -45,7 +45,6 @@
 #include "coulomb.h"
 #include "gmx_fatal.h"
 #include "pme.h"
-#include "network.h"
 #include "physics.h"
 #include "nrnb.h"
 #include "gmx_parallel_3dfft.h"

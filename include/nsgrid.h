@@ -36,8 +36,8 @@
  * the research papers on the package. Check out http://www.gromacs.org.
  */
 #include "visibility.h"
+#include "types/commrec.h"
 #include "typedefs.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -31,7 +31,6 @@
 #include "bondf.h"
 #include "pme.h"
 #include "orires.h"
-#include "network.h"
 #include "trnio.h"
 #include "nbnxn_atomdata.h"
 #include "nbnxn_search.h"

@@ -11,7 +11,6 @@
 #include "sysstuff.h"
 #include "mdrun.h"
 #include "md_logging.h"
-#include "network.h"
 #include "pull.h"
 #include "names.h"
 #include "orires.h"

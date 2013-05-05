@@ -11,7 +11,6 @@
 #include "trnio.h"
 #include "mdrun.h"
 #include "md_logging.h"
-#include "network.h"
 #include "pull.h"
 #include "physics.h"
 #include "names.h"
@@ -70,7 +69,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
 
 
-    debug_gmx();
 
 
 
@@ -99,7 +97,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     mdatoms->tmass = mdatoms->tmassA; // total system mass 3024.0
 
 
-    debug_gmx();
 
 
     enerd->term[F_TEMP] *= 2; /* result of averages being done over previous and current step,
@@ -119,7 +116,6 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
     }
 
 
-    debug_gmx();
 
 
     /* loop over MD steps or if rerunMD to end of input trajectory */
@@ -172,12 +168,10 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
 
 
     /* End of main MD loop */
-    debug_gmx();
 
     /* Stop the time */
 
 
-    debug_gmx();
 
 
 

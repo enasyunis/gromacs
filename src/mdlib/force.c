@@ -14,7 +14,6 @@
 #include "force.h"
 #include "nonbonded.h"
 #include "names.h"
-#include "network.h"
 #include "pbc.h"
 #include "ns.h"
 #include "nrnb.h"
@@ -88,7 +87,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
     {
         box_size[i] = box[i][i];
     }
-    debug_gmx();
 
     fprintf(fplog, "Step %s: non-bonded V and dVdl for node %d:\n",
                 gmx_step_str(step, buf), cr->nodeid);
@@ -103,7 +101,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
     enerd->dvdl_lin[efptVDW] += dvdl_nb[efptVDW];
     enerd->dvdl_lin[efptCOUL] += dvdl_nb[efptCOUL];
 
-    debug_gmx();
 
 
 
@@ -111,14 +108,12 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
      * only single box vector shifts (2 in x) are required.
      */
     set_pbc_dd(&pbc, fr->ePBC, cr->dd, TRUE, box);
-    debug_gmx();
         calc_bonds(fplog, cr->ms,
                    idef, x, hist, f, fr, &pbc, NULL, enerd, NULL, lambda, md, 
                     NULL, atype, NULL,
                    flags,
                    fr->bSepDVDL, step);
 
-        debug_gmx();
 
     where();
 
@@ -273,7 +268,6 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
         enerd->dvdl_lin[efptCOUL] += dvdl;
         enerd->term[F_COUL_RECIP]  = Vlr;
     where();
-    debug_gmx();
 
 }
 

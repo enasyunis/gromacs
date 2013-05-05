@@ -39,8 +39,8 @@
 #ifndef _tgroup_h
 #define _tgroup_h
 #include "visibility.h"
+#include "types/commrec.h"
 #include "typedefs.h"
-#include "network.h"
 
 #ifdef __cplusplus
 extern "C" {

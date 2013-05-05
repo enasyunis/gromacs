@@ -48,7 +48,6 @@
 #include "gmx_fatal.h"
 #include "typedefs.h"
 #include "macros.h"
-#include "network.h"
 #include "gmx_omp.h"
 #include "gmx_omp_nthreads.h"
 #include "md_logging.h"

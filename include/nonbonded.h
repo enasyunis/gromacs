@@ -41,7 +41,6 @@
 #include "visibility.h"
 #include "typedefs.h"
 #include "pbc.h"
-#include "network.h"
 #include "tgroup.h"
 
 #ifdef __cplusplus

@@ -9,7 +9,6 @@
 #include "macros.h"
 #include "maths.h"
 #include "vec.h"
-#include "network.h"
 #include "nsgrid.h"
 #include "force.h"
 #include "nonbonded.h"

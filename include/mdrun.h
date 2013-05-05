@@ -43,7 +43,6 @@
 #include <time.h>
 #include "visibility.h"
 #include "typedefs.h"
-#include "network.h"
 #include "tgroup.h"
 #include "filenm.h"
 #include "force.h"

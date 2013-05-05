@@ -45,7 +45,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include "futil.h"
-#include "network.h"
 #include "gmx_fatal.h"
 #include "macros.h"
 #include "string2.h"

@@ -19,7 +19,6 @@
 #include "tables.h"
 #include "nonbonded.h"
 #include "names.h"
-#include "network.h"
 #include "pbc.h"
 #include "ns.h"
 #include "txtdump.h"
