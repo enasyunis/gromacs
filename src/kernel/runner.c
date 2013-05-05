@@ -23,7 +23,6 @@
 #include "qmmm.h"
 #include "mpelogging.h"
 #include "coulomb.h"
-#include "mvdata.h"
 #include "mtop_util.h"
 #include "sighandler.h"
 #include "tpxio.h"

@@ -23,7 +23,6 @@
 #include "network.h"
 #include "pbc.h"
 #include "ns.h"
-#include "mshift.h"
 #include "txtdump.h"
 #include "coulomb.h"
 #include "md_support.h"

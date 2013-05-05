@@ -29,7 +29,6 @@
 #include "topsort.h"
 #include "coulomb.h"
 #include "constr.h"
-#include "mvdata.h"
 #include "mtop_util.h"
 #include "sighandler.h"
 #include "txtdump.h"

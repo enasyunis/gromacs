@@ -46,7 +46,6 @@
 #include "network.h"
 #include "tgroup.h"
 #include "filenm.h"
-#include "mshift.h"
 #include "force.h"
 #include "edsam.h"
 #include "mdebin.h"

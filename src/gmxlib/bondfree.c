@@ -14,7 +14,6 @@
 #include "macros.h"
 #include "names.h"
 #include "gmx_fatal.h"
-#include "mshift.h"
 #include "main.h"
 #include "disre.h"
 #include "orires.h"

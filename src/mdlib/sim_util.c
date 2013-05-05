@@ -20,13 +20,11 @@
 #include "smalloc.h"
 #include "names.h"
 #include "confio.h"
-#include "mvdata.h"
 #include "txtdump.h"
 #include "pbc.h"
 #include "vec.h"
 #include <time.h>
 #include "nrnb.h"
-#include "mshift.h"
 #include "mdrun.h"
 #include "physics.h"
 #include "main.h"
