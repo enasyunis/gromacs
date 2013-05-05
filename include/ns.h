@@ -44,7 +44,6 @@
 #include "sysstuff.h"
 #include "typedefs.h"
 #include "pbc.h"
-#include "tgroup.h"
 
 
 #ifdef __cplusplus

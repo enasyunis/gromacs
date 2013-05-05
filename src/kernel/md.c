@@ -7,7 +7,6 @@
 #include "sysstuff.h"
 #include "vec.h"
 #include "ns.h"
-#include "trnio.h"
 #include "mdrun.h"
 #include "md_logging.h"
 #include "physics.h"

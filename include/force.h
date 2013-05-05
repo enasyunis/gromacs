@@ -43,7 +43,6 @@
 #include "typedefs.h"
 #include "types/force_flags.h"
 #include "pbc.h"
-#include "tgroup.h"
 
 
 #ifdef __cplusplus

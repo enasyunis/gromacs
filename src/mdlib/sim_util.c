@@ -29,7 +29,6 @@
 #include "force.h"
 #include "bondf.h"
 #include "pme.h"
-#include "trnio.h"
 #include "nbnxn_atomdata.h"
 #include "nbnxn_search.h"
 #include "nbnxn_kernels/nbnxn_kernel_ref.h"
