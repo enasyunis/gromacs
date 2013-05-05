@@ -41,7 +41,7 @@
 #include "calcmu.h"
 #include "constr.h"
 #include "trnio.h"
-#include "xtcio.h"
+//#include "xtcio.h"
 #include "copyrite.h"
 #include "pull_rotation.h"
 #include "mpelogging.h"

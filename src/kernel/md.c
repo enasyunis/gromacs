@@ -14,7 +14,7 @@
 #include "vsite.h"
 #include "ns.h"
 #include "trnio.h"
-#include "xtcio.h"
+//#include "xtcio.h"
 #include "mdrun.h"
 #include "md_support.h"
 #include "md_logging.h"
