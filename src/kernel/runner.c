@@ -55,8 +55,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     gmx_mtop_t     *mtop       = NULL;
     t_mdatoms      *mdatoms    = NULL;
     t_forcerec     *fr         = NULL;
-    gmx_pme_t      *pmedata    = NULL;
-    master_inf_t    minf         = {-1, FALSE};
 
     /* CAUTION: threads may be started later on in this function, so
        cr doesn't reflect the final parallel state right now */
@@ -69,8 +67,6 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     read_tpx_state(ftp2fn(efTPX, nfile, fnm), inputrec, state, NULL, mtop);
 
 
-    minf.cutoff_scheme = inputrec->cutoff_scheme;
-    minf.bUseGPU       = FALSE;
     hw_opt->nthreads_tmpi = 1; 
 
 
@@ -117,28 +113,14 @@ int mdrunner(gmx_hw_opt_t *hw_opt,
     mdatoms->bOrires = 0;
 
 
-
     /*** ENAS TODO SPEAK TO RIO ABOUT MASSIVE EFFECT OF CALC_SHIFTS */
     calc_shifts(box, fr->shift_vec);
 
 
-    /* With periodic molecules the charge groups should be whole at start up
-     * and the virtual sites should not be far from their proper positions.
-     */
-    /* Make molecules whole at start of run */
-    if (EEL_PME(fr->eeltype)) // PME HERE
-    { 
-        pmedata    = &fr->pmedata;
-    }
-    else // EWALD HERE
-    {
-        pmedata = NULL;
-    }
-
     if (EEL_PME(inputrec->coulombtype)) // PME 1, EWALD 0
     { 
         // cr->nnodes=1, natoms=3000,gmx_omp_nthreads_get(emntPME)=12
-        gmx_pme_init(pmedata, cr,  cr->nnodes, 1, inputrec,
+        gmx_pme_init(&fr->pmedata, cr,  cr->nnodes, 1, inputrec,
                                   mtop->natoms, 0,
                                   0, gmx_omp_nthreads_get(emntPME));
     }

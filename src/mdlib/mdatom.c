@@ -17,19 +17,9 @@ void atoms2md(gmx_mtop_t *mtop, t_inputrec *ir,
 { 
     gmx_mtop_atomlookup_t alook;
     int                   i;
-    t_grpopts            *opts;
-    gmx_groups_t         *groups;
-    gmx_molblock_t       *molblock;
-
-    opts = &ir->opts;
-
-    groups = &mtop->groups;
-
-    molblock = mtop->molblock;
 
     md->nr = mtop->natoms;
-
-    md->nalloc = over_alloc_dd(md->nr);
+    md->nalloc = mtop->natoms; 
 
     srenew(md->massT, md->nalloc);
     srenew(md->invmass, md->nalloc);
@@ -57,8 +47,7 @@ void atoms2md(gmx_mtop_t *mtop, t_inputrec *ir,
         md->chargeA[i]  = atom->q;
         md->typeA[i]    = atom->type;
         md->ptype[i]    = atom->ptype;
-        md->cENER[i]    =
-            (groups->grpnr[egcENER] ? groups->grpnr[egcENER][ag] : 0);
+        md->cENER[i]    = 0;
 
     } 
 

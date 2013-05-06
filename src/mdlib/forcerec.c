@@ -345,7 +345,7 @@ static void pick_nbnxn_resources(FILE                *fp,
 
     *bUseGPU = FALSE;
 
-    bEmulateGPUEnvVarSet = (getenv("GMX_EMULATE_GPU") != NULL);
+    bEmulateGPUEnvVarSet = FALSE;
 
     /* Run GPU emulation mode if GMX_EMULATE_GPU is defined. Because
      * GPUs (currently) only handle non-bonded calculations, we will
@@ -468,7 +468,6 @@ static void init_nb_verlet(FILE                *fp,
 {//called
     nonbonded_verlet_t *nbv;
     int                 i;
-    char               *env;
     gmx_bool            bEmulateGPU, bHybridGPURun = FALSE;
 
 
@@ -530,7 +529,6 @@ void init_forcerec(FILE              *fp,
 {//called
     int            i, j, m, natoms, ngrp, egi, egj;
     real           rtab;
-    char          *env;
     double         dbl;
     rvec           box_size;
     const t_block *cgs;
@@ -571,15 +569,10 @@ void init_forcerec(FILE              *fp,
     fr->sc_r_power    = ir->fepvals->sc_r_power;
     fr->sc_sigma6_def = pow(ir->fepvals->sc_sigma, 6);
 
-    env = getenv("GMX_SCSIGMA_MIN");
-
     fr->bNonbonded = TRUE;
     fr->use_cpu_acceleration = FALSE;
-    fprintf(fp,
-                    "\nFound environment variable GMX_DISABLE_CPU_ACCELERATION.\n"
-                    "Disabling all CPU architecture-specific (e.g. SSE2/SSE4/AVX) routines.\n\n");
+    fr->bBHAM = FALSE;
 
-    fr->bBHAM = (mtop->ffparams.functype[0] == F_BHAM);
 
     /* Check if we can/should do all-vs-all kernels */
     fr->bAllvsAll       = FALSE;
@@ -771,14 +764,3 @@ void init_forcerec(FILE              *fp,
 #define pr_int(fp, i)  fprintf((fp), "%s: %d\n",#i, i)
 #define pr_bool(fp, b) fprintf((fp), "%s: %s\n",#b, bool_names[b])
 
-void forcerec_set_excl_load(t_forcerec *fr,
-                            const gmx_localtop_t *top, const t_commrec *cr)
-{//called
-    int        t;
-
-    fr->excl_load[0] = 0;
-    for (t = 1; t <= fr->nthreads; t++) // =OpenMP thread count
-    {
-        fr->excl_load[t] = 0;
-    }
-}

@@ -186,10 +186,6 @@ void init_forcerec(FILE              *fplog,
  * print_force >= 0: print forces for atoms with force >= print_force
  */
 
-GMX_LIBMD_EXPORT
-void forcerec_set_excl_load(t_forcerec *fr,
-                            const gmx_localtop_t *top, const t_commrec *cr);
-/* Set the exclusion load for the local exclusions and possibly threads */
 
 GMX_LIBMD_EXPORT
 void init_enerdata(int ngener, int n_lambda, gmx_enerdata_t *enerd);
