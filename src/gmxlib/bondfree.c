@@ -79,7 +79,7 @@ static void reduce_thread_forces(int n, rvec *f, rvec *fshift,
                                  gmx_bool bCalcEnerVir,
                                  gmx_bool bDHDL)
 { //called 
-
+if (bCalcEnerVir) {
     /* When necessary, reduce energy and virial using one thread only */
         int t, i, j;
 
@@ -106,7 +106,7 @@ static void reduce_thread_forces(int n, rvec *f, rvec *fshift,
                     grpp->ener[i][j] += f_t[t].grpp.ener[i][j];
                 }
             }
-        }
+        } }
 }
 
 
@@ -174,13 +174,15 @@ void calc_bonds(FILE *fplog, const gmx_multisim_t *ms,
             dvdlt  = fr->f_t[thread].dvdl;
         }
     }
-    reduce_thread_forces(fr->natoms_force, f, fr->fshift,
+    if (fr->nthreads > 1)
+    {
+         reduce_thread_forces(fr->natoms_force, f, fr->fshift,
                              enerd->term, &enerd->grpp, dvdl,
                              fr->nthreads, fr->f_t,
                              fr->red_nblock, 1<<7,
                              bCalcEnerVir,
                              force_flags & GMX_FORCE_DHDL);
-
+    }
     /* Copy the sum of violations for the distance restraints from fcd */
     enerd->term[F_DISRESVIOL] = 0.0;
 }
