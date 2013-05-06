@@ -133,7 +133,9 @@ void do_force(FILE *fplog, t_commrec *cr,
 
 
 
-
+    /* Maybe we should move this into do_force_lowlevel */
+    do_nb_verlet(fr, fr->ic, enerd, flags, enbvClearFYes
+                     );
 
     /* Compute the bonded and non-bonded energies and optionally forces */
     do_force_lowlevel(fplog, step, fr, inputrec, &(top->idef),
@@ -144,9 +146,6 @@ void do_force(FILE *fplog, t_commrec *cr,
                       flags);
 
 
-    /* Maybe we should move this into do_force_lowlevel */
-    do_nb_verlet(fr, fr->ic, enerd, flags, enbvClearFYes
-                     );
 
 
 

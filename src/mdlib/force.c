@@ -31,7 +31,7 @@ extern void FMMcalcvdw_ij(int ni, double* xi, int* atypei, double* fi,
   int nj, double* xj, int* atypej, int nat, double* gscale, double* rscale,
   int tblno, double size, int periodicflag);
 
-int fmmsteptaken=2;
+int fmmsteptaken=0;
 /* ENAS ADDED END */
 
 
@@ -124,12 +124,13 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
         status = 0;
         Vlr    = 0;
         dvdl   = 0;
+real         *xEY = fr->nbv->grp[0].nbat->x;
+real         *qEY = fr->nbv->grp[0].nbat->q;
 	    if (FALSE) // ENAS, RIO, TODO make this the place for FMM 
             {
                         /* ENAS ADDED START */
                         if (fmmsteptaken == 0) {
                         printf("\nBEFORE FMM\n");
-
                         int N = md->homenr;
                         double *xi; snew(xi, 3*N); // double *xi     = new double [3*N];
                         double *qi; snew(qi, N);   // double *qi     = new double [N];
@@ -137,9 +138,9 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                         double *pi; snew(pi, 3*N); // double *pi     = new double [3*N];
                         int eyi=0;
                         for (;eyi<N;++eyi){
-                                xi[eyi*3+0]=x[eyi][0];
-                                xi[eyi*3+1]=x[eyi][1];
-                                xi[eyi*3+2]=x[eyi][2];
+                                xi[eyi*3+0]=xEY[eyi+0];
+                                xi[eyi*3+1]=xEY[eyi+1];
+                                xi[eyi*3+2]=xEY[eyi+2];
 
                                 qi[eyi]=md->chargeA[eyi];
                                 fi[eyi*3+0]=fi[eyi*3+1]=fi[eyi*3+2]=0.0;
@@ -189,16 +190,23 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                         double *qi; snew(qi, N);   // double *qi     = new double [N];
                         double *fi; snew(fi, 3*N); // double *fi     = new double [3*N];
                         double *pi; snew(pi, 3*N); // double *pi     = new double [3*N];
-                        int eyi=0;
+                        int eyi=0, eyG=0;
                         for (;eyi<N;++eyi){
-                                xi[eyi*3+0]=x[eyi][0];
-                                xi[eyi*3+1]=x[eyi][1];
-                                xi[eyi*3+2]=x[eyi][2];
+				while (xEY[eyG] < 0) 
+                                {
+					eyG++;
+				}
 
-                                qi[eyi]=md->chargeA[eyi];
+                                qi[eyi]=qEY[eyG/3];
+                                xi[eyi*3+0]=xEY[eyG++];
+                                xi[eyi*3+1]=xEY[eyG++];
+                                xi[eyi*3+2]=xEY[eyG++];
+
+
                                 fi[eyi*3+0]=fi[eyi*3+1]=fi[eyi*3+2]=0.0;
                                 pi[eyi*3+0]=pi[eyi*3+1]=pi[eyi*3+2]=0.0;
-                        }
+                        } 
+
                         printf("About to call FMM\n");
                         FMMcalccoulomb_ij(N, xi, qi, fi, N, xi, qi, 0.0, 0, (bSB?boxs[0][0]:box[0][0]), 1);
                         printf("Done calling FMM 1 \n");
@@ -234,16 +242,27 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
                         double *qi; snew(qi, N);   // double *qi     = new double [N];
                         double *fi; snew(fi, 3*N); // double *fi     = new double [3*N];
                         double *pi; snew(pi, 3*N); // double *pi     = new double [3*N];
-                        int eyi=0;
-                        for (;eyi<N;++eyi){
-                                xi[eyi*3+0]=x[eyi][0];
-                                xi[eyi*3+1]=x[eyi][1];
-                                xi[eyi*3+2]=x[eyi][2];
 
-                                qi[eyi]=md->chargeA[eyi];
+
+                        int eyi=0, eyG=0;
+                        for (;eyi<N;++eyi){
+                                while (xEY[eyG] < 0)                      
+                                {
+                                        eyG++;
+                                }
+
+                                qi[eyi]=qEY[eyG/3];
+                                xi[eyi*3+0]=xEY[eyG++];
+                                xi[eyi*3+1]=xEY[eyG++];
+                                xi[eyi*3+2]=xEY[eyG++];
+
+
                                 fi[eyi*3+0]=fi[eyi*3+1]=fi[eyi*3+2]=0.0;
                                 pi[eyi*3+0]=pi[eyi*3+1]=pi[eyi*3+2]=0.0;
-                        }
+                        } 
+
+
+
                         printf("About to call FMM\n");
                         FMMcalccoulomb_ij(N, xi, qi, fi, N, xi, qi, 0.0, 0, (bSB?boxs[0][0]:box[0][0]), 1);
                         printf("Done calling FMM 1 \n");
