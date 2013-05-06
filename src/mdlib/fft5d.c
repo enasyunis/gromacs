@@ -270,7 +270,132 @@ fft5d_plan fft5d_plan_3d(int NG, int MG, int KG, MPI_Comm comm[2], int flags, t_
 
     plan = (fft5d_plan)calloc(1, sizeof(struct fft5d_plan_t));
 
+#ifdef GMX_FFT_FFTW3                                                            /*if not FFTW - then we don't do a 3d plan but instead use only 1D plans */
+    /* It is possible to use the 3d plan with OMP threads - but in that case it is not allowed to be called from
+     * within a parallel region. For now deactivated. If it should be supported it has to made sure that
+     * that the execute of the 3d plan is in a master/serial block (since it contains it own parallel region)
+     * and that the 3d plan is faster than the 1d plan.
+     */
+    if ((!(flags&FFT5D_INPLACE)) && (!(P[0] > 1 || P[1] > 1)) && nthreads == 1) /*don't do 3d plan in parallel or if in_place requested */
+    {
+        int fftwflags = FFTW_DESTROY_INPUT;
+        FFTW(iodim) dims[3];
+        int inNG = NG, outMG = MG, outKG = KG;
 
+        FFTW_LOCK;
+        if (!(flags&FFT5D_NOMEASURE))
+        {
+            fftwflags |= FFTW_MEASURE;
+        }
+        if (flags&FFT5D_REALCOMPLEX)
+        {
+            if (!(flags&FFT5D_BACKWARD))        /*input pointer is not complex*/
+            {
+                inNG *= 2;
+            }
+            else                                /*output pointer is not complex*/
+            {
+                if (!(flags&FFT5D_ORDER_YZ))
+                {
+                    outMG *= 2;
+                }
+                else
+                {
+                    outKG *= 2;
+                }
+            }
+        }
+
+        if (!(flags&FFT5D_BACKWARD))
+        {
+            dims[0].n  = KG;
+            dims[1].n  = MG;
+            dims[2].n  = rNG;
+
+            dims[0].is = inNG*MG;         /*N M K*/
+            dims[1].is = inNG;
+            dims[2].is = 1;
+            if (!(flags&FFT5D_ORDER_YZ))
+            {
+                dims[0].os = MG;           /*M K N*/
+                dims[1].os = 1;
+                dims[2].os = MG*KG;
+            }
+            else
+            {
+                dims[0].os = 1;           /*K N M*/
+                dims[1].os = KG*NG;
+                dims[2].os = KG;
+            }
+        }
+        else
+        {
+            if (!(flags&FFT5D_ORDER_YZ))
+            {
+                dims[0].n  = NG;
+                dims[1].n  = KG;
+                dims[2].n  = rMG;
+
+                dims[0].is = 1;
+                dims[1].is = NG*MG;
+                dims[2].is = NG;
+
+                dims[0].os = outMG*KG;
+                dims[1].os = outMG;
+                dims[2].os = 1;
+            }
+            else
+            {
+                dims[0].n  = MG;
+                dims[1].n  = NG;
+                dims[2].n  = rKG;
+
+                dims[0].is = NG;
+                dims[1].is = 1;
+                dims[2].is = NG*MG;
+
+                dims[0].os = outKG*NG;
+                dims[1].os = outKG;
+                dims[2].os = 1;
+            }
+        }
+#ifdef FFT5D_THREADS
+#ifdef FFT5D_FFTW_THREADS
+        FFTW(plan_with_nthreads)(nthreads);
+#endif
+#endif
+        if ((flags&FFT5D_REALCOMPLEX) && !(flags&FFT5D_BACKWARD))
+        {
+            plan->p3d = FFTW(plan_guru_dft_r2c)(/*rank*/ 3, dims,
+                                                         /*howmany*/ 0, /*howmany_dims*/ 0,
+                                                         (real*)lin, (FFTW(complex) *) lout,
+                                                         /*flags*/ fftwflags);
+        }
+        else if ((flags&FFT5D_REALCOMPLEX) && (flags&FFT5D_BACKWARD))
+        {
+            plan->p3d = FFTW(plan_guru_dft_c2r)(/*rank*/ 3, dims,
+                                                         /*howmany*/ 0, /*howmany_dims*/ 0,
+                                                         (FFTW(complex) *) lin, (real*)lout,
+                                                         /*flags*/ fftwflags);
+        }
+
+        else
+        {
+            plan->p3d = FFTW(plan_guru_dft)(/*rank*/ 3, dims,
+                                                     /*howmany*/ 0, /*howmany_dims*/ 0,
+                                                     (FFTW(complex) *) lin, (FFTW(complex) *) lout,
+                                                     /*sign*/ (flags&FFT5D_BACKWARD) ? 1 : -1, /*flags*/ fftwflags);
+        }
+#ifdef FFT5D_THREADS
+#ifdef FFT5D_FFTW_THREADS
+        FFTW(plan_with_nthreads)(1);
+#endif
+#endif
+        FFTW_UNLOCK;
+    }
+    if (!plan->p3d) /* for decomposition and if 3d plan did not work */
+    {
+#endif              /* GMX_FFT_FFTW3 */
 
 
     for (s = 0; s < 3; s++)
@@ -298,7 +423,9 @@ fft5d_plan fft5d_plan_3d(int NG, int MG, int KG, MPI_Comm comm[2], int flags, t_
             }
         }
     }
-
+#ifdef GMX_FFT_FFTW3
+}
+#endif
     if ((flags&FFT5D_ORDER_YZ))   /*plan->cart is in the order of transposes */
     {
         plan->cart[0] = comm[0]; plan->cart[1] = comm[1];
