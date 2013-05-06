@@ -74,16 +74,33 @@ fft5d_plan fft5d_plan_3d(int NG, int MG, int KG, MPI_Comm comm[2], int flags, t_
     prank[1] = 0;
 
     bMaster = (prank[0] == 0 && prank[1] == 0);
-
+    if (NG == 0 || MG == 0 || KG == 0)
+    {
+        if (bMaster)
+        {
+            printf("FFT5D: FATAL: Datasize cannot be zero in any dimension\n");
+        }
+        return 0;
+    }
 
     rNG = NG; rMG = MG; rKG = KG;
-    if (!(flags&FFT5D_BACKWARD)) // first call
+    if (flags&FFT5D_REALCOMPLEX)
     {
-        NG = NG/2+1;
-    }
-    else // second call
-    {
-        MG = MG/2+1;
+        if (!(flags&FFT5D_BACKWARD))
+        {
+            NG = NG/2+1;
+        }
+        else
+        {
+            if (!(flags&FFT5D_ORDER_YZ))
+            {
+                MG = MG/2+1;
+            }
+            else
+            {
+                KG = KG/2+1;
+            }
+        }
     }
 
 
@@ -435,6 +452,22 @@ fft5d_plan fft5d_plan_3d(int NG, int MG, int KG, MPI_Comm comm[2], int flags, t_
         plan->cart[1] = comm[0]; plan->cart[0] = comm[1];
     }
 
+#ifdef FFT5D_MPI_TRANSPOSE
+    FFTW_LOCK;
+    for (s = 0; s < 2; s++)
+    {
+        if ((s == 0 && !(flags&FFT5D_ORDER_YZ)) || (s == 1 && (flags&FFT5D_ORDER_YZ)))
+        {
+            plan->mpip[s] = FFTW(mpi_plan_many_transpose)(nP[s], nP[s], N[s]*K[s]*pM[s]*2, 1, 1, (real*)lout2, (real*)lout3, plan->cart[s], FFTW_PATIENT);
+        }
+        else
+        {
+            plan->mpip[s] = FFTW(mpi_plan_many_transpose)(nP[s], nP[s], N[s]*pK[s]*M[s]*2, 1, 1, (real*)lout2, (real*)lout3, plan->cart[s], FFTW_PATIENT);
+        }
+    }
+    FFTW_UNLOCK;
+#endif
+
     plan->lin   = lin;
     plan->lout  = lout;
     plan->lout2 = lout2;
@@ -594,7 +627,28 @@ void fft5d_execute(fft5d_plan plan, int thread)
     int   *N        = plan->N, *M = plan->M, *K = plan->K, *pN = plan->pN, *pM = plan->pM, *pK = plan->pK,
     *C              = plan->C, *P = plan->P, **iNin = plan->iNin, **oNin = plan->oNin, **iNout = plan->iNout, **oNout = plan->oNout;
     int    s        = 0, tstart, tend;
-
+#ifdef GMX_FFT_FFTW3
+    if (plan->p3d)
+    {
+        if (thread == 0)
+        {
+#ifdef NOGMX
+            if (times != 0)
+            {
+                time = MPI_Wtime();
+            }
+#endif
+            FFTW(execute)(plan->p3d);
+#ifdef NOGMX
+            if (times != 0)
+            {
+                times->fft += MPI_Wtime()-time;
+            }
+#endif
+        }
+        return;
+    }
+#endif
 
     s = 0;
 
@@ -604,16 +658,21 @@ void fft5d_execute(fft5d_plan plan, int thread)
     {
 
         /* ---------- START FFT ------------ */
-
-        if (s == 0)
+        if (plan->nthreads == 1)
         {
-            fftout = lout3;
+            fftout = lout;
         }
         else
         {
-            fftout = lout2;
+           if (s == 0)
+           {
+               fftout = lout3;
+           }
+           else
+           {
+              fftout = lout2;
+           }
         }
-
         tstart = (thread*pM[s]*pK[s]/plan->nthreads)*C[s];
         if ((plan->flags&FFT5D_REALCOMPLEX) && !(plan->flags&FFT5D_BACKWARD) && s == 0)
         {
