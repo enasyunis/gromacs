@@ -17,7 +17,6 @@
 #include "physics.h"
 #include "force.h"
 #include "tables.h"
-#include "nonbonded.h"
 #include "names.h"
 #include "pbc.h"
 #include "ns.h"

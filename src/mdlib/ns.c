@@ -11,7 +11,6 @@
 #include "vec.h"
 #include "nsgrid.h"
 #include "force.h"
-#include "nonbonded.h"
 #include "ns.h"
 #include "pbc.h"
 #include "names.h"

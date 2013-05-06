@@ -13,7 +13,6 @@
 #include "macros.h"
 #include "physics.h"
 #include "force.h"
-#include "nonbonded.h"
 #include "names.h"
 #include "pbc.h"
 #include "ns.h"

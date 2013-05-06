@@ -15,7 +15,6 @@
 #include "names.h"
 #include "gmx_fatal.h"
 #include "force.h"
-#include "nonbonded.h"
 
 #if !defined GMX_DOUBLE && defined GMX_X86_SSE2
 #include "gmx_x86_simd_single.h"
