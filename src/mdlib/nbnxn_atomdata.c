@@ -20,6 +20,12 @@ void nbnxn_alloc_aligned(void **ptr, size_t nbytes)
 }
 
 
+/* Free function for memory allocated with nbnxn_alloc_aligned */
+void nbnxn_free_aligned(void *ptr)
+{
+    sfree_aligned(ptr);
+}
+
 /* Reallocation wrapper function for nbnxn data structures */
 void nbnxn_realloc_void(void **ptr,
                         int nbytes_copy, int nbytes_new,
@@ -30,6 +36,19 @@ void nbnxn_realloc_void(void **ptr,
 
     ma(&ptr_new, nbytes_new);
 
+
+    if (nbytes_copy > 0)
+    {
+        if (nbytes_new < nbytes_copy)
+        {
+            fprintf(stderr,"In nbnxn_realloc_void: new size less than copy size");
+        }
+        memcpy(ptr_new, *ptr, nbytes_copy);
+    }
+    if (*ptr != NULL)
+    {
+        mf(*ptr);
+    }
     *ptr = ptr_new;
 }
 

@@ -826,8 +826,22 @@ static void nbnxn_init_pairlist(nbnxn_pairlist_t *nbl,
                                 nbnxn_alloc_t    *alloc,
                                 nbnxn_free_t     *free)
 { // called
-    nbl->alloc = nbnxn_alloc_aligned;
-    nbl->free = free;
+    if (alloc == NULL)
+    {
+        nbl->alloc = nbnxn_alloc_aligned;
+    }
+    else
+    {
+        nbl->alloc = alloc;
+    }
+    if (free == NULL)
+    {
+        nbl->free = nbnxn_free_aligned;
+    }
+    else
+    {
+        nbl->free = free;
+    }
 
     nbl->bSimple     = bSimple;
     nbl->na_sc       = 0;
