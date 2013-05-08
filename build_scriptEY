@@ -2,17 +2,50 @@ echo "never run me as is... open and copy past the needed commands"
 echo "always run . ./bash_profile before starting anything else"
 exit(0)
 
+
+##############
+# Data Files #
+##############
+
+# genconf_d -nbox <num>
+# IN   :: -f conf<1>.gro
+# OUT  :: -o conf<2>.gro
+# DESC :: read -f and creates <num>^3 times it in -o
+#         must create a matching topol<2>.top by [ molecules ]*<num>^3
+
+# grompp_d
+# IN   :: -c conf<>.gro -p topol<>.top -f grompp<>.mdp
+# OUT  :: -o Water<>.tpr -po Water<>.mdp
+# DESC :: creates needed data for mdrun_d
+
+# mdrun_d 
+# IN   :: -deffnm <NAME>
+# OUT  :: <NAME>.edr, <NAME>.gro, <NAME>.log, <NAME>.trr 
+# OTHR :: -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v
+# DESC :: Do mdrun_d -h for info on the other fields.
+
+
 ############
 # NONE FMM #
 ############
 cd ~/gromacs_4.6/build
-cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DGMX_GPU=OFF -DGMX_DOUBLE=ON
+
+cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_GPU=OFF -DGMX_DOUBLE=ON -DGMX_FORCE_CXX=ON
+
 make -j install
-cd ../data
-../exec/bin/grompp_d -c conf.gro -p topol.top -f gromppEwald.mdp -o ThsndWE.tpr -po mdoutE.mdp
-../exec/bin/grompp_d -c conf.gro -p topol.top -f gromppPME.mdp -o ThsndWP.tpr -po mdoutP.mdp
-../exec/bin/mdrun_d -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm ThsndW
+
+cd ../wtr_clmb # OR # cd ../data
+
+../exec/bin/grompp_d -c conf1K.gro -p topol1K.top -f gromppEwald.mdp -o Water1KE.tpr -po Water1KE.mdp
+../exec/bin/grompp_d -c conf1K.gro -p topol1K.top -f gromppPME.mdp   -o Water1KP.tpr -po Water1KP.mdp 
+
+# Repeated Runs
 rm -r \#*
+
+../exec/bin/mdrun_d -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm Water1KE
+
+ll Water1KE.log  
+grep 9.01453 Water1KE.log
 
 ###########
 # CPU FMM #
@@ -21,21 +54,14 @@ rm ../data/*; cp ~/gromacs_4.6/data/* ../data/.
 
 cd ~/gromacs_4.6rio/build
 
-rm -r ../build/* ../exec/* ../data/\#*
+rm -r ../build/* ../exec/* 
 
-CMAKE_PREFIX_PATH=../../externlib cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_GPU=OFF -DGMX_DOUBLE=ON -DGMX_FORCE_CXX=ON
+CMAKE_PREFIX_PATH=../../externlib cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_GPU=OFF -DGMX_DOUBLE=ON -DGMX_FORCE_CXX=ON; make -j install
 
-make -j install
+OMP_NUM_THREADS=1 FILENAME=../data/Water1KE ../exec/bin/mdrun_di > out.txt; OMP_NUM_THREADS=1 FILENAME=../data/Water1KP ../exec/bin/mdrun_d >> out.txt
 
-FILENAME=../data/ThsndWE ../exec/bin/mdrun_di > out.txt; FILENAME=../data/ThsndWP ../exec/bin/mdrun_d >> out.txt
-
-# limiting number of threads to min=2
-OMP_NUM_THREADS=2 FILENAME=../data/ThsndWE ../exec/bin/mdrun_d > out.txt; OMP_NUM_THREADS=2 FILENAME=../data/ThsndWP ../exec/bin/mdrun_d >> out.txt
-
+grep 9.01453 out.txt
 cat out.txt | sort | uniq > out2.txt
-
-grep 9.01453 ../data/ThsndWP.log ../data/ThsndWE.log
-ll ../data/ThsndW*.log 
 
 ############################
 # TURNING OFF OPENMP & MPI #
@@ -55,9 +81,12 @@ CMAKE_PREFIX_PATH=../../externlib cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exe
 make -j install
 
 cp ~/gromacs_4.6/data/* ../data/.
-../exec/bin/mdrun_d -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm ThsndWE../exec/bin/mdrun_d -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm ThsndWP
 
-grep 9.01453 ../data/ThsndWP.log ../data/ThsndWE.log
+../exec/bin/mdrun_d -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm Water1KE
+
+../exec/bin/mdrun_d -seppot -nb cpu -ntmpi 1 -ntomp 1 -npme 0 -ntomp_pme 0 -v -deffnm Water1KP
+
+grep 9.01453 ../data/Water1KE.log ../data/Water1KP.log
 
 
 #############
@@ -66,25 +95,5 @@ grep 9.01453 ../data/ThsndWP.log ../data/ThsndWE.log
 git checkout -b tempB <commit id> # create a branch from a committed revision
 git checkout release-4-6          # return to the proper branch
 git branch -D tempB               # delete tempB branch
-
-################
-# FFTW Example #
-################
-
-
-# per the following site - example install
-# http://www.gromacs.org/Documentation/Installation_Instructions/Cmake
-export CXX=icpc
-export CC=icc
-cmake ../ \
-      -DFFTW3F_INCLUDE_DIR=$FFTW_LOCATION/include \
-      -DFFTW3F_LIBRARIES=$FFTW_LOCATION/lib/libfftw3f.a \
-      -DCMAKE_INSTALL_PREFIX=$(pwd) \
-      -DGMX_X11=OFF \
-      -DCMAKE_CXX_COMPILER=${CCDIR}/icpc \
-      -DCMAKE_C_COMPILER=${CCDIR}/icc \
-      -DGMX_MPI=OFF \
-      -DGMX_PREFER_STATIC_LIBS=ON
-
 
 
