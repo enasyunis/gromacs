@@ -1,5 +1,4 @@
 echo "never run me as is... open and copy past the needed commands"
-echo "always run . ./bash_profile before starting anything else"
 exit(0)
 
 
@@ -58,10 +57,15 @@ rm -r ../build/* ../exec/*
 
 CMAKE_PREFIX_PATH=../../externlib cmake ../gromacs -DCMAKE_INSTALL_PREFIX=../exec -DBUILD_SHARED_LIBS=OFF -DGMX_PREFER_STATIC_LIBS=ON -DGMX_GPU=OFF -DGMX_DOUBLE=ON -DGMX_FORCE_CXX=ON; make -j install
 
-OMP_NUM_THREADS=1 FILENAME=../data/Water1KE ../exec/bin/mdrun_di > out.txt; OMP_NUM_THREADS=1 FILENAME=../data/Water1KP ../exec/bin/mdrun_d >> out.txt
 
-grep 9.01453 out.txt
-cat out.txt | sort | uniq > out2.txt
+OMP_NUM_THREADS=1 FILENAME=../data/Water1KE ../exec/bin/mdrun_d > out1K.txt; OMP_NUM_THREADS=1 FILENAME=../data/Water1KP ../exec/bin/mdrun_d >> out1K.txt
+
+OMP_NUM_THREADS=1 FILENAME=../data/Water8KE ../exec/bin/mdrun_d > out8K.txt; OMP_NUM_THREADS=1 FILENAME=../data/Water8KP ../exec/bin/mdrun_d >> out8K.txt
+
+grep 9.01453 out*.txt
+
+cat out1K.txt | sort | uniq > outT1K.txt
+cat out8K.txt | sort | uniq > outT8K.txt
 
 ############################
 # TURNING OFF OPENMP & MPI #
