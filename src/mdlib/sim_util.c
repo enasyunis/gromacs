@@ -172,7 +172,7 @@ void do_force(FILE *fplog, t_commrec *cr,
     // NO NEED FOR A LOG FILE AT THIS POINT :)
     // correct answer - only works when numthreads = 12!!!
     // ** Potential Coul. SR -9.017649e+05, Recip 3.117281e+02, Tot -9.014532e+05
-    printf("\n** Potential Coul. SR %e, Recip %e, Tot %e\n", enerd->term[F_COUL_SR], enerd->term[F_COUL_RECIP], enerd->term[F_EPOT]);
+    printf("\n** Potential Coul. SR %.9e, Recip %.9e, Tot %.9e\n", enerd->term[F_COUL_SR], enerd->term[F_COUL_RECIP], enerd->term[F_EPOT]);
     fprintf(stderr,"\n** Potential Coul. SR %e, Recip %e, Tot %e\n", enerd->term[F_COUL_SR], enerd->term[F_COUL_RECIP], enerd->term[F_EPOT]);
 }
 

@@ -136,13 +136,18 @@ real         *qEY = fr->nbv->grp[0].nbat->q;
                         double *qi; snew(qi, N);   // double *qi     = new double [N];
                         double *fi; snew(fi, 3*N); // double *fi     = new double [3*N];
                         double *pi; snew(pi, 3*N); // double *pi     = new double [3*N];
-                        int eyi=0;
+                        int eyi=0, eyG=0;
                         for (;eyi<N;++eyi){
-                                xi[eyi*3+0]=xEY[eyi+0];
-                                xi[eyi*3+1]=xEY[eyi+1];
-                                xi[eyi*3+2]=xEY[eyi+2];
+                                while (xEY[eyG] < 0)
+                                {
+                                        eyG++;
+                                } 
 
-                                qi[eyi]=md->chargeA[eyi];
+                                qi[eyi]=qEY[eyG/3];
+                                xi[eyi*3+0]=xEY[eyG++];
+                                xi[eyi*3+1]=xEY[eyG++];
+                                xi[eyi*3+2]=xEY[eyG++];
+
                                 fi[eyi*3+0]=fi[eyi*3+1]=fi[eyi*3+2]=0.0;
                                 pi[eyi*3+0]=pi[eyi*3+1]=pi[eyi*3+2]=0.0;
                         }
@@ -155,7 +160,7 @@ real         *qEY = fr->nbv->grp[0].nbat->q;
                         for(eyi=0;eyi<N;++eyi){
                                 eyP+=pi[eyi*3+0];
                         }
-                        printf("FMM Total Coulomb Potential: %f\n", eyP*138.935485);
+                        printf("FMM Total Coulomb Potential: %.9e\n", eyP*138.935485);
                         sfree(xi);
                         sfree(qi);
                         sfree(fi);
@@ -216,7 +221,7 @@ real         *qEY = fr->nbv->grp[0].nbat->q;
                         for(eyi=0;eyi<N;++eyi){
                                 eyP+=pi[eyi*3+0];
                         }
-                        printf("FMM Total Coulomb Potential: %e\n", eyP*138.935485);
+                        printf("FMM Total Coulomb Potential: %.9e\n", eyP*138.935485);
                         sfree(xi);
                         sfree(qi);
                         sfree(fi);
@@ -272,7 +277,7 @@ real         *qEY = fr->nbv->grp[0].nbat->q;
                         for(eyi=0;eyi<N;++eyi){
                                 eyP+=pi[eyi*3+0];
                         }
-                        printf("FMM Total Coulomb Potential: %e\n", eyP*138.935485);
+                        printf("FMM Total Coulomb Potential: %.9e\n", eyP*138.935485);
                         sfree(xi);
                         sfree(qi);
                         sfree(fi);
