@@ -347,6 +347,7 @@ typedef struct {
 
     /* PME/Ewald stuff */
     gmx_bool    bEwald;
+    int         ksize;
     real        ewaldcoeff;
     ewald_tab_t ewald_table;
 

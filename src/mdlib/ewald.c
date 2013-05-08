@@ -73,7 +73,7 @@ static void tabulate_eir(int natom, rvec x[], int kmax, cvec **eir, rvec lll)
     }
 }
 
-void init_ewald_tab(ewald_tab_t *et, const t_commrec *cr, const t_inputrec *ir,
+int init_ewald_tab(ewald_tab_t *et, const t_commrec *cr, const t_inputrec *ir,
                     FILE *fp)
 { // called by boht PME and Ewald
     int n;
@@ -92,6 +92,8 @@ void init_ewald_tab(ewald_tab_t *et, const t_commrec *cr, const t_inputrec *ir,
     (*et)->eir      = NULL;
     (*et)->tab_xy   = NULL;
     (*et)->tab_qxyz = NULL;
+
+    return (*et)->kmax;
 }
 
 

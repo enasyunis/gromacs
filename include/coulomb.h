@@ -49,7 +49,7 @@ extern "C" {
 
 /* Ewald related stuff */
 
-void
+int
 init_ewald_tab(ewald_tab_t *et, const t_commrec *cr, const t_inputrec *ir,
                FILE *fp);
 /* initialize the ewald table (as found in the t_forcerec) */

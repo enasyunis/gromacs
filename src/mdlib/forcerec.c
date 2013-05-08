@@ -626,7 +626,7 @@ void init_forcerec(FILE              *fp,
         }
         fr->ewaldcoeff = calc_ewaldcoeff(ir->rcoulomb, ir->ewald_rtol);
 	printf("\n** ewaldcoeff: %.12e\n", fr->ewaldcoeff); 
-        init_ewald_tab(&(fr->ewald_table), cr, ir, fp);
+        fr->ksize = init_ewald_tab(&(fr->ewald_table), cr, ir, fp);
         fprintf(fp, "Using a Gaussian width (1/beta) of %g nm for Ewald\n",
                     1/fr->ewaldcoeff);
         /*

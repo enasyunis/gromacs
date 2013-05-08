@@ -25,11 +25,12 @@
 
 /* ENAS ADDED START */
 extern void FMMcalccoulomb_ij(int ni, double* xi, double* qi, double* fi,
-  int nj, double* xj, double* qj, double rscale, int tblno, double size, int periodicflag);
+  int nj, double* xj, double* qj, double rscale, int tblno, double size, 
+  int periodicflag, int ksize, double alpha);
 
-extern void FMMcalcvdw_ij(int ni, double* xi, int* atypei, double* fi,
-  int nj, double* xj, int* atypej, int nat, double* gscale, double* rscale,
-  int tblno, double size, int periodicflag);
+//extern void FMMcalcvdw_ij(int ni, double* xi, int* atypei, double* fi,
+//  int nj, double* xj, int* atypej, int nat, double* gscale, double* rscale,
+//  int tblno, double size, int periodicflag);
 
 int fmmsteptaken=0;
 /* ENAS ADDED END */
@@ -126,6 +127,8 @@ void do_force_lowlevel(FILE       *fplog,   gmx_large_int_t step,
         dvdl   = 0;
 real         *xEY = fr->nbv->grp[0].nbat->x;
 real         *qEY = fr->nbv->grp[0].nbat->q;
+real        alpha = fr->ewaldcoeff;
+int         ksize = fr->ksize;
 	    if (FALSE) // ENAS, RIO, TODO make this the place for FMM 
             {
                         /* ENAS ADDED START */
@@ -152,9 +155,13 @@ real         *qEY = fr->nbv->grp[0].nbat->q;
                                 pi[eyi*3+0]=pi[eyi*3+1]=pi[eyi*3+2]=0.0;
                         }
                         printf("About to call FMM\n");
-                        FMMcalccoulomb_ij(N, xi, qi, fi, N, xi, qi, 0.0, 0, (bSB?boxs[0][0]:box[0][0]), 1);
+                        FMMcalccoulomb_ij(N, xi, qi, fi, N, xi, qi, 0.0, 
+                                          0, (bSB?boxs[0][0]:box[0][0]), 1,
+                                          ksize, alpha);
                         printf("Done calling FMM 1 \n");
-                        FMMcalccoulomb_ij(N, xi, qi, pi, N, xi, qi, 0.0, 1, (bSB?boxs[0][0]:box[0][0]), 1);
+                        FMMcalccoulomb_ij(N, xi, qi, pi, N, xi, qi, 0.0, 
+                                          1, (bSB?boxs[0][0]:box[0][0]), 1,
+                                          ksize, alpha);
                         printf("Done calling FMM 2 \n");
                         double eyP=0.0;
                         for(eyi=0;eyi<N;++eyi){
@@ -211,11 +218,12 @@ real         *qEY = fr->nbv->grp[0].nbat->q;
                                 fi[eyi*3+0]=fi[eyi*3+1]=fi[eyi*3+2]=0.0;
                                 pi[eyi*3+0]=pi[eyi*3+1]=pi[eyi*3+2]=0.0;
                         } 
-
                         printf("About to call FMM\n");
-                        FMMcalccoulomb_ij(N, xi, qi, fi, N, xi, qi, 0.0, 0, (bSB?boxs[0][0]:box[0][0]), 1);
+                        FMMcalccoulomb_ij(N, xi, qi, fi, N, xi, qi, 0.0,                                           0, (bSB?boxs[0][0]:box[0][0]), 1,
+                                          ksize, alpha);
                         printf("Done calling FMM 1 \n");
-                        FMMcalccoulomb_ij(N, xi, qi, pi, N, xi, qi, 0.0, 1, (bSB?boxs[0][0]:box[0][0]), 1);
+                        FMMcalccoulomb_ij(N, xi, qi, pi, N, xi, qi, 0.0,                                           1, (bSB?boxs[0][0]:box[0][0]), 1,
+                                          ksize, alpha);
                         printf("Done calling FMM 2 \n");
                         double eyP=0.0;
                         for(eyi=0;eyi<N;++eyi){
@@ -267,11 +275,12 @@ real         *qEY = fr->nbv->grp[0].nbat->q;
                         } 
 
 
-
                         printf("About to call FMM\n");
-                        FMMcalccoulomb_ij(N, xi, qi, fi, N, xi, qi, 0.0, 0, (bSB?boxs[0][0]:box[0][0]), 1);
+                        FMMcalccoulomb_ij(N, xi, qi, fi, N, xi, qi, 0.0,                                           0, (bSB?boxs[0][0]:box[0][0]), 1,
+                                          ksize, alpha);
                         printf("Done calling FMM 1 \n");
-                        FMMcalccoulomb_ij(N, xi, qi, pi, N, xi, qi, 0.0, 1, (bSB?boxs[0][0]:box[0][0]), 1);
+                        FMMcalccoulomb_ij(N, xi, qi, pi, N, xi, qi, 0.0,                                           1, (bSB?boxs[0][0]:box[0][0]), 1,
+                                          ksize, alpha);
                         printf("Done calling FMM 2 \n");
                         double eyP=0.0;
                         for(eyi=0;eyi<N;++eyi){
